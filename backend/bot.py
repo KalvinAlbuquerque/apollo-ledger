@@ -3,6 +3,7 @@
 import os
 import re
 import asyncio
+import json # Importante para ler as credenciais do Firebase
 import firebase_admin
 from dotenv import load_dotenv
 from flask import Flask, request
@@ -13,24 +14,39 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 # --- 1. CONFIGURAÇÃO INICIAL ---
 
-# Carrega as variáveis de ambiente do arquivo .env
-# Certifique-se que o arquivo .env está na mesma pasta que este script.
+# Carrega as variáveis de ambiente (útil para desenvolvimento local)
 load_dotenv()
 
 # Pega as credenciais do ambiente
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 ADMIN_CHAT_ID = int(os.getenv("TELEGRAM_ADMIN_CHAT_ID"))
-FIREBASE_USER_ID = os.getenv("FIREBASE_USER_ID") # UID do seu usuário no Firebase Auth
+FIREBASE_USER_ID = os.getenv("FIREBASE_USER_ID")
 
 # Validação para garantir que as variáveis foram carregadas
 if not all([TELEGRAM_TOKEN, ADMIN_CHAT_ID, FIREBASE_USER_ID]):
     raise ValueError("Uma ou mais variáveis de ambiente (TELEGRAM_TOKEN, ADMIN_CHAT_ID, FIREBASE_USER_ID) não foram definidas.")
 
-# Inicializa o Firebase Admin SDK
-# Certifique-se que o arquivo firebase-credentials.json está na mesma pasta.
-cred = credentials.Certificate("firebase-credentials.json")
-firebase_admin.initialize_app(cred)
+# --- INICIALIZAÇÃO CORRETA DO FIREBASE PARA DEPLOY ---
+# Pega o CONTEÚDO do JSON da variável de ambiente
+firebase_creds_json_str = os.getenv("FIREBASE_CREDENTIALS_JSON")
+if not firebase_creds_json_str:
+    # Se não encontrar a variável, tenta carregar do arquivo local (para desenvolvimento)
+    try:
+        cred = credentials.Certificate("firebase-credentials.json")
+    except Exception as e:
+        raise ValueError("Nem a variável FIREBASE_CREDENTIALS_JSON foi definida, nem o arquivo firebase-credentials.json foi encontrado.") from e
+else:
+    # Converte a string JSON em um dicionário Python
+    firebase_creds_dict = json.loads(firebase_creds_json_str)
+    # Inicializa o Firebase com o dicionário de credenciais
+    cred = credentials.Certificate(firebase_creds_dict)
+
+# Inicializa o app do Firebase, garantindo que não seja inicializado mais de uma vez
+if not firebase_admin._apps:
+    firebase_admin.initialize_app(cred)
+
 db = firestore.client()
+# ---------------------------------------------------
 
 
 # --- 2. FUNÇÕES DO BOT ---
@@ -42,7 +58,7 @@ def is_admin(update: Update) -> bool:
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Envia uma mensagem de boas-vindas quando o comando /start é emitido."""
     if not is_admin(update):
-        return  # Ignora silenciosamente usuários não autorizados
+        return
     
     welcome_message = (
         "Olá! Sou seu bot de finanças, Oikonomos.\n\n"
@@ -61,7 +77,7 @@ async def handle_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = update.message.text
-    # Regex melhorado para capturar nomes de categoria com espaços
+    # Regex para capturar valor, categoria e descrição
     match = re.match(r"^\s*(\d+[\.,]?\d*)\s+([\w\sáàâãéèêíïóôõöúçñ]+?)(?:\s+(.+))?$", text)
 
     if not match:
@@ -81,8 +97,8 @@ async def handle_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'amount': amount,
             'category': category_name,
             'description': description,
-            'createdAt': firestore.SERVER_TIMESTAMP,  # Usa a hora do servidor do Firebase
-            'userId': FIREBASE_USER_ID # Associa a despesa ao seu usuário
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'userId': FIREBASE_USER_ID
         }
         
         # Adiciona o novo documento à coleção 'transactions'
