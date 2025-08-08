@@ -1,0 +1,81 @@
+/* src/components/DebtManager.module.css */
+.container {
+  padding: 10px;
+}
+.container h2 {
+  margin-top: 0;
+}
+.form {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.form input, .form select {
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid var(--borda-sutil);
+  background-color: var(--fundo-primario);
+  color: var(--texto-principal);
+}
+.addButton {
+  background-color: var(--acento-azul);
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  height: 100%;
+}
+.debtList {
+  list-style: none;
+  padding: 0;
+}
+.debtItem {
+  display: grid;
+  grid-template-columns: 3fr 1fr 1fr auto;
+  gap: 15px;
+  align-items: center;
+  background-color: var(--fundo-secundario);
+  padding: 10px 15px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+.debtDescription {
+  font-weight: 500;
+}
+.debtDate {
+  font-size: 0.9rem;
+  color: var(--texto-secundario);
+}
+.debtAmount {
+  font-weight: bold;
+  text-align: right;
+}
+.actionButtons {
+  display: flex;
+  gap: 8px;
+}
+.paidButton {
+  background-color: var(--verde-destaque);
+  color: black;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+.deleteButton {
+  background-color: #555;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.deleteButton:hover {
+  background-color: var(--vermelho-destaque);
+}

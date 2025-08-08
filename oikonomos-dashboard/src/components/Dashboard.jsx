@@ -9,6 +9,8 @@ import EditModal from './EditModal';
 import CategoryManager from './CategoryManager';
 import BudgetManager from './BudgetManager';
 import BudgetStatus from './BudgetStatus';
+import DebtManager from './DebtManager';
+import GoalManager from './GoalManager';
 
 // Estilos
 import styles from './Dashboard.module.css';
@@ -313,6 +315,12 @@ function Dashboard({ user }) {
           </div>
         </main>
         
+        <section className={styles.managerSection}>
+            <DebtManager expenseCategories={categories.filter(c => c.type === 'expense')} />
+        </section>
+        <section className={styles.managerSection}>
+            <GoalManager />
+        </section>
         <section className={styles.managerSection}><BudgetManager /></section>
         <section className={styles.managerSection}><CategoryManager /></section>
       </div>

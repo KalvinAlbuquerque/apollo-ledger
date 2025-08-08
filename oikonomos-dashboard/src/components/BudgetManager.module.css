@@ -1,47 +1,82 @@
+/* src/components/BudgetManager.module.css (Versão Melhorada) */
+
 .container {
   padding: 10px;
 }
+
+.container h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: var(--texto-principal);
+}
+
 .budgetList {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 15px;
+  display: flex; /* Muda para flexbox */
+  flex-direction: column; /* Organiza em uma coluna vertical */
+  gap: 12px; /* Espaçamento entre os itens */
   margin: 20px 0;
 }
+
 .budgetItem {
   background-color: var(--fundo-secundario);
-  padding: 15px;
+  padding: 15px 20px;
   border-radius: 8px;
-  display: flex;
-  justify-content: space-between;
+  display: flex; /* Usa flexbox para alinhar os itens internos */
+  justify-content: space-between; /* Joga o nome para a esquerda e o input para a direita */
   align-items: center;
+  border: 1px solid transparent; /* Borda inicial transparente */
+  transition: border-color 0.2s;
 }
+
+.budgetItem:hover {
+  border-color: var(--borda-sutil); /* Mostra a borda no hover */
+}
+
 .budgetItem label {
   font-weight: 500;
   text-transform: capitalize;
+  color: var(--texto-principal);
 }
+
 .inputGroup {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
   background-color: var(--fundo-primario);
-  padding: 5px 10px;
+  padding: 8px 12px;
   border-radius: 6px;
   border: 1px solid var(--borda-sutil);
 }
+
 .inputGroup span {
   color: var(--texto-secundario);
 }
+
 .inputGroup input {
   background: transparent;
   border: none;
   color: var(--texto-principal);
   width: 80px;
   font-size: 1rem;
+  font-weight: 500;
   text-align: right;
+}
+
+/* Remove as setas de aumentar/diminuir do campo de número */
+.inputGroup input::-webkit-outer-spin-button,
+.inputGroup input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.inputGroup input[type=number] {
+  appearance: textfield;
+  -webkit-appearance: none; /* For Safari/Chrome */
+  -moz-appearance: textfield; /* For Firefox */
 }
 .inputGroup input:focus {
   outline: none;
 }
+
 .saveButton {
   background-color: var(--acento-azul);
   color: white;
@@ -52,5 +87,10 @@
   font-weight: bold;
   font-size: 1rem;
   display: block;
-  margin-left: auto;
+  margin-left: auto; /* Mantém o botão alinhado à direita */
+  transition: opacity 0.2s;
+}
+
+.saveButton:hover {
+  opacity: 0.8;
 }
