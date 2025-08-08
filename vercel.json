@@ -1,4 +1,5 @@
 {
+  "version": 2,
   "builds": [
     {
       "src": "backend/bot.py",
@@ -6,6 +7,10 @@
     }
   ],
   "routes": [
+    {
+      "src": "/api/bot",
+      "dest": "backend/bot.py"
+    },
     {
       "src": "/(.*)",
       "dest": "backend/bot.py"
