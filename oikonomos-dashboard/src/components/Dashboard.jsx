@@ -11,7 +11,7 @@ import BudgetManager from './BudgetManager';
 import BudgetStatus from './BudgetStatus';
 import DebtManager from './DebtManager';
 import GoalManager from './GoalManager';
-
+import LineChart from './LineChart';
 // Estilos
 import { showConfirmationToast } from '../utils/toastUtils.jsx'; 
 import styles from './Dashboard.module.css';
@@ -27,13 +27,24 @@ function Dashboard({ user }) {
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
-  const [tooltipText, setTooltipText] = useState('Filtre por um período ou categoria');
+  const [tooltipText, setTooltipText] = useState('Filtre por um período ou categoria'); 
+  const [lineChartVisibility, setLineChartVisibility] = useState({
+    Saldo: true,
+    Despesas: true,
+  });
 
   // Função auxiliar para garantir que o filtro de data final inclua o dia inteiro
   const adjustEndDate = (dateStr) => {
     const date = new Date(dateStr);
     date.setUTCHours(23, 59, 59, 999); // Define para o final do dia em UTC
     return date;
+  };
+
+  const handleLineChartToggle = (datasetLabel) => {
+    setLineChartVisibility(prev => ({
+      ...prev,
+      [datasetLabel]: !prev[datasetLabel],
+    }));
   };
 
   const fetchData = async () => {
@@ -128,7 +139,7 @@ function Dashboard({ user }) {
 
   useEffect(() => { fetchData(); }, [user]);
 
-  const summaryData = useMemo(() => {
+   const summaryData = useMemo(() => {
     const income = transactions.filter(tx => tx.type === 'income');
     const expenses = transactions.filter(tx => tx.type === 'expense' || !tx.type);
     const totalIncome = income.reduce((acc, tx) => acc + tx.amount, 0);
@@ -168,15 +179,51 @@ function Dashboard({ user }) {
     expenses.forEach(tx => {
       expenseByCategory[tx.category] = (expenseByCategory[tx.category] || 0) + tx.amount;
     });
-
     const budgetProgress = budgets.map(budget => ({
       category: budget.categoryName,
       spent: expenseByCategory[budget.categoryName] || 0,
       budget: budget.amount,
     })).filter(b => b.budget > 0);
     
-    return { totalIncome, totalExpense, balance, expenseChartData, incomeChartData, balanceChartData, budgetProgress };
+    const lineChartData = {
+        labels: [],
+        datasets: []
+    };
+    if (transactions.length > 0) {
+        const sortedTransactions = [...transactions].sort((a, b) => a.createdAt.toDate() - b.createdAt.toDate());
+        const dailyData = {};
+        sortedTransactions.forEach(tx => {
+            const date = tx.createdAt.toDate().toLocaleDateString('pt-BR');
+            if (!dailyData[date]) {
+                dailyData[date] = { income: 0, expense: 0 };
+            }
+            if (tx.type === 'income') {
+                dailyData[date].income += tx.amount;
+            } else {
+                dailyData[date].expense += tx.amount;
+            }
+        });
+        let runningBalance = 0;
+        const labels = Object.keys(dailyData).sort((a, b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
+        const balanceDataPoints = [];
+        const expenseDataPoints = [];
+        labels.forEach(date => {
+            const netChange = dailyData[date].income - dailyData[date].expense;
+            runningBalance += netChange;
+            balanceDataPoints.push(runningBalance);
+            expenseDataPoints.push(dailyData[date].expense);
+        });
+        lineChartData.labels = labels;
+        lineChartData.datasets = [
+            { label: 'Saldo', data: balanceDataPoints, borderColor: 'rgb(74, 144, 226)', backgroundColor: 'rgba(74, 144, 226, 0.5)'},
+            { label: 'Despesas', data: expenseDataPoints, borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.5)'}
+        ];
+    }
+    
+    // <<< A LINHA DE RETORNO CORRIGIDA E COMPLETA
+    return { totalIncome, totalExpense, balance, expenseChartData, incomeChartData, balanceChartData, budgetProgress, lineChartData };
   }, [transactions, budgets]);
+
 
   const charts = [
     { title: "Gastos por Categoria", data: summaryData.expenseChartData },
@@ -292,13 +339,24 @@ function Dashboard({ user }) {
         </section>
         <section className={styles.managerSection}><BudgetStatus budgetProgress={summaryData.budgetProgress} /></section>
 
-        <main className={styles.mainContent}>
-          <div className={styles.chartContainer}>
-            <div className={styles.chartHeader}>
-              <h3 className={styles.chartTitle}>{charts[currentChartIndex].title}</h3>
-              <div className={styles.navButtons}><button onClick={goToPrevChart}>&lt;</button><button onClick={goToNextChart}>&gt;</button></div>
+         <main className={styles.mainContent}>
+
+        
+          <div className={styles.chartsContainer}>
+            <div className={styles.lineChartContainer}>
+              <LineChart 
+                title="Evolução Financeira" 
+                chartData={summaryData.lineChartData} 
+              />
+
             </div>
-            <SummaryChart chartData={charts[currentChartIndex].data} />
+            <div className={styles.chartContainer}>
+              <div className={styles.chartHeader}>
+                <h3 className={styles.chartTitle}>{charts[currentChartIndex].title}</h3>
+                <div className={styles.navButtons}><button onClick={goToPrevChart}>&lt;</button><button onClick={goToNextChart}>&gt;</button></div>
+              </div>
+              <SummaryChart chartData={charts[currentChartIndex].data} />
+            </div>
           </div>
           <div className={styles.transactionsContainer}>
             <h2>Suas Transações</h2>
