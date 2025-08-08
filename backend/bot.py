@@ -6,6 +6,7 @@ import asyncio
 import json
 import firebase_admin
 import unicodedata
+import calendar
 from dotenv import load_dotenv
 from flask import Flask, request
 from datetime import datetime
@@ -53,7 +54,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(welcome_message)
 
 async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
-    """Processa e salva uma despesa, e retorna o status do orçamento."""
+    """Processa e salva uma despesa, e retorna o status detalhado do orçamento."""
     try:
         # --- Parte 1: Validação da Categoria (continua igual) ---
         categories_ref = db.collection('categories').where('userId', '==', FIREBASE_USER_ID).where('type', '==', 'expense').stream()
@@ -91,32 +92,40 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         
         base_reply = f"💸 Gasto de R$ {amount:.2f} na categoria '{correct_category_name}' registrado!"
         
-        # --- Parte 3: NOVA LÓGICA DE FEEDBACK DO ORÇAMENTO ---
-        current_month = datetime.now().month
-        current_year = datetime.now().year
+        # --- Parte 3: LÓGICA DE FEEDBACK DO ORÇAMENTO ATUALIZADA ---
+        today = datetime.now()
+        current_month = today.month
+        current_year = today.year
 
-        # 3.1 Busca o orçamento para a categoria e mês atuais
         budget_query = db.collection('budgets').where('userId', '==', FIREBASE_USER_ID).where('categoryName', '==', correct_category_name).where('month', '==', current_month).where('year', '==', current_year).limit(1).stream()
         budget_doc = next(budget_query, None)
-
-        # Se houver um orçamento definido para esta categoria...
+        
         if budget_doc:
             budget_amount = budget_doc.to_dict().get('amount', 0)
             if budget_amount > 0:
-                # 3.2 Busca o total gasto na categoria no mês atual
                 start_of_month = datetime(current_year, current_month, 1)
-                
                 expenses_query = db.collection('transactions').where('userId', '==', FIREBASE_USER_ID).where('type', '==', 'expense').where('category', '==', correct_category_name).where('createdAt', '>=', start_of_month).stream()
-                
                 total_spent_this_month = sum(doc.to_dict().get('amount', 0) for doc in expenses_query)
-                
                 remaining_budget = budget_amount - total_spent_this_month
                 
-                # 3.3 Adiciona a informação do orçamento à resposta
+                budget_feedback = ""
                 if remaining_budget >= 0:
-                    base_reply += f"\n\nSaldo do orçamento: R$ {remaining_budget:.2f}"
-                else:
-                    base_reply += f"\n\n🔴 Orçamento estourado em R$ {abs(remaining_budget):.2f}!"
+                    budget_feedback += f"\n\nSaldo do orçamento: R$ {remaining_budget:.2f}"
+                    
+                    # <<< LÓGICA NOVA DE GASTO DIÁRIO/SEMANAL >>>
+                    total_days_in_month = calendar.monthrange(current_year, current_month)[1]
+                    days_remaining = total_days_in_month - today.day + 1
+                    
+                    if days_remaining > 0:
+                        daily_allowance = remaining_budget / days_remaining
+                        weekly_allowance = daily_allowance * 7
+                        budget_feedback += f"\n- Média diária segura: R$ {daily_allowance:.2f}"
+                        budget_feedback += f"\n- Média semanal segura: R$ {weekly_allowance:.2f}"
+
+                else: # Se o orçamento já estourou
+                    budget_feedback += f"\n\n🔴 Orçamento estourado em R$ {abs(remaining_budget):.2f}!"
+
+                base_reply += budget_feedback
 
         await update.message.reply_text(base_reply)
 
