@@ -2,55 +2,53 @@
 
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../../firebaseClient';
-import { collection, query, where, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import styles from './CategoryManager.module.css'; // Vamos criar este arquivo de estilo
 
 function CategoryManager() {
   const [categories, setCategories] = useState([]);
-  const [newCategory, setNewCategory] = useState('');
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryType, setNewCategoryType] = useState('expense'); // 'expense' como padrão
   const [loading, setLoading] = useState(true);
-
+  const [filterType, setFilterType] = useState('all'); 
   const user = auth.currentUser;
 
-  // Função para buscar as categorias do usuário
   const fetchCategories = async () => {
     if (!user) return;
     setLoading(true);
-    const q = query(collection(db, "categories"), where("userId", "==", user.uid));
+    const q = query(collection(db, "categories"), where("userId", "==", user.uid), orderBy("name"));
     const querySnapshot = await getDocs(q);
     const userCategories = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     setCategories(userCategories);
     setLoading(false);
   };
 
-  // Busca as categorias quando o componente é montado
   useEffect(() => {
     fetchCategories();
   }, [user]);
 
-  // Função para adicionar uma nova categoria
   const handleAddCategory = async (e) => {
     e.preventDefault();
-    if (newCategory.trim() === '') return;
+    if (newCategoryName.trim() === '') return;
 
     try {
       await addDoc(collection(db, "categories"), {
-        name: newCategory.toLowerCase(),
+        name: newCategoryName.toLowerCase(),
+        type: newCategoryType, // Adiciona o tipo
         userId: user.uid,
       });
-      setNewCategory('');
-      fetchCategories(); // Atualiza a lista após adicionar
+      setNewCategoryName('');
+      fetchCategories();
     } catch (error) {
       console.error("Erro ao adicionar categoria:", error);
     }
   };
 
-  // Função para deletar uma categoria
   const handleDeleteCategory = async (categoryId) => {
-    if (!window.confirm("Tem certeza que deseja apagar esta categoria?")) return;
-
+    if (!window.confirm("Tem certeza?")) return;
     try {
       await deleteDoc(doc(db, "categories", categoryId));
-      fetchCategories(); // Atualiza a lista após deletar
+      fetchCategories();
     } catch (error) {
       console.error("Erro ao deletar categoria:", error);
     }
@@ -59,24 +57,48 @@ function CategoryManager() {
   if (loading) return <p>Carregando categorias...</p>;
 
   return (
-    <div>
+    <div className={styles.container}>
       <h2>Gerenciar Categorias</h2>
-      <form onSubmit={handleAddCategory}>
+      <form onSubmit={handleAddCategory} className={styles.form}>
+        <div className={styles.inputType}>
+          <label>
+            <input 
+              type="radio" 
+              value="expense" 
+              checked={newCategoryType === 'expense'} 
+              onChange={(e) => setNewCategoryType(e.target.value)}
+            />
+            Despesa
+          </label>
+          <label>
+            <input 
+              type="radio" 
+              value="income" 
+              checked={newCategoryType === 'income'} 
+              onChange={(e) => setNewCategoryType(e.target.value)}
+            />
+            Renda
+          </label>
+        </div>
         <input
           type="text"
-          value={newCategory}
-          onChange={(e) => setNewCategory(e.target.value)}
+          value={newCategoryName}
+          onChange={(e) => setNewCategoryName(e.target.value)}
           placeholder="Nome da nova categoria"
+          className={styles.inputName}
         />
-        <button type="submit">Adicionar</button>
+        <button type="submit" className={styles.addButton}>Adicionar</button>
       </form>
 
-      <ul>
+      <ul className={styles.categoryList}>
         {categories.map(cat => (
           <li key={cat.id}>
-            {cat.name}
-            <button onClick={() => handleDeleteCategory(cat.id)} style={{ marginLeft: '10px' }}>
-              Apagar
+            {cat.name} 
+            <span className={`${styles.typeLabel} ${cat.type === 'income' ? styles.income : styles.expense}`}>
+              {cat.type === 'income' ? 'Renda' : 'Despesa'}
+            </span>
+            <button onClick={() => handleDeleteCategory(cat.id)} className={styles.deleteButton}>
+              &times;
             </button>
           </li>
         ))}
