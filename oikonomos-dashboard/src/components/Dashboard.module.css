@@ -1,5 +1,3 @@
-/* src/components/Dashboard.module.css */
-
 .dashboard {
   max-width: 1200px;
   margin: 40px auto;
@@ -11,7 +9,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 40px;
-  border-bottom: 1px solid var(--cinza-borda);
+  border-bottom: 1px solid #2c2c2c;
   padding-bottom: 20px;
 }
 
@@ -22,11 +20,11 @@
 
 .header p {
   margin: 0;
-  color: var(--texto-secundario);
+  color: #A0A0A0;
 }
 
 .logoutButton {
-  background-color: var(--vermelho-destaque);
+  background-color: #FF1D58;
   color: #fff;
   border: none;
   padding: 10px 20px;
@@ -40,15 +38,50 @@
   transform: scale(1.05);
 }
 
+.summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+.summary > div {
+  background-color: #1E1E1E;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid #2c2c2c;
+}
+
+.summary h4 {
+  margin: 0 0 10px 0;
+  color: #A0A0A0;
+  font-weight: 500;
+}
+
+.summary p {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.incomeAmount {
+  color: #39FF14;
+}
+
+.expenseAmount {
+  color: #FF1D58;
+}
+
 .mainContent {
   display: grid;
-  grid-template-columns: 1fr 2fr; /* 1/3 para o gráfico, 2/3 para a tabela */
+  grid-template-columns: 1fr 2fr;
   gap: 40px;
   align-items: flex-start;
 }
 
 .chartContainer {
-  background-color: var(--cinza-elemento);
+  background-color: #1E1E1E;
   padding: 20px;
   border-radius: 12px;
 }
@@ -60,9 +93,9 @@
 .table {
   width: 100%;
   border-collapse: collapse;
-  background-color: var(--cinza-elemento);
+  background-color: #1E1E1E;
   border-radius: 12px;
-  overflow: hidden; /* Garante que o border-radius funcione na tabela */
+  overflow: hidden;
 }
 
 .table th, .table td {
@@ -71,21 +104,35 @@
 }
 
 .table thead {
-  background-color: #252525; /* Um cinza um pouco mais escuro para o cabeçalho */
+  background-color: #252525;
 }
 
 .table tbody tr {
-  border-bottom: 1px solid var(--cinza-borda);
+  border-bottom: 1px solid #2c2c2c;
 }
 
 .table tbody tr:last-child {
   border-bottom: none;
 }
 
-/* Estilo para a categoria com a cor roxa */
 .table td:nth-child(2) {
-  color: var(--acento-azul);
+  color: #4A90E2;
   font-weight: 500;
+}
+
+.editButton {
+  background-color: #4A90E2;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-right: 5px;
+}
+
+.editButton:hover {
+  opacity: 0.8;
 }
 
 .deleteButton {
@@ -99,20 +146,13 @@
 }
 
 .deleteButton:hover {
-  background-color: var(--vermelho-destaque);
+  background-color: #FF1D58;
 }
 
-.editButton {
-  background-color: var(--acento-azul);
-  color: white;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  margin-right: 5px;
-}
-
-.editButton:hover {
-  background-color: #3399FF; /* Um pouco mais claro no hover */
+.managerSection {
+  margin-top: 40px;
+  padding: 20px;
+  background-color: #1E1E1E;
+  border-radius: 12px;
+  border: 1px solid #2c2c2c;
 }
