@@ -1,0 +1,77 @@
+/* src/components/EditModal.module.css */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(18, 18, 18, 0.8); 
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background-color: var(--cinza-elemento);
+  padding: 30px;
+  border-radius: 12px;
+  border: 1px solid var(--borda-sutil);
+  width: 90%;
+  max-width: 500px;
+}
+
+.modalContent h2 {
+  margin-top: 0;
+}
+
+.modalContent form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.modalContent label {
+  font-size: 0.9rem;
+  color: var(--texto-secundario);
+}
+
+.modalContent input,
+.modalContent select {
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--borda-sutil);
+  background-color: var(--fundo-primario);
+  color: var(--texto-principal);
+  font-size: 1rem;
+}
+
+.buttonGroup {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.buttonGroup button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.buttonGroup button:hover {
+  opacity: 0.8;
+}
+
+.cancelButton {
+  background-color: #555;
+  color: white;
+}
+
+.saveButton {
+  background-color: var(--acento-azul);
+  color: white;
+}

@@ -101,3 +101,18 @@
 .deleteButton:hover {
   background-color: var(--vermelho-destaque);
 }
+
+.editButton {
+  background-color: var(--acento-azul);
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-right: 5px;
+}
+
+.editButton:hover {
+  background-color: #3399FF; /* Um pouco mais claro no hover */
+}
