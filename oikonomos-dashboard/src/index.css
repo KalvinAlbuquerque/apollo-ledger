@@ -29,3 +29,35 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Adicione ao final de: src/index.css */
+
+.confirmationToast {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+
+.toastButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.toastButtons button {
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.confirmButton {
+  background-color: var(--vermelho-destaque);
+  color: white;
+}
+
+.cancelButton {
+  background-color: #555;
+  color: white;
+}

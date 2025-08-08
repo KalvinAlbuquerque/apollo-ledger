@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { db, auth } from '../../firebaseClient';
 import { collection, query, where, getDocs, setDoc, doc } from 'firebase/firestore';
 import styles from './BudgetManager.module.css'; // Vamos criar este estilo
-
+import toast from 'react-hot-toast'; 
 function BudgetManager() {
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [budgets, setBudgets] = useState({}); // Objeto para guardar os orçamentos: { categoria: valor }
@@ -45,34 +45,42 @@ function BudgetManager() {
     setBudgets(prev => ({ ...prev, [categoryName]: newAmount }));
   };
 
-  const handleSaveBudgets = async () => {
+ const handleSaveBudgets = async () => {
     if (!user) return;
-    alert("Salvando orçamentos...");
+    
+    // Mostra um toast de "carregando" enquanto salva
+    const savePromise = new Promise(async (resolve, reject) => {
+        const savePromises = expenseCategories.map(categoryName => {
+            const budgetAmount = budgets[categoryName] || 0;
+            const docId = `${user.uid}-${currentYear}-${currentMonth}-${categoryName}`;
+            const budgetDocRef = doc(db, "budgets", docId);
 
-    // Itera sobre todas as categorias de despesa para salvar o orçamento de cada uma
-    const savePromises = expenseCategories.map(categoryName => {
-      const budgetAmount = budgets[categoryName] || 0;
-      // Cria um ID único para cada documento de orçamento: userId-year-month-category
-      const docId = `${user.uid}-${currentYear}-${currentMonth}-${categoryName}`;
-      const budgetDocRef = doc(db, "budgets", docId);
+            return setDoc(budgetDocRef, {
+                userId: user.uid,
+                categoryName: categoryName,
+                amount: budgetAmount,
+                month: currentMonth,
+                year: currentYear,
+            });
+        });
 
-      return setDoc(budgetDocRef, {
-        userId: user.uid,
-        categoryName: categoryName,
-        amount: budgetAmount,
-        month: currentMonth,
-        year: currentYear,
-      });
+        try {
+            await Promise.all(savePromises);
+            resolve();
+        } catch (error) {
+            console.error("Erro ao salvar orçamentos:", error);
+            reject(error);
+        }
     });
 
-    try {
-      await Promise.all(savePromises);
-      alert("Orçamentos salvos com sucesso!");
-    } catch (error) {
-      console.error("Erro ao salvar orçamentos:", error);
-      alert("Falha ao salvar orçamentos.");
-    }
+    // 2. SUBSTITUA OS ALERTS POR ESTA LÓGICA DE TOAST
+    toast.promise(savePromise, {
+        loading: 'Salvando orçamentos...',
+        success: 'Orçamentos salvos com sucesso!',
+        error: 'Falha ao salvar orçamentos.',
+    });
   };
+
   
   if (loading) return <p>Carregando orçamentos...</p>;
 

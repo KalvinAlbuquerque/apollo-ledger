@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../../firebaseClient';
+import toast from 'react-hot-toast';
 import { collection, query, where, getDocs, addDoc, deleteDoc, updateDoc, doc, increment, Timestamp } from 'firebase/firestore';
 import styles from './GoalManager.module.css';
-
+import ContributeModal from './ContributeModal'; 
 // Função auxiliar para formatar números como moeda
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
@@ -13,7 +14,8 @@ function GoalManager({fetchData}) {
   // Estados para o formulário
   const [newGoalName, setNewGoalName] = useState('');
   const [newTargetAmount, setNewTargetAmount] = useState('');
-
+ const [isContributeModalOpen, setContributeModalOpen] = useState(false);
+  const [currentGoal, setCurrentGoal] = useState(null);
   const user = auth.currentUser;
 
   const fetchGoals = async () => {
@@ -29,6 +31,15 @@ function GoalManager({fetchData}) {
     fetchGoals();
   }, [user]);
 
+  const handleOpenContributeModal = (goal) => {
+    setCurrentGoal(goal);
+    setContributeModalOpen(true);
+  };
+  
+  const handleCloseContributeModal = () => {
+    setCurrentGoal(null);
+    setContributeModalOpen(false);
+  };
   const handleAddGoal = async (e) => {
     e.preventDefault();
     if (!newGoalName || !newTargetAmount || !user) return;
@@ -49,41 +60,43 @@ function GoalManager({fetchData}) {
     }
   };
   
-  const handleContribute = async (goalId) => {
-    const goal = goals.find(g => g.id === goalId); // Encontra os dados da meta
+  const handleContribute = async (goalId, amount) => {
+    const goal = goals.find(g => g.id === goalId);
     if (!goal) return;
 
-    const amountStr = window.prompt(`Qual valor você deseja adicionar à meta "${goal.goalName}"?`);
-    if (!amountStr) return;
+    const contributePromise = new Promise(async (resolve, reject) => {
+        try {
+            // Ação 1: Atualiza o valor na meta
+            const goalDocRef = doc(db, "goals", goalId);
+            await updateDoc(goalDocRef, { savedAmount: increment(amount) });
+            
+            // Ação 2: Cria a transação de despesa
+            await addDoc(collection(db, "transactions"), {
+                userId: user.uid,
+                type: 'expense',
+                amount: amount,
+                category: goal.goalName,
+                description: `Contribuição para a meta: ${goal.goalName}`,
+                createdAt: Timestamp.now(),
+            });
+
+            await fetchData(); // Atualiza todo o dashboard
+            resolve();
+        } catch (error) {
+            console.error("Erro ao adicionar contribuição:", error);
+            reject(error);
+        }
+    });
+
+    toast.promise(contributePromise, {
+        loading: 'Adicionando contribuição...',
+        success: 'Contribuição salva com sucesso!',
+        error: 'Falha ao salvar.',
+    });
     
-    const amount = parseFloat(amountStr);
-    if (isNaN(amount) || amount <= 0) {
-      alert("Por favor, insira um valor válido.");
-      return;
-    }
-
-    try {
-      // Ação 1: Atualiza o valor na meta
-      const goalDocRef = doc(db, "goals", goalId);
-      await updateDoc(goalDocRef, {
-        savedAmount: increment(amount)
-      });
-      
-      // <<< AÇÃO 2: CRIA UMA TRANSAÇÃO DE DESPESA CORRESPONDENTE >>>
-      await addDoc(collection(db, "transactions"), {
-        userId: user.uid,
-        type: 'expense', // Trata como uma despesa
-        amount: amount,
-        category: goal.goalName, // Categoria é o nome da meta
-        description: `Contribuição para a meta: ${goal.goalName}`,
-        createdAt: Timestamp.now(), // Usa o timestamp do cliente
-      });
-
-      fetchData(); // ATENÇÃO: Precisamos passar a função fetchData do Dashboard para cá.
-    } catch (error) {
-      console.error("Erro ao adicionar contribuição:", error);
-    }
+    handleCloseContributeModal();
   };
+
 
   const handleDeleteGoal = async (goalId) => {
     if (!window.confirm("Tem certeza que deseja apagar esta meta?")) return;
@@ -98,41 +111,72 @@ function GoalManager({fetchData}) {
   if (loading) return <p>Carregando metas...</p>;
 
   return (
-    <div className={styles.container}>
-      <h2>Minhas Metas de Poupança</h2>
-      <form onSubmit={handleAddGoal} className={styles.form}>
-        <input type="text" value={newGoalName} onChange={e => setNewGoalName(e.target.value)} placeholder="Nome da Meta (ex: Viagem)" required />
-        <input type="number" value={newTargetAmount} onChange={e => setNewTargetAmount(e.target.value)} placeholder="Valor Alvo (ex: 5000)" required />
-        <button type="submit" className={styles.addButton}>Criar Meta</button>
-      </form>
+    <>
+      {/* O container principal do gerenciador de metas */}
+      <div className={styles.container}>
+        <h2>Minhas Metas de Poupança</h2>
+        
+        {/* Formulário para adicionar uma nova meta */}
+        <form onSubmit={handleAddGoal} className={styles.form}>
+          <input 
+            type="text" 
+            value={newGoalName} 
+            onChange={e => setNewGoalName(e.target.value)} 
+            placeholder="Nome da Meta (ex: Viagem)" 
+            required 
+          />
+          <input 
+            type="number" 
+            value={newTargetAmount} 
+            onChange={e => setNewTargetAmount(e.target.value)} 
+            placeholder="Valor Alvo (ex: 5000)" 
+            required 
+          />
+          <button type="submit" className={styles.addButton}>Criar Meta</button>
+        </form>
 
-      <div className={styles.goalList}>
-        {goals.map(goal => {
-          const progress = goal.targetAmount > 0 ? (goal.savedAmount / goal.targetAmount) * 100 : 0;
-          return (
-            <div key={goal.id} className={styles.goalItem}>
-              {/* ÁREA DE INFORMAÇÕES DA META */}
-              <div className={styles.goalInfo}>
-                <span className={styles.goalName}>{goal.goalName}</span>
-                <div className={styles.progressLabels}>
-                  <span>{formatCurrency(goal.savedAmount)}</span>
-                  <span>{formatCurrency(goal.targetAmount)}</span>
+        {/* Lista onde as metas são renderizadas */}
+        <div className={styles.goalList}>
+          {goals.map(goal => {
+            const progress = goal.targetAmount > 0 ? (goal.savedAmount / goal.targetAmount) * 100 : 0;
+            
+            // O JSX para cada item individual da lista
+            return (
+              <div key={goal.id} className={styles.goalItem}>
+                
+                {/* Área de Informações da Meta (Nome, Valores, Barra de Progresso) */}
+                <div className={styles.goalInfo}>
+                  <span className={styles.goalName}>{goal.goalName}</span>
+                  <div className={styles.progressLabels}>
+                    <span>{formatCurrency(goal.savedAmount)}</span>
+                    <span>{formatCurrency(goal.targetAmount)}</span>
+                  </div>
+                  <div className={styles.progressBar}>
+                    <div className={styles.progressFill} style={{ width: `${progress}%` }}></div>
+                  </div>
                 </div>
-                <div className={styles.progressBar}>
-                  <div className={styles.progressFill} style={{ width: `${progress}%` }}></div>
+                
+                {/* Área de Ações Unificada (aparece no hover) */}
+                <div className={styles.actionButtons}>
+                  <button onClick={() => handleOpenContributeModal(goal)} className={styles.contributeButton}>+ Adicionar</button>
+                  <button onClick={() => handleDeleteGoal(goal.id)} className={styles.deleteButton}>Excluir</button>
                 </div>
+
               </div>
-              
-              {/* ÁREA DE AÇÕES UNIFICADA (aparece no hover) */}
-              <div className={styles.actionButtons}>
-                <button onClick={() => handleContribute(goal.id)} className={styles.contributeButton}>+ Adicionar</button>
-                <button onClick={() => handleDeleteGoal(goal.id)} className={styles.deleteButton}>Excluir</button>
-              </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
-    </div>
+
+      {/* Renderiza o Modal de Contribuição se ele estiver aberto */}
+      {isContributeModalOpen && (
+        <ContributeModal
+          goal={currentGoal}
+          onSave={handleContribute}
+          onCancel={handleCloseContributeModal}
+        />
+      )}
+    </>
   );
 }
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { auth, db } from '../../firebaseClient';
 import { signOut } from 'firebase/auth';
 import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore'; 
-
+import toast from 'react-hot-toast';
 // Componentes filhos
 import SummaryChart from './SummaryChart';
 import EditModal from './EditModal';
@@ -93,7 +93,32 @@ function Dashboard({ user }) {
     }
   };
 
-
+  const showConfirmationToast = (onConfirm, message = "Você tem certeza?") => {
+    toast(
+      (t) => (
+        <div className="confirmationToast">
+          <span>{message}</span>
+          <div className="toastButtons">
+            <button
+              className="confirmButton"
+              onClick={() => {
+                onConfirm(); // Executa a ação de apagar
+                toast.dismiss(t.id); // Fecha o toast
+              }}
+            >
+              Confirmar
+            </button>
+            <button className="cancelButton" onClick={() => toast.dismiss(t.id)}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ),
+      {
+        duration: Infinity, // O toast não some sozinho
+      }
+    );
+  };
 
   const formatDate = (date) => date.toISOString().split('T')[0];
 
@@ -198,14 +223,21 @@ function Dashboard({ user }) {
   const goToPrevChart = () => setCurrentChartIndex(prev => (prev - 1 + charts.length) % charts.length);
   
   const handleLogout = () => signOut(auth);
-  const handleDelete = async (transactionId) => {
-    if (!window.confirm("Tem certeza?")) return;
-    try {
-      await deleteDoc(doc(db, "transactions", transactionId));
-      fetchData();
-    } catch (error) {
-      console.error("Erro ao excluir transação:", error);
-    }
+  const handleDelete = (transactionId) => {
+    // 1. Define a ação que será executada se o usuário clicar em "Confirmar"
+    const deleteAction = async () => {
+      try {
+        await deleteDoc(doc(db, "transactions", transactionId));
+        fetchData(); // Atualiza a lista na tela
+        toast.success("Transação excluída com sucesso!");
+      } catch (error) {
+        console.error("Erro ao excluir transação:", error);
+        toast.error("Ocorreu um erro ao excluir a transação.");
+      }
+    };
+
+    // 2. Chama o nosso novo toast de confirmação, passando a ação como argumento
+    showConfirmationToast(deleteAction, "Excluir esta transação?");
   };
   const handleOpenEditModal = (transaction) => {
     setEditingTransaction(transaction);
@@ -216,15 +248,18 @@ function Dashboard({ user }) {
     setEditingTransaction(null);
   };
   const handleSaveTransaction = async (updatedData) => {
-    if (!editingTransaction) return;
-    try {
-      await updateDoc(doc(db, "transactions", editingTransaction.id), updatedData);
-      handleCloseModal();
-      fetchData();
-    } catch (error) {
-      console.error("Erro ao atualizar transação:", error);
-    }
-  };
+  if (!editingTransaction) return;
+  try {
+    const transactionDocRef = doc(db, "transactions", editingTransaction.id);
+    await updateDoc(transactionDocRef, updatedData);
+    handleCloseModal();
+    fetchData();
+    toast.success("Transação atualizada com sucesso!"); // Toast de sucesso!
+  } catch (error) {
+    console.error("Erro ao atualizar transação:", error);
+    toast.error("Falha ao salvar as alterações."); // <<< ADICIONE O TOAST DE ERRO AQUI
+  }
+};
 
   if (loading) return <div>Carregando suas finanças...</div>;
 
