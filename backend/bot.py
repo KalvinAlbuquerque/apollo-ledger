@@ -54,9 +54,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(welcome_message)
 
 async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
-    """Processa uma contribuição para uma meta, atualizando a meta E criando uma transação."""
+    """Processa uma contribuição para uma meta de poupança."""
     try:
-        # ... (a lógica de validação continua a mesma) ...
         if len(text_parts) < 2:
             await update.message.reply_text("Formato inválido. Use: guardar <valor> <nome da meta>")
             return
@@ -75,28 +74,33 @@ async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
                 break
         
         if not found_goal:
-            # ... (a mensagem de erro continua a mesma) ...
+            available_goals_names = [g.to_dict().get('goalName') for g in user_goals]
+            available_goals_text = "\n- ".join(available_goals_names)
+            error_message = f"❌ Meta '{goal_name_input}' não encontrada.\n\nSuas metas ativas são:\n- {available_goals_text}"
+            await update.message.reply_text(error_message)
             return
 
         amount = float(value_str.replace(',', '.'))
         goal_doc_ref = db.collection('goals').document(found_goal.id)
         
-        # Ação 1: Atualiza o valor na meta
-        await goal_doc_ref.update({ 'savedAmount': firestore.firestore.Increment(amount) })
+        # Ação 1: Atualiza o valor na meta (SEM AWAIT)
+        goal_doc_ref.update({
+            'savedAmount': firestore.firestore.Increment(amount)
+        })
 
-        # <<< AÇÃO 2: CRIA UMA TRANSAÇÃO DE DESPESA CORRESPONDENTE >>>
+        # Ação 2: Cria uma transação de despesa correspondente
         saving_expense_data = {
-            'type': 'expense', # Trata como uma despesa para abater do saldo
+            'type': 'expense',
             'amount': amount,
-            'category': found_goal.to_dict().get('goalName'), # Categoria é o nome da meta
+            'category': found_goal.to_dict().get('goalName'),
             'description': f"Contribuição para a meta: {found_goal.to_dict().get('goalName')}",
             'createdAt': firestore.SERVER_TIMESTAMP,
             'userId': FIREBASE_USER_ID
         }
         db.collection('transactions').add(saving_expense_data)
         
-        # ... (a lógica de mensagem de confirmação continua a mesma) ...
-        updated_goal_doc = await goal_doc_ref.get()
+        # Busca os dados atualizados para a mensagem de confirmação
+        updated_goal_doc = await goal_doc_ref.get() # .get() precisa de await
         updated_data = updated_goal_doc.to_dict()
         saved = updated_data.get('savedAmount', 0)
         target = updated_data.get('targetAmount', 0)
@@ -113,7 +117,7 @@ async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
     except Exception as e:
         print(f"Erro ao processar poupança: {e}")
         await update.message.reply_text("❌ Ocorreu um erro interno.")
-
+        
 async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
     """Processa e salva uma despesa, e retorna o status detalhado e intuitivo do orçamento."""
     try:
