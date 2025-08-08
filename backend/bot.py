@@ -98,21 +98,40 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         await update.message.reply_text("❌ Ocorreu um erro interno ao processar o gasto.")
 
 async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
-    """Processa e salva uma renda."""
+    """Processa e salva uma renda, validando sua origem contra a lista de categorias."""
     try:
+        # <<< 1. BUSCA AS CATEGORIAS VÁLIDAS (MESMA LÓGICA DO GASTO)
+        categories_ref = db.collection('categories').where('userId', '==', FIREBASE_USER_ID).stream()
+        valid_categories = [doc.to_dict()['name'] for doc in categories_ref]
+
+        if not valid_categories:
+            await update.message.reply_text("Você ainda não cadastrou nenhuma categoria. Adicione categorias no dashboard web primeiro.")
+            return
+            
         if len(text_parts) < 2:
             await update.message.reply_text("Formato de renda inválido. Use: <saldo/renda> <valor> <origem>")
             return
             
         value_str = text_parts[0]
-        source = " ".join(text_parts[1:]) # O resto é a origem/descrição
+        source = " ".join(text_parts[1:]).strip().lower() # Pega a origem e já formata
 
+        # <<< 2. VALIDA SE A ORIGEM EXISTE NA LISTA DE CATEGORIAS
+        if source not in valid_categories:
+            available_cats_text = "\n- ".join(valid_categories)
+            error_message = (
+                f"❌ Origem de renda '{source}' não encontrada.\n\n"
+                f"As origens devem ser uma de suas categorias cadastradas:\n- {available_cats_text}"
+            )
+            await update.message.reply_text(error_message)
+            return
+
+        # <<< 3. SE FOR VÁLIDO, PROSSEGUE NORMALMENTE
         amount = float(value_str.replace(',', '.'))
         
         income_data = {
-            'type': 'income', # <<< NOVO CAMPO!
+            'type': 'income',
             'amount': amount,
-            'category': source.strip().lower(), # Usamos 'category' para a origem da renda
+            'category': source, # Salva a origem (que é uma categoria válida)
             'description': None,
             'createdAt': firestore.SERVER_TIMESTAMP,
             'userId': FIREBASE_USER_ID
