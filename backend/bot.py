@@ -51,22 +51,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(welcome_message)
 
-async def handle_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update): return
-
-    text = update.message.text
-    match = re.match(r"^\s*(\d+[\.,]?\d*)\s+([\w\sáàâãéèêíïóôõöúçñ]+?)(?:\s+(.+))?$", text)
-
-    if not match:
-        await update.message.reply_text("Formato inválido. Use: <valor> <categoria> [descrição]")
-        return
-
+async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
+    """Processa e salva uma despesa."""
     try:
+        # Busca categorias válidas (lógica que já tínhamos)
         categories_ref = db.collection('categories').where('userId', '==', FIREBASE_USER_ID).stream()
         valid_categories = [doc.to_dict()['name'] for doc in categories_ref]
 
         if not valid_categories:
-            await update.message.reply_text("Nenhuma categoria cadastrada. Adicione no dashboard web.")
+            await update.message.reply_text("Cadastre categorias no dashboard web primeiro.")
+            return
+
+        # Monta a string para o regex a partir das partes do texto
+        expense_text = " ".join(text_parts)
+        match = re.match(r"^\s*(\d+[\.,]?\d*)\s+([\w\sáàâãéèêíïóôõöúçñ]+?)(?:\s+(.+))?$", expense_text)
+
+        if not match:
+            await update.message.reply_text("Formato de gasto inválido. Use: [gasto] <valor> <categoria> [descrição]")
             return
 
         value_str, category_name, description = match.groups()
@@ -74,32 +75,83 @@ async def handle_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if category_name not in valid_categories:
             available_cats_text = "\n- ".join(valid_categories)
-            error_message = (
-                f"❌ Categoria '{category_name}' não encontrada.\n\n"
-                f"Categorias disponíveis:\n- {available_cats_text}"
-            )
+            error_message = f"❌ Categoria de gasto '{category_name}' não encontrada.\n\nCategorias disponíveis:\n- {available_cats_text}"
             await update.message.reply_text(error_message)
             return
 
         amount = float(value_str.replace(',', '.'))
         description = description.strip() if description else None
+        
         expense_data = {
-            'amount': amount, 'category': category_name, 'description': description,
-            'createdAt': firestore.SERVER_TIMESTAMP, 'userId': FIREBASE_USER_ID
+            'type': 'expense', # <<< NOVO CAMPO!
+            'amount': amount,
+            'category': category_name,
+            'description': description,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'userId': FIREBASE_USER_ID
         }
         db.collection('transactions').add(expense_data)
-        await update.message.reply_text(f"✅ Despesa de R$ {amount:.2f} na categoria '{category_name}' registrada!")
+        await update.message.reply_text(f"💸 Gasto de R$ {amount:.2f} na categoria '{category_name}' registrado!")
 
     except Exception as e:
         print(f"Erro ao processar despesa: {e}")
-        await update.message.reply_text("❌ Ocorreu um erro interno.")
+        await update.message.reply_text("❌ Ocorreu um erro interno ao processar o gasto.")
+
+async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
+    """Processa e salva uma renda."""
+    try:
+        if len(text_parts) < 2:
+            await update.message.reply_text("Formato de renda inválido. Use: <saldo/renda> <valor> <origem>")
+            return
+            
+        value_str = text_parts[0]
+        source = " ".join(text_parts[1:]) # O resto é a origem/descrição
+
+        amount = float(value_str.replace(',', '.'))
+        
+        income_data = {
+            'type': 'income', # <<< NOVO CAMPO!
+            'amount': amount,
+            'category': source.strip().lower(), # Usamos 'category' para a origem da renda
+            'description': None,
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'userId': FIREBASE_USER_ID
+        }
+        db.collection('transactions').add(income_data)
+        await update.message.reply_text(f"💰 Renda de R$ {amount:.2f} da origem '{source}' registrada!")
+
+    except ValueError:
+        await update.message.reply_text(f"Valor inválido: '{value_str}'. O valor deve ser um número.")
+    except Exception as e:
+        print(f"Erro ao processar renda: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro interno ao processar a renda.")
+
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Função principal que recebe todas as mensagens e decide o que fazer."""
+    if not is_admin(update): return
+
+    text = update.message.text.strip()
+    parts = text.split()
+    command = parts[0].lower()
+
+    if command in ['saldo', 'renda', 'ganhei']:
+        # Se for uma renda, chama a função de renda
+        await process_income(update, context, parts[1:])
+    elif command == 'gasto':
+        # Se for um gasto explícito, chama a função de gasto
+        await process_expense(update, context, parts[1:])
+    else:
+        # Se não tiver comando, assume que é um gasto (comportamento antigo)
+        await process_expense(update, context, parts)
+
 
 # --- 3. CONFIGURAÇÃO DO SERVIDOR WEB (FLASK) PARA DEPLOY ---
 
 app = Flask(__name__)
 ptb_app = Application.builder().token(TELEGRAM_TOKEN).build()
 ptb_app.add_handler(CommandHandler("start", start))
-ptb_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_expense))
+ptb_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
 @app.route("/")
 def index():
