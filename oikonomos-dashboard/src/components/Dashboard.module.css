@@ -78,6 +78,7 @@
   grid-template-columns: 1fr 2fr;
   gap: 40px;
   align-items: flex-start;
+   margin-top: 40px;
 }
 
 .chartContainer {
@@ -206,3 +207,88 @@ chartHeader {
   background-color: #444;
 }
 
+/* Adicione ao final de Dashboard.module.css */
+
+.filterSection {
+  background-color: var(--cinza-elemento);
+  padding: 15px 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filterGroup label {
+  color: var(--texto-secundario);
+  font-size: 0.9rem;
+}
+
+.filterGroup input[type="date"],
+.filterGroup select {
+  background-color: var(--fundo-primario);
+  color: var(--texto-principal);
+  border: 1px solid var(--borda-sutil);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.filterButton {
+  background-color: var(--acento-azul);
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-left: auto; /* Empurra o botão para a direita */
+}
+
+.filterButton:hover {
+  opacity: 0.8;
+}
+
+.quickFilters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-left: 1px solid var(--borda-sutil);
+  padding-left: 20px;
+  margin-left: 10px;
+}
+
+.quickFilters button {
+  background-color: #333;
+  color: var(--texto-secundario);
+  border: 1px solid var(--borda-sutil);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quickFilters button:hover {
+  background-color: #444;
+  color: var(--texto-principal);
+}
+
+.tooltip {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  background-color: var(--texto-secundario);
+  color: var(--fundo-primario);
+  border-radius: 50%;
+  font-weight: bold;
+  cursor: help;
+  margin-left: 10px;
+}

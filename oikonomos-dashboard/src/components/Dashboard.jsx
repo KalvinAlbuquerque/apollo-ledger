@@ -20,16 +20,56 @@ function Dashboard({ user }) {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
-  const [currentChartIndex, setCurrentChartIndex] = useState(0);
+  const [currentChartIndex, setCurrentChartIndex] = useState(0);  
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [tooltipText, setTooltipText] = useState('Filtre por um período ou categoria');
+
+  // Função auxiliar para garantir que o filtro de data final inclua o dia inteiro
+  const adjustEndDate = (dateStr) => {
+    const date = new Date(dateStr);
+    date.setUTCHours(23, 59, 59, 999); // Define para o final do dia em UTC
+    return date;
+  };
 
   const fetchData = async () => {
     if (!user) return;
+    setLoading(true);
     try {
-      const transQuery = query(collection(db, "transactions"), where("userId", "==", user.uid), orderBy("createdAt", "desc"));
-      const transSnapshot = await getDocs(transQuery);
+      // 1. Começa com a referência base para a coleção 'transactions'
+      let baseQuery = collection(db, "transactions");
+
+      // 2. Cria um array de "constraints" (filtros e ordenações) que será populado dinamicamente
+      const constraints = [
+        where("userId", "==", user.uid)
+      ];
+
+      // 3. Adiciona o filtro de categoria, se um for selecionado
+      if (filterCategory && filterCategory !== 'all') {
+        constraints.push(where("category", "==", filterCategory));
+      }
+
+      // 4. Adiciona os filtros de data, se as datas forem preenchidas
+      if (filterStartDate) {
+        constraints.push(where("createdAt", ">=", new Date(filterStartDate)));
+      }
+      if (filterEndDate) {
+        constraints.push(where("createdAt", "<=", adjustEndDate(filterEndDate)));
+      }
+      
+      // Adiciona a ordenação no final
+      constraints.push(orderBy("createdAt", "desc"));
+      
+      // 5. Monta a query final com todas as constraints
+      const finalQuery = query(baseQuery, ...constraints);
+      
+      // O resto da busca continua igual
+      const transSnapshot = await getDocs(finalQuery);
       const transData = transSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setTransactions(transData);
 
+      // A busca de categorias não precisa mudar
       const catQuery = query(collection(db, "categories"), where("userId", "==", user.uid));
       const catSnapshot = await getDocs(catQuery);
       const catData = catSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -44,9 +84,45 @@ function Dashboard({ user }) {
 
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
+      // Aqui é onde o erro do índice aparecerá!
+      alert("Ocorreu um erro ao buscar os dados. Verifique o console para mais detalhes (F12). Pode ser necessário criar um índice no Firestore.");
     } finally {
       setLoading(false);
     }
+  };
+
+
+
+  const formatDate = (date) => date.toISOString().split('T')[0];
+
+  const handleSetMonthlyFilter = () => {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    setFilterStartDate(formatDate(firstDay));
+    setFilterEndDate(formatDate(lastDay));
+  };
+
+  const handleSetWeeklyFilter = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=Domingo, 1=Segunda, ...
+    const firstDayOfWeek = new Date(today);
+    // Ajusta para o início da semana (Segunda-feira)
+    firstDayOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    
+    const lastDayOfWeek = new Date(firstDayOfWeek);
+    lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
+
+    setFilterStartDate(formatDate(firstDayOfWeek));
+    setFilterEndDate(formatDate(lastDayOfWeek));
+  };
+
+  const handleSetYearlyFilter = () => {
+    const year = new Date().getFullYear();
+    const firstDay = new Date(year, 0, 1);
+    const lastDay = new Date(year, 11, 31);
+    setFilterStartDate(formatDate(firstDay));
+    setFilterEndDate(formatDate(lastDay));
   };
 
   useEffect(() => { fetchData(); }, [user]);
@@ -107,6 +183,15 @@ function Dashboard({ user }) {
     { title: "Rendas vs. Despesas", data: summaryData.balanceChartData }
   ];
 
+  useEffect(() => {
+    if (filterStartDate && filterEndDate) {
+      const start = new Date(filterStartDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+      const end = new Date(filterEndDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+      setTooltipText(`Período selecionado: ${start} a ${end}`);
+    } else {
+      setTooltipText('Filtre por um período ou categoria');
+    }
+  }, [filterStartDate, filterEndDate]);
   const goToNextChart = () => setCurrentChartIndex(prev => (prev + 1) % charts.length);
   const goToPrevChart = () => setCurrentChartIndex(prev => (prev - 1 + charts.length) % charts.length);
   
@@ -155,6 +240,45 @@ function Dashboard({ user }) {
           <div><h4>Saldo Atual</h4><p>R$ {summaryData.balance.toFixed(2)}</p></div>
         </section>
 
+        <section className={styles.filterSection}>
+          <div className={styles.filterGroup}>
+            <label>De:</label>
+            <input 
+              type="date" 
+              value={filterStartDate} 
+              onChange={e => setFilterStartDate(e.target.value)} 
+            />
+          </div>
+          <div className={styles.filterGroup}>
+            <label>Até:</label>
+            <input 
+              type="date" 
+              value={filterEndDate} 
+              onChange={e => setFilterEndDate(e.target.value)} 
+            />
+          </div>
+
+            <div className={styles.quickFilters}>
+            <button onClick={handleSetWeeklyFilter}>Semanal</button>
+            <button onClick={handleSetMonthlyFilter}>Mensal</button>
+            <button onClick={handleSetYearlyFilter}>Anual</button>
+            <span className={styles.tooltip} title={tooltipText}>?</span>
+          </div>
+
+          <div className={styles.filterGroup}>
+            <label>Categoria:</label>
+            <select 
+              value={filterCategory} 
+              onChange={e => setFilterCategory(e.target.value)}
+            >
+              <option value="all">Todas as Categorias</option>
+              {categories.map(cat => (
+                <option key={cat.id} value={cat.name}>{cat.name}</option>
+              ))}
+            </select>
+          </div>
+          <button onClick={fetchData} className={styles.filterButton}>Filtrar</button>
+        </section>
         <section className={styles.managerSection}><BudgetStatus budgetProgress={summaryData.budgetProgress} /></section>
 
         <main className={styles.mainContent}>
