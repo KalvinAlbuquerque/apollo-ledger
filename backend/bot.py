@@ -54,7 +54,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(welcome_message)
 
 async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
-    """Processa e salva uma despesa, e retorna o status detalhado do orçamento."""
+    """Processa e salva uma despesa, e retorna o status detalhado e intuitivo do orçamento."""
     try:
         # --- Parte 1: Validação da Categoria (continua igual) ---
         categories_ref = db.collection('categories').where('userId', '==', FIREBASE_USER_ID).where('type', '==', 'expense').stream()
@@ -92,7 +92,7 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         
         base_reply = f"💸 Gasto de R$ {amount:.2f} na categoria '{correct_category_name}' registrado!"
         
-        # --- Parte 3: LÓGICA DE FEEDBACK DO ORÇAMENTO ATUALIZADA ---
+        # --- Parte 3: LÓGICA DE FEEDBACK DETALHADO ---
         today = datetime.now()
         current_month = today.month
         current_year = today.year
@@ -103,27 +103,39 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         if budget_doc:
             budget_amount = budget_doc.to_dict().get('amount', 0)
             if budget_amount > 0:
+                # 3.1 Busca o total gasto no mês INTEIRO para o saldo geral
                 start_of_month = datetime(current_year, current_month, 1)
-                expenses_query = db.collection('transactions').where('userId', '==', FIREBASE_USER_ID).where('type', '==', 'expense').where('category', '==', correct_category_name).where('createdAt', '>=', start_of_month).stream()
-                total_spent_this_month = sum(doc.to_dict().get('amount', 0) for doc in expenses_query)
+                all_month_expenses_query = db.collection('transactions').where('userId', '==', FIREBASE_USER_ID).where('type', '==', 'expense').where('category', '==', correct_category_name).where('createdAt', '>=', start_of_month).stream()
+                total_spent_this_month = sum(doc.to_dict().get('amount', 0) for doc in all_month_expenses_query)
                 remaining_budget = budget_amount - total_spent_this_month
                 
-                budget_feedback = ""
-                if remaining_budget >= 0:
-                    budget_feedback += f"\n\nSaldo do orçamento: R$ {remaining_budget:.2f}"
-                    
-                    # <<< LÓGICA NOVA DE GASTO DIÁRIO/SEMANAL >>>
-                    total_days_in_month = calendar.monthrange(current_year, current_month)[1]
-                    days_remaining = total_days_in_month - today.day + 1
-                    
-                    if days_remaining > 0:
-                        daily_allowance = remaining_budget / days_remaining
-                        weekly_allowance = daily_allowance * 7
-                        budget_feedback += f"\n- Média diária segura: R$ {daily_allowance:.2f}"
-                        budget_feedback += f"\n- Média semanal segura: R$ {weekly_allowance:.2f}"
+                # 3.2 Calcula a "meta diária" ANTES do gasto atual
+                total_days_in_month = calendar.monthrange(current_year, current_month)[1]
+                days_remaining_in_month = total_days_in_month - today.day + 1
+                
+                # Saldo que você tinha antes deste gasto / dias restantes
+                daily_allowance = (remaining_budget + amount) / days_remaining_in_month if days_remaining_in_month > 0 else 0
 
-                else: # Se o orçamento já estourou
-                    budget_feedback += f"\n\n🔴 Orçamento estourado em R$ {abs(remaining_budget):.2f}!"
+                # 3.3 Busca o total gasto HOJE
+                start_of_day = today.replace(hour=0, minute=0, second=0, microsecond=0)
+                today_expenses_query = db.collection('transactions').where('userId', '==', FIREBASE_USER_ID).where('type', '==', 'expense').where('category', '==', correct_category_name).where('createdAt', '>=', start_of_day).stream()
+                total_spent_today = sum(doc.to_dict().get('amount', 0) for doc in today_expenses_query)
+
+                # 3.4 Monta a mensagem de feedback
+                budget_feedback = f"\n\nSaldo do orçamento: R$ {remaining_budget:.2f}"
+                remaining_for_today = daily_allowance - total_spent_today
+
+                if remaining_for_today >= 0:
+                    # Cenário A: Você ainda está dentro da meta diária
+                    budget_feedback += f"\nVocê gastou hoje R$ {total_spent_today:.2f}. Você ainda possui R$ {remaining_for_today:.2f} para gastar hoje."
+                else:
+                    # Cenário B: Você ultrapassou a meta diária
+                    budget_feedback += f"\nVocê gastou hoje R$ {total_spent_today:.2f}."
+                    budget_feedback += f"\n\n🔴 Atenção! Você ultrapassou sua meta diária de R$ {daily_allowance:.2f}."
+                    # Recalcula as novas médias para o resto do mês
+                    new_daily_allowance = remaining_budget / (days_remaining_in_month - 1) if days_remaining_in_month > 1 else remaining_budget
+                    new_weekly_allowance = new_daily_allowance * 7
+                    budget_feedback += f"\nSuas novas médias seguras são R$ {new_daily_allowance:.2f}/dia e R$ {new_weekly_allowance:.2f}/semana."
 
                 base_reply += budget_feedback
 
