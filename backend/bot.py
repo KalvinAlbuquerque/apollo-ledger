@@ -53,6 +53,67 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(welcome_message)
 
+async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
+    """Processa uma contribuição para uma meta, atualizando a meta E criando uma transação."""
+    try:
+        # ... (a lógica de validação continua a mesma) ...
+        if len(text_parts) < 2:
+            await update.message.reply_text("Formato inválido. Use: guardar <valor> <nome da meta>")
+            return
+            
+        value_str = text_parts[0]
+        goal_name_input = " ".join(text_parts[1:]).strip()
+        goal_name_normalized = normalize_text(goal_name_input)
+        
+        goals_ref = db.collection('goals').where('userId', '==', FIREBASE_USER_ID).stream()
+        user_goals = list(goals_ref)
+        
+        found_goal = None
+        for goal_doc in user_goals:
+            if normalize_text(goal_doc.to_dict().get('goalName', '')) == goal_name_normalized:
+                found_goal = goal_doc
+                break
+        
+        if not found_goal:
+            # ... (a mensagem de erro continua a mesma) ...
+            return
+
+        amount = float(value_str.replace(',', '.'))
+        goal_doc_ref = db.collection('goals').document(found_goal.id)
+        
+        # Ação 1: Atualiza o valor na meta
+        await goal_doc_ref.update({ 'savedAmount': firestore.firestore.Increment(amount) })
+
+        # <<< AÇÃO 2: CRIA UMA TRANSAÇÃO DE DESPESA CORRESPONDENTE >>>
+        saving_expense_data = {
+            'type': 'expense', # Trata como uma despesa para abater do saldo
+            'amount': amount,
+            'category': found_goal.to_dict().get('goalName'), # Categoria é o nome da meta
+            'description': f"Contribuição para a meta: {found_goal.to_dict().get('goalName')}",
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'userId': FIREBASE_USER_ID
+        }
+        db.collection('transactions').add(saving_expense_data)
+        
+        # ... (a lógica de mensagem de confirmação continua a mesma) ...
+        updated_goal_doc = await goal_doc_ref.get()
+        updated_data = updated_goal_doc.to_dict()
+        saved = updated_data.get('savedAmount', 0)
+        target = updated_data.get('targetAmount', 0)
+        progress = (saved / target) * 100 if target > 0 else 100
+
+        reply_message = (
+            f"✅ Você guardou R$ {amount:.2f} para a meta '{updated_data.get('goalName')}'!\n\n"
+            f"Progresso: R$ {saved:.2f} / R$ {target:.2f} (*{progress:.1f}%*)"
+        )
+        await update.message.reply_text(reply_message, parse_mode='Markdown')
+
+    except ValueError:
+        await update.message.reply_text(f"Valor inválido: '{value_str}'.")
+    except Exception as e:
+        print(f"Erro ao processar poupança: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro interno.")
+
 async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
     """Processa e salva uma despesa, e retorna o status detalhado e intuitivo do orçamento."""
     try:
@@ -193,6 +254,7 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
     except Exception as e:
         print(f"Erro ao processar renda: {e}")
         await update.message.reply_text("❌ Ocorreu um erro interno ao processar a renda.")
+        
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Função principal que recebe todas as mensagens e decide o que fazer."""
     if not is_admin(update): return
@@ -202,13 +264,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     command = parts[0].lower()
 
     if command in ['saldo', 'renda', 'ganhei']:
-        # Se for uma renda, chama a função de renda
         await process_income(update, context, parts[1:])
     elif command == 'gasto':
-        # Se for um gasto explícito, chama a função de gasto
         await process_expense(update, context, parts[1:])
+    elif command == 'guardar': # <<< NOVA CONDIÇÃO AQUI
+        await process_saving(update, context, parts[1:])
     else:
-        # Se não tiver comando, assume que é um gasto (comportamento antigo)
         await process_expense(update, context, parts)
 
 def normalize_text(text: str) -> str:

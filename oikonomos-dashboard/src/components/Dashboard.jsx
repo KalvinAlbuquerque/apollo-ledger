@@ -319,7 +319,7 @@ function Dashboard({ user }) {
             <DebtManager expenseCategories={categories.filter(c => c.type === 'expense')} />
         </section>
         <section className={styles.managerSection}>
-            <GoalManager />
+           <GoalManager fetchData={fetchData} />        
         </section>
         <section className={styles.managerSection}><BudgetManager /></section>
         <section className={styles.managerSection}><CategoryManager /></section>

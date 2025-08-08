@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../../firebaseClient';
-import { collection, query, where, getDocs, addDoc, deleteDoc, updateDoc, doc, increment } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, deleteDoc, updateDoc, doc, increment, Timestamp } from 'firebase/firestore';
 import styles from './GoalManager.module.css';
 
 // Função auxiliar para formatar números como moeda
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-function GoalManager() {
+function GoalManager({fetchData}) {
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -50,7 +50,10 @@ function GoalManager() {
   };
   
   const handleContribute = async (goalId) => {
-    const amountStr = window.prompt("Qual valor você deseja adicionar a esta meta?");
+    const goal = goals.find(g => g.id === goalId); // Encontra os dados da meta
+    if (!goal) return;
+
+    const amountStr = window.prompt(`Qual valor você deseja adicionar à meta "${goal.goalName}"?`);
     if (!amountStr) return;
     
     const amount = parseFloat(amountStr);
@@ -60,11 +63,23 @@ function GoalManager() {
     }
 
     try {
+      // Ação 1: Atualiza o valor na meta
       const goalDocRef = doc(db, "goals", goalId);
       await updateDoc(goalDocRef, {
         savedAmount: increment(amount)
       });
-      fetchGoals();
+      
+      // <<< AÇÃO 2: CRIA UMA TRANSAÇÃO DE DESPESA CORRESPONDENTE >>>
+      await addDoc(collection(db, "transactions"), {
+        userId: user.uid,
+        type: 'expense', // Trata como uma despesa
+        amount: amount,
+        category: goal.goalName, // Categoria é o nome da meta
+        description: `Contribuição para a meta: ${goal.goalName}`,
+        createdAt: Timestamp.now(), // Usa o timestamp do cliente
+      });
+
+      fetchData(); // ATENÇÃO: Precisamos passar a função fetchData do Dashboard para cá.
     } catch (error) {
       console.error("Erro ao adicionar contribuição:", error);
     }
