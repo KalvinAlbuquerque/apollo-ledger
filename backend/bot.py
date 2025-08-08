@@ -8,7 +8,7 @@ import firebase_admin
 import unicodedata
 from dotenv import load_dotenv
 from flask import Flask, request
-
+from datetime import datetime
 from firebase_admin import credentials, firestore
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -53,11 +53,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(welcome_message)
 
 async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
-    """Processa e salva uma despesa, validando contra categorias do tipo 'expense'."""
+    """Processa e salva uma despesa, e retorna o status do orçamento."""
     try:
-        # --- MUDANÇA CRUCIAL: Adicionado filtro por 'type' ---
+        # --- Parte 1: Validação da Categoria (continua igual) ---
         categories_ref = db.collection('categories').where('userId', '==', FIREBASE_USER_ID).where('type', '==', 'expense').stream()
-        
         original_categories = [doc.to_dict()['name'] for doc in categories_ref]
         valid_categories_normalized = [normalize_text(name) for name in original_categories]
 
@@ -77,19 +76,49 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
 
         if category_name_normalized not in valid_categories_normalized:
             available_cats_text = "\n- ".join(original_categories)
-            error_message = f"❌ Categoria de DESPESA '{category_name_input}' não encontrada.\n\nCategorias de despesa disponíveis:\n- {available_cats_text}"
+            error_message = f"❌ Categoria de DESPESA '{category_name_input}' não encontrada.\n\nCategorias disponíveis:\n- {available_cats_text}"
             await update.message.reply_text(error_message)
             return
 
         match_index = valid_categories_normalized.index(category_name_normalized)
         correct_category_name = original_categories[match_index]
-
         amount = float(value_str.replace(',', '.'))
         description = description.strip() if description else None
         
+        # --- Parte 2: Salvar a Transação (continua igual) ---
         expense_data = { 'type': 'expense', 'amount': amount, 'category': correct_category_name, 'description': description, 'createdAt': firestore.SERVER_TIMESTAMP, 'userId': FIREBASE_USER_ID }
         db.collection('transactions').add(expense_data)
-        await update.message.reply_text(f"💸 Gasto de R$ {amount:.2f} na categoria '{correct_category_name}' registrado!")
+        
+        base_reply = f"💸 Gasto de R$ {amount:.2f} na categoria '{correct_category_name}' registrado!"
+        
+        # --- Parte 3: NOVA LÓGICA DE FEEDBACK DO ORÇAMENTO ---
+        current_month = datetime.now().month
+        current_year = datetime.now().year
+
+        # 3.1 Busca o orçamento para a categoria e mês atuais
+        budget_query = db.collection('budgets').where('userId', '==', FIREBASE_USER_ID).where('categoryName', '==', correct_category_name).where('month', '==', current_month).where('year', '==', current_year).limit(1).stream()
+        budget_doc = next(budget_query, None)
+
+        # Se houver um orçamento definido para esta categoria...
+        if budget_doc:
+            budget_amount = budget_doc.to_dict().get('amount', 0)
+            if budget_amount > 0:
+                # 3.2 Busca o total gasto na categoria no mês atual
+                start_of_month = datetime(current_year, current_month, 1)
+                
+                expenses_query = db.collection('transactions').where('userId', '==', FIREBASE_USER_ID).where('type', '==', 'expense').where('category', '==', correct_category_name).where('createdAt', '>=', start_of_month).stream()
+                
+                total_spent_this_month = sum(doc.to_dict().get('amount', 0) for doc in expenses_query)
+                
+                remaining_budget = budget_amount - total_spent_this_month
+                
+                # 3.3 Adiciona a informação do orçamento à resposta
+                if remaining_budget >= 0:
+                    base_reply += f"\n\nSaldo do orçamento: R$ {remaining_budget:.2f}"
+                else:
+                    base_reply += f"\n\n🔴 Orçamento estourado em R$ {abs(remaining_budget):.2f}!"
+
+        await update.message.reply_text(base_reply)
 
     except Exception as e:
         print(f"Erro ao processar despesa: {e}")
