@@ -1,0 +1,62 @@
+/* src/components/Login.module.css */
+.loginContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: var(--fundo-primario);
+}
+
+.loginBox {
+  width: 100%;
+  max-width: 400px;
+  padding: 40px;
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--borda-sutil);
+  border-radius: 12px;
+}
+
+.loginBox h2 {
+  text-align: center;
+  margin-top: 0;
+  margin-bottom: 30px;
+  color: var(--texto-principal);
+}
+
+.loginBox form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.loginBox input {
+  padding: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--borda-sutil);
+  background-color: var(--fundo-primario);
+  color: var(--texto-principal);
+  font-size: 1rem;
+}
+
+.loginBox button {
+  background-color: var(--acento-azul);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.loginBox button:hover {
+  opacity: 0.8;
+}
+
+.errorMessage {
+  color: var(--vermelho-destaque);
+  text-align: center;
+  margin-top: 20px;
+  font-size: 0.9rem;
+}

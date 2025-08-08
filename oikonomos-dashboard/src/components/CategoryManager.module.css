@@ -1,31 +1,134 @@
-/* src/components/CategoryManager.module.css */
-.container { padding: 10px; }
-.form { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; }
-.inputType { display: flex; gap: 10px; background-color: #333; padding: 8px; border-radius: 8px; }
-.inputName { flex-grow: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--borda-sutil); background-color: var(--fundo-primario); color: var(--texto-principal); }
-.addButton { background-color: var(--acento-azul); color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; }
+/* src/components/CategoryManager.module.css (Versão Redesenhada) */
+.container {
+  padding: 10px;
+}
+
+.container h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.form {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.inputType {
+  display: flex;
+  gap: 10px;
+  background-color: #333;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.inputName {
+  flex-grow: 1; /* Ocupa o espaço restante */
+}
+
+.addButton {
+  background-color: var(--acento-azul);
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* NOVO ESTILO PARA O FILTRO DE BOTÕES */
+.filterGroup {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  border-bottom: 1px solid var(--borda-sutil);
+  padding-bottom: 15px;
+}
+
+.filterButton {
+  background: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 8px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filterButton:hover {
+  background-color: var(--fundo-secundario);
+  color: var(--texto-principal);
+}
+
+.activeFilter {
+  background-color: var(--acento-azul);
+  border-color: var(--acento-azul);
+  color: white;
+}
+/* FIM DO NOVO ESTILO */
+
 .categoryList {
   list-style: none;
   padding: 0;
-  max-height: 300px; /* Altura máxima de 300 pixels, ajuste como preferir */
-  overflow-y: auto;  /* Adiciona a barra de rolagem vertical quando necessário */
-}.categoryList li { display: flex; align-items: center; gap: 10px; background-color: var(--fundo-secundario); padding: 10px; border-radius: 6px; margin-bottom: 8px; }
-.typeLabel { font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; color: white; }
-.income { background-color: var(--verde-destaque); color: black; }
-.expense { background-color: var(--vermelho-destaque); }
-.deleteButton { margin-left: auto; background: #555; border: none; color: white; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-/* Estilização da barra de rolagem para navegadores Webkit (Chrome, Safari, etc.) */
-.categoryList::-webkit-scrollbar {
-  width: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 10px;
 }
-.categoryList::-webkit-scrollbar-track {
-  background: var(--fundo-secundario);
-  border-radius: 4px;
+
+.categoryItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: transparent;
+  padding: 12px 5px;
+  border-radius: 6px;
+  margin-bottom: 2px;
+  transition: background-color 0.2s;
 }
-.categoryList::-webkit-scrollbar-thumb {
-  background: #555;
-  border-radius: 4px;
+
+.categoryItem:hover {
+  background-color: var(--fundo-secundario);
 }
-.categoryList::-webkit-scrollbar-thumb:hover {
-  background: #777;
+
+.typeLabel {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  color: white;
+  font-weight: 500;
+}
+
+.income {
+  background-color: var(--verde-destaque);
+  color: black;
+}
+
+.expense {
+  background-color: var(--vermelho-destaque);
+}
+
+.deleteButton {
+  margin-left: auto;
+  background: #444;
+  border: none;
+  color: var(--texto-secundario);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  opacity: 0.5;
+}
+
+.categoryItem:hover .deleteButton {
+  opacity: 1;
+}
+
+.deleteButton:hover {
+  background-color: var(--vermelho-destaque);
+  color: white;
 }

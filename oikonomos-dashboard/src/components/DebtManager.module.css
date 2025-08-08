@@ -1,4 +1,4 @@
-/* src/components/DebtManager.module.css */
+/* src/components/DebtManager.module.css (Versão Corrigida) */
 .container {
   padding: 10px;
 }
@@ -12,13 +12,8 @@
   align-items: center;
   margin-bottom: 20px;
 }
-.form input, .form select {
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid var(--borda-sutil);
-  background-color: var(--fundo-primario);
-  color: var(--texto-principal);
-}
+/* A regra para .form input foi REMOVIDA para herdar do index.css */
+
 .addButton {
   background-color: var(--acento-azul);
   color: white;

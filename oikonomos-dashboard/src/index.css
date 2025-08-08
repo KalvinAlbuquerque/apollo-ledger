@@ -61,3 +61,41 @@ body {
   background-color: #555;
   color: white;
 }
+
+/* Remove as setas de incrementar/decrementar de todos os inputs numéricos */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield; /* Para Firefox */
+  appearance: textfield;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="date"],
+input[type="email"],
+input[type="password"],
+select {
+  /* --- MUDANÇA PRINCIPAL ABAIXO --- */
+  background-color: var(--fundo-secundario); /* Fundo um pouco mais claro para destacar */
+  border: 1px solid var(--borda-sutil);       /* Borda sutil para definir a forma */
+  /* ---------------------------------- */
+  
+  color: var(--texto-principal);
+  border-radius: 6px;
+  padding: 10px 12px; /* Padronizando o preenchimento */
+  font-size: 0.95rem; /* Padronizando o tamanho da fonte */
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+/* Regra para quando um campo está em FOCO (continua a mesma) */
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--acento-azul);
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+}

@@ -1,8 +1,9 @@
-/* src/components/GoalManager.module.css (Versão Final) */
+/* src/components/GoalManager.module.css (Versão Corrigida) */
 .container { padding: 10px; }
 .container h2 { margin-top: 0; }
 .form { display: grid; grid-template-columns: 2fr 1fr auto; gap: 15px; align-items: center; margin-bottom: 25px; }
-.form input { padding: 8px; border-radius: 6px; border: 1px solid var(--borda-sutil); background-color: var(--fundo-primario); color: var(--texto-principal); }
+/* A regra para .form input foi REMOVIDA para herdar do index.css */
+
 .addButton { background-color: var(--acento-azul); color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; height: 100%; }
 
 .goalList {
@@ -10,44 +11,38 @@
   flex-direction: column;
   gap: 12px;
 }
-
 .goalItem {
   background-color: var(--fundo-secundario);
   padding: 15px 20px;
   border-radius: 8px;
-  display: flex; /* Alinha o conteúdo e os botões */
+  display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
   border: 1px solid var(--borda-sutil);
 }
-
 .goalInfo {
-  flex-grow: 1; /* Faz esta área ocupar o máximo de espaço possível */
+  flex-grow: 1;
 }
-
 .goalName {
   font-weight: bold;
   font-size: 1.1rem;
   margin-bottom: 10px;
   display: block;
 }
-
 .progressLabels { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--texto-secundario); margin-bottom: 5px; }
 .progressBar { width: 100%; height: 14px; background-color: var(--fundo-primario); border-radius: 7px; overflow: hidden; }
 .progressFill { height: 100%; background-color: var(--verde-destaque); border-radius: 7px; transition: width 0.5s ease-in-out; }
 
-/* EFEITO DE HOVER NOS BOTÕES DE AÇÃO */
 .actionButtons {
   display: flex;
   gap: 10px;
-  opacity: 0; /* Começa invisível */
+  opacity: 0;
   transition: opacity 0.2s ease-in-out;
 }
 .goalItem:hover .actionButtons {
-  opacity: 1; /* Fica visível no hover do item inteiro */
+  opacity: 1;
 }
-/* ---------------------------------- */
 
 .contributeButton { background-color: var(--verde-destaque); color: black; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: bold; }
 .deleteButton { background-color: #555; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
@@ -60,6 +55,6 @@
   margin: 0;
 }
 .form input[type=number] {
-  -moz-appearance: textfield; /* Para Firefox */
-  appearance: textfield; /* Padrão, para compatibilidade */
+  -moz-appearance: textfield;
+  appearance: textfield;
 }

@@ -11,9 +11,6 @@ function SummaryChart({ chartData, title }) {
   const options = {
     responsive: true,
     plugins: {
-      legend: {
-        position: 'top', // Posição da legenda
-      },
       title: {
         display: true,
         text: title,
@@ -21,7 +18,8 @@ function SummaryChart({ chartData, title }) {
         font: { size: 16 }
       },
       legend: {
-        labels: { color: '#A0A0A0' } // Cor da legenda
+        position: 'top', // Propriedade da primeira
+        labels: { color: '#A0A0A0' } // Propriedade da segunda
       }
     },
   };

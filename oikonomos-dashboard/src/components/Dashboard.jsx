@@ -13,6 +13,7 @@ import DebtManager from './DebtManager';
 import GoalManager from './GoalManager';
 
 // Estilos
+import { showConfirmationToast } from '../utils/toastUtils.jsx'; 
 import styles from './Dashboard.module.css';
 
 function Dashboard({ user }) {
@@ -91,33 +92,6 @@ function Dashboard({ user }) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const showConfirmationToast = (onConfirm, message = "Você tem certeza?") => {
-    toast(
-      (t) => (
-        <div className="confirmationToast">
-          <span>{message}</span>
-          <div className="toastButtons">
-            <button
-              className="confirmButton"
-              onClick={() => {
-                onConfirm(); // Executa a ação de apagar
-                toast.dismiss(t.id); // Fecha o toast
-              }}
-            >
-              Confirmar
-            </button>
-            <button className="cancelButton" onClick={() => toast.dismiss(t.id)}>
-              Cancelar
-            </button>
-          </div>
-        </div>
-      ),
-      {
-        duration: Infinity, // O toast não some sozinho
-      }
-    );
   };
 
   const formatDate = (date) => date.toISOString().split('T')[0];

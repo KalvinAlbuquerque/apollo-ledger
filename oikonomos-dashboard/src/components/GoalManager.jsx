@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import { collection, query, where, getDocs, addDoc, deleteDoc, updateDoc, doc, increment, Timestamp } from 'firebase/firestore';
 import styles from './GoalManager.module.css';
 import ContributeModal from './ContributeModal'; 
+import { showConfirmationToast } from '../utils/toastUtils.jsx'; 
+
 // Função auxiliar para formatar números como moeda
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
@@ -98,15 +100,19 @@ function GoalManager({fetchData}) {
   };
 
 
-  const handleDeleteGoal = async (goalId) => {
-    if (!window.confirm("Tem certeza que deseja apagar esta meta?")) return;
+  const handleDeleteGoal = (goalId) => {
+  const deleteAction = async () => {
     try {
       await deleteDoc(doc(db, "goals", goalId));
       fetchGoals();
+      toast.success("Meta excluída!");
     } catch (error) {
       console.error("Erro ao apagar meta:", error);
+      toast.error("Falha ao excluir meta.");
     }
   };
+  showConfirmationToast(deleteAction, "Apagar esta meta?");
+};
 
   if (loading) return <p>Carregando metas...</p>;
 
