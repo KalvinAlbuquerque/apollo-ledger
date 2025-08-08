@@ -1,0 +1,89 @@
+/* src/components/Dashboard.module.css */
+
+.dashboard {
+  max-width: 1200px;
+  margin: 40px auto;
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+  border-bottom: 1px solid var(--cinza-borda);
+  padding-bottom: 20px;
+}
+
+.header h1 {
+  font-size: 2rem;
+  margin: 0;
+}
+
+.header p {
+  margin: 0;
+  color: var(--texto-secundario);
+}
+
+.logoutButton {
+  background-color: var(--vermelho-destaque);
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.logoutButton:hover {
+  transform: scale(1.05);
+}
+
+.mainContent {
+  display: grid;
+  grid-template-columns: 1fr 2fr; /* 1/3 para o gráfico, 2/3 para a tabela */
+  gap: 40px;
+  align-items: flex-start;
+}
+
+.chartContainer {
+  background-color: var(--cinza-elemento);
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.transactionsContainer h2 {
+  margin-top: 0;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--cinza-elemento);
+  border-radius: 12px;
+  overflow: hidden; /* Garante que o border-radius funcione na tabela */
+}
+
+.table th, .table td {
+  padding: 15px;
+  text-align: left;
+}
+
+.table thead {
+  background-color: #252525; /* Um cinza um pouco mais escuro para o cabeçalho */
+}
+
+.table tbody tr {
+  border-bottom: 1px solid var(--cinza-borda);
+}
+
+.table tbody tr:last-child {
+  border-bottom: none;
+}
+
+/* Estilo para a categoria com a cor roxa */
+.table td:nth-child(2) {
+  color: var(--acento-azul);
+  font-weight: 500;
+}

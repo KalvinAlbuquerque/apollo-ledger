@@ -1,20 +1,17 @@
-// src/firebaseClient.js
+// oikonomos-dashboard/firebaseClient.js
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIza...",
-  authDomain: "oikonomos-app.firebaseapp.com",
-  projectId: "oikonomos-app",
-  storageBucket: "oikonomos-app.appspot.com",
-  messagingSenderId: "...",
-  appId: "1:..."
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-// Inicializa o Firebase
 const app = initializeApp(firebaseConfig);
-
-// Exporta os serviços que você vai usar
 export const auth = getAuth(app);
 export const db = getFirestore(app);

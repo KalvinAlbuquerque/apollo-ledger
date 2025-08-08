@@ -71,28 +71,47 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(welcome_message)
 
 async def handle_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Processa mensagens de texto para registrar despesas."""
+    """Processa mensagens de texto para registrar despesas, validando a categoria."""
     if not is_admin(update):
         print(f"Acesso negado para o chat ID: {update.effective_chat.id}")
         return
 
     text = update.message.text
-    # Regex para capturar valor, categoria e descrição
     match = re.match(r"^\s*(\d+[\.,]?\d*)\s+([\w\sáàâãéèêíïóôõöúçñ]+?)(?:\s+(.+))?$", text)
 
     if not match:
         await update.message.reply_text("Formato inválido. Use: <valor> <categoria> [descrição]")
         return
 
-    value_str, category_name, description = match.groups()
-    
+    # --- LÓGICA ATUALIZADA ---
+
     try:
-        # Converte o valor para float, aceitando tanto ponto quanto vírgula
-        amount = float(value_str.replace(',', '.'))
+        # ETAPA 1: Buscar as categorias válidas do usuário no Firestore.
+        categories_ref = db.collection('categories').where('userId', '==', FIREBASE_USER_ID).stream()
+        valid_categories = [doc.to_dict()['name'] for doc in categories_ref]
+
+        if not valid_categories:
+            await update.message.reply_text("Você ainda não cadastrou nenhuma categoria. Adicione categorias no dashboard web primeiro.")
+            return
+
+        # ETAPA 2: Extrair os dados da mensagem e validar a categoria.
+        value_str, category_name, description = match.groups()
         category_name = category_name.strip().lower()
+
+        if category_name not in valid_categories:
+            # ETAPA 3: Se a categoria for inválida, avise o usuário e liste as opções.
+            available_cats_text = "\n- ".join(valid_categories)
+            error_message = (
+                f"❌ Categoria '{category_name}' não encontrada.\n\n"
+                f"Categorias disponíveis:\n- {available_cats_text}"
+            )
+            await update.message.reply_text(error_message)
+            return
+
+        # Se a categoria for VÁLIDA, o código continua como antes.
+        amount = float(value_str.replace(',', '.'))
         description = description.strip() if description else None
 
-        # Monta o objeto da despesa
         expense_data = {
             'amount': amount,
             'category': category_name,
@@ -101,15 +120,13 @@ async def handle_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
             'userId': FIREBASE_USER_ID
         }
         
-        # Adiciona o novo documento à coleção 'transactions'
         db.collection('transactions').add(expense_data)
         
         await update.message.reply_text(f"✅ Despesa de R$ {amount:.2f} na categoria '{category_name}' registrada!")
 
     except Exception as e:
-        print(f"Erro ao processar despesa ou inserir no Firebase: {e}")
-        await update.message.reply_text("❌ Ocorreu um erro ao salvar sua despesa.")
-
+        print(f"Erro ao processar despesa ou buscar categorias: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro interno. Verifique o log do servidor.")
 
 # --- 3. CONFIGURAÇÃO DO SERVIDOR WEB (FLASK) PARA DEPLOY ---
 
