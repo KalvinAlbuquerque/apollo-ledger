@@ -4,7 +4,7 @@ import { signOut } from 'firebase/auth';
 import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore'; 
 
 // Componentes filhos
-import SummaryChart from './SummaryChart'; 
+import SummaryChart from './SummaryChart';
 import EditModal from './EditModal';
 import CategoryManager from './CategoryManager';
 
@@ -18,7 +18,7 @@ function Dashboard({ user }) {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
-  const [currentChartIndex, setCurrentChartIndex] = useState(0);
+  const [currentChartIndex, setCurrentChartIndex] = useState(0); // Estado para o carrossel
 
   // Busca inicial dos dados
   const fetchData = async () => {
@@ -33,6 +33,7 @@ function Dashboard({ user }) {
       const catSnapshot = await getDocs(catQuery);
       const catData = catSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setCategories(catData);
+
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
     } finally {
@@ -44,9 +45,7 @@ function Dashboard({ user }) {
     fetchData();
   }, [user]);
 
-  // HOOK DE MEMORIZAÇÃO PARA TODOS OS CÁLCULOS
-  // Processa os dados para os resumos e os 3 gráficos de uma só vez.
-  // Só será recalculado quando a lista de 'transactions' mudar.
+  // Hook de memorização para todos os cálculos
   const summaryData = useMemo(() => {
     const income = transactions.filter(tx => tx.type === 'income');
     const expenses = transactions.filter(tx => tx.type === 'expense' || !tx.type);
@@ -89,6 +88,7 @@ function Dashboard({ user }) {
     return { totalIncome, totalExpense, balance, expenseChartData, incomeChartData, balanceChartData };
   }, [transactions]);
 
+  // Lógica do Carrossel de Gráficos
   const charts = [
     { title: "Gastos por Categoria", data: summaryData.expenseChartData },
     { title: "Origem das Rendas", data: summaryData.incomeChartData },
@@ -102,18 +102,46 @@ function Dashboard({ user }) {
   const goToPrevChart = () => {
     setCurrentChartIndex(prevIndex => (prevIndex - 1 + charts.length) % charts.length);
   };
-
-
+  
   // Funções de Ação
   const handleLogout = () => signOut(auth);
-  const handleDelete = async (transactionId) => { /* ... (função igual a anterior) */ };
-  const handleOpenEditModal = (transaction) => { /* ... (função igual a anterior) */ };
-  const handleCloseModal = () => { /* ... (função igual a anterior) */ };
-  const handleSaveTransaction = async (updatedData) => { /* ... (função igual a anterior) */ };
+
+  const handleDelete = async (transactionId) => {
+    if (!window.confirm("Tem certeza que deseja excluir esta transação?")) return;
+    try {
+      await deleteDoc(doc(db, "transactions", transactionId));
+      fetchData();
+    } catch (error) {
+      console.error("Erro ao excluir transação:", error);
+      alert("Ocorreu um erro ao excluir a transação.");
+    }
+  };
+
+  const handleOpenEditModal = (transaction) => {
+    setEditingTransaction(transaction);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingTransaction(null);
+  };
+
+  const handleSaveTransaction = async (updatedData) => {
+    if (!editingTransaction) return;
+    try {
+      const transactionDocRef = doc(db, "transactions", editingTransaction.id);
+      await updateDoc(transactionDocRef, updatedData);
+      handleCloseModal();
+      fetchData();
+    } catch (error) {
+      console.error("Erro ao atualizar transação:", error);
+      alert("Falha ao salvar as alterações.");
+    }
+  };
 
   if (loading) return <div>Carregando suas finanças...</div>;
 
-  // Renderização do Componente
   return (
     <>
       <div className={styles.dashboard}>
@@ -149,7 +177,6 @@ function Dashboard({ user }) {
                 <button onClick={goToNextChart}>&gt;</button>
               </div>
             </div>
-            {/* Renderiza o gráfico atual com base no índice */}
             <SummaryChart chartData={charts[currentChartIndex].data} />
           </div>
 
