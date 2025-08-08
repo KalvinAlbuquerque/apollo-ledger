@@ -156,3 +156,53 @@
   border-radius: 12px;
   border: 1px solid #2c2c2c;
 }
+
+.mainContent {
+  display: flex;
+  flex-direction: column; /* Organiza em coluna */
+  gap: 40px;
+}
+
+.chartsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Grid responsivo */
+  gap: 20px;
+}
+
+chartHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.chartTitle {
+  margin: 0;
+  font-weight: 500;
+  color: var(--texto-principal);
+}
+
+.navButtons {
+  display: flex;
+  gap: 10px;
+}
+
+.navButtons button {
+  background-color: #333;
+  color: var(--texto-principal);
+  border: 1px solid var(--borda-sutil);
+  border-radius: 50%; /* Deixa os botões redondos */
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.navButtons button:hover {
+  background-color: #444;
+}
+

@@ -7,8 +7,7 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 // É necessário registrar os componentes do Chart.js que vamos usar
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-function ExpenseChart({ chartData }) {
-  // Opções para customizar a aparência e comportamento do gráfico
+function SummaryChart({ chartData, title }) { 
   const options = {
     responsive: true,
     plugins: {
@@ -17,12 +16,17 @@ function ExpenseChart({ chartData }) {
       },
       title: {
         display: true,
-        text: 'Gastos por Categoria',
+        text: title,
+        color: '#E0E0E0',
+        font: { size: 16 }
       },
+      legend: {
+        labels: { color: '#A0A0A0' } // Cor da legenda
+      }
     },
   };
 
   return <Doughnut data={chartData} options={options} />;
 }
 
-export default ExpenseChart;
+export default SummaryChart;
