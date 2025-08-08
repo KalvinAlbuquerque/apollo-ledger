@@ -53,16 +53,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(welcome_message)
 
 async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
-    """Processa e salva uma despesa, validando a categoria sem diferenciar acentos."""
+    """Processa e salva uma despesa, validando contra categorias do tipo 'expense'."""
     try:
-        categories_ref = db.collection('categories').where('userId', '==', FIREBASE_USER_ID).stream()
-        # Guarda as categorias originais com acento
+        # --- MUDANÇA CRUCIAL: Adicionado filtro por 'type' ---
+        categories_ref = db.collection('categories').where('userId', '==', FIREBASE_USER_ID).where('type', '==', 'expense').stream()
+        
         original_categories = [doc.to_dict()['name'] for doc in categories_ref]
-        # Cria uma lista normalizada para comparação
         valid_categories_normalized = [normalize_text(name) for name in original_categories]
 
         if not original_categories:
-            await update.message.reply_text("Cadastre categorias no dashboard web primeiro.")
+            await update.message.reply_text("Você não tem nenhuma categoria de DESPESA cadastrada.")
             return
         
         expense_text = " ".join(text_parts)
@@ -77,41 +77,35 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
 
         if category_name_normalized not in valid_categories_normalized:
             available_cats_text = "\n- ".join(original_categories)
-            error_message = f"❌ Categoria '{category_name_input}' não encontrada.\n\nCategorias disponíveis:\n- {available_cats_text}"
+            error_message = f"❌ Categoria de DESPESA '{category_name_input}' não encontrada.\n\nCategorias de despesa disponíveis:\n- {available_cats_text}"
             await update.message.reply_text(error_message)
             return
 
-        # Encontra a categoria original correspondente para salvar com o acento correto
         match_index = valid_categories_normalized.index(category_name_normalized)
         correct_category_name = original_categories[match_index]
 
         amount = float(value_str.replace(',', '.'))
         description = description.strip() if description else None
         
-        expense_data = {
-            'type': 'expense',
-            'amount': amount,
-            'category': correct_category_name, # Salva o nome com acento
-            'description': description,
-            'createdAt': firestore.SERVER_TIMESTAMP,
-            'userId': FIREBASE_USER_ID
-        }
+        expense_data = { 'type': 'expense', 'amount': amount, 'category': correct_category_name, 'description': description, 'createdAt': firestore.SERVER_TIMESTAMP, 'userId': FIREBASE_USER_ID }
         db.collection('transactions').add(expense_data)
         await update.message.reply_text(f"💸 Gasto de R$ {amount:.2f} na categoria '{correct_category_name}' registrado!")
 
     except Exception as e:
         print(f"Erro ao processar despesa: {e}")
         await update.message.reply_text("❌ Ocorreu um erro interno ao processar o gasto.")
-        
+
 async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
-    """Processa e salva uma renda, validando a categoria sem diferenciar acentos."""
+    """Processa e salva uma renda, validando contra categorias do tipo 'income'."""
     try:
-        categories_ref = db.collection('categories').where('userId', '==', FIREBASE_USER_ID).stream()
+        # --- MUDANÇA CRUCIAL: Adicionado filtro por 'type' ---
+        categories_ref = db.collection('categories').where('userId', '==', FIREBASE_USER_ID).where('type', '==', 'income').stream()
+
         original_categories = [doc.to_dict()['name'] for doc in categories_ref]
         valid_categories_normalized = [normalize_text(name) for name in original_categories]
 
         if not original_categories:
-            await update.message.reply_text("Cadastre categorias no dashboard web primeiro.")
+            await update.message.reply_text("Você não tem nenhuma categoria de RENDA cadastrada.")
             return
             
         if len(text_parts) < 2:
@@ -124,7 +118,7 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
 
         if source_normalized not in valid_categories_normalized:
             available_cats_text = "\n- ".join(original_categories)
-            error_message = f"❌ Origem de renda '{source_input}' não encontrada.\n\nOpções disponíveis:\n- {available_cats_text}"
+            error_message = f"❌ Origem de RENDA '{source_input}' não encontrada.\n\nCategorias de renda disponíveis:\n- {available_cats_text}"
             await update.message.reply_text(error_message)
             return
 
@@ -133,14 +127,7 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
 
         amount = float(value_str.replace(',', '.'))
         
-        income_data = {
-            'type': 'income',
-            'amount': amount,
-            'category': correct_source_name,
-            'description': None,
-            'createdAt': firestore.SERVER_TIMESTAMP,
-            'userId': FIREBASE_USER_ID
-        }
+        income_data = { 'type': 'income', 'amount': amount, 'category': correct_source_name, 'description': None, 'createdAt': firestore.SERVER_TIMESTAMP, 'userId': FIREBASE_USER_ID }
         db.collection('transactions').add(income_data)
         await update.message.reply_text(f"💰 Renda de R$ {amount:.2f} da origem '{correct_source_name}' registrada!")
 
@@ -149,7 +136,6 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
     except Exception as e:
         print(f"Erro ao processar renda: {e}")
         await update.message.reply_text("❌ Ocorreu um erro interno ao processar a renda.")
-
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Função principal que recebe todas as mensagens e decide o que fazer."""
     if not is_admin(update): return
