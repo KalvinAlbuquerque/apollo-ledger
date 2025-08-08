@@ -3,14 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../../firebaseClient';
 import { signOut } from 'firebase/auth';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import ExpenseChart from './ExpenseChart'; // 1. IMPORTE O NOVO COMPONENTE
-import styles from './Dashboard.module.css'; 
-import CategoryManager from './CategoryManager'; 
+// <<< 1. IMPORTS ATUALIZADOS
+import { collection, query, where, orderBy, getDocs, doc, deleteDoc } from 'firebase/firestore'; 
+import ExpenseChart from './ExpenseChart';
+import styles from './Dashboard.module.css';
+
 function Dashboard({ user }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [chartData, setChartData] = useState(null); // 2. NOVO ESTADO PARA O GRÁFICO
+  const [chartData, setChartData] = useState(null);
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -21,15 +22,9 @@ function Dashboard({ user }) {
           orderBy("createdAt", "desc")
         );
         const querySnapshot = await getDocs(q);
-        const transactionsData = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
+        const transactionsData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setTransactions(transactionsData);
-
-        // 3. LÓGICA PARA PROCESSAR OS DADOS PARA O GRÁFICO
         processDataForChart(transactionsData);
-
       } catch (error) {
         console.error("Erro ao buscar transações:", error);
       } finally {
@@ -40,34 +35,19 @@ function Dashboard({ user }) {
     const processDataForChart = (transactions) => {
       const categoryTotals = {};
       transactions.forEach(tx => {
-        // Se a categoria já existe no objeto, soma o valor. Se não, cria.
         categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount;
       });
-
-      // Pega os nomes das categorias e os totais
       const labels = Object.keys(categoryTotals);
       const data = Object.values(categoryTotals);
-
-      // Prepara o objeto final para o Chart.js
       setChartData({
         labels: labels,
-        datasets: [
-          {
-            label: 'Gastos R$',
-            data: data,
-            backgroundColor: [
-              '#4A90E2', // Azul Principal (igual ao da categoria)
-              '#50E3C2', // Verde Água
-              '#B8E986', // Verde Claro
-              '#9013FE', // Roxo Vibrante
-              '#F5A623', // Laranja
-              '#BD10E0', // Magenta
-              '#7ED321', // Verde Limão
-            ],
-            borderColor: 'var(--cinza-elemento)', // Borda sutil entre as fatias
-            borderWidth: 2,
-          },
-        ],
+        datasets: [{
+          label: 'Gastos R$',
+          data: data,
+          backgroundColor: [ '#4A90E2', '#50E3C2', '#B8E986', '#9013FE', '#F5A623', '#BD10E0', '#7ED321' ],
+          borderColor: 'var(--cinza-elemento)',
+          borderWidth: 2,
+        }],
       });
     };
 
@@ -77,6 +57,21 @@ function Dashboard({ user }) {
   }, [user]);
 
   const handleLogout = () => signOut(auth);
+
+  // <<< 2. NOVA FUNÇÃO DE EXCLUSÃO
+  const handleDelete = async (transactionId) => {
+    if (!window.confirm("Tem certeza que deseja excluir esta transação? A ação não pode ser desfeita.")) {
+      return;
+    }
+    try {
+      const transactionDocRef = doc(db, "transactions", transactionId);
+      await deleteDoc(transactionDocRef);
+      setTransactions(prevTransactions => prevTransactions.filter(tx => tx.id !== transactionId));
+    } catch (error) {
+      console.error("Erro ao excluir transação:", error);
+      alert("Ocorreu um erro ao excluir a transação.");
+    }
+  };
 
   if (loading) return <div>Carregando suas finanças...</div>;
 
@@ -104,6 +99,7 @@ function Dashboard({ user }) {
                 <th>Categoria</th>
                 <th>Descrição</th>
                 <th>Valor (R$)</th>
+                <th>Ações</th> {/* <<< 3. NOVA COLUNA NO CABEÇALHO */}
               </tr>
             </thead>
             <tbody>
@@ -114,25 +110,25 @@ function Dashboard({ user }) {
                     <td>{tx.category}</td>
                     <td>{tx.description || '-'}</td>
                     <td>{tx.amount.toFixed(2)}</td>
+                    {/* <<< 4. NOVA CÉLULA COM O BOTÃO DE EXCLUIR */}
+                    <td>
+                      <button onClick={() => handleDelete(tx.id)} className={styles.deleteButton}>
+                        Excluir
+                      </button>
+                    </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="4">Nenhuma transação encontrada.</td>
+                  <td colSpan="5">Nenhuma transação encontrada.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       </main>
-
-      <section style={{ marginTop: '40px' }}>
-        <CategoryManager />
-      </section>
     </div>
-    
   );
 }
-
 
 export default Dashboard;

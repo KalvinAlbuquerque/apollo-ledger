@@ -87,3 +87,17 @@
   color: var(--acento-azul);
   font-weight: 500;
 }
+
+.deleteButton {
+  background-color: #555;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.deleteButton:hover {
+  background-color: var(--vermelho-destaque);
+}
