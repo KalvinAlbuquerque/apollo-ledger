@@ -7,20 +7,21 @@ import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc }
 import SummaryChart from './SummaryChart';
 import EditModal from './EditModal';
 import CategoryManager from './CategoryManager';
+import BudgetManager from './BudgetManager';
+import BudgetStatus from './BudgetStatus';
 
 // Estilos
 import styles from './Dashboard.module.css';
 
 function Dashboard({ user }) {
-  // Estados
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
-  const [currentChartIndex, setCurrentChartIndex] = useState(0); // Estado para o carrossel
+  const [currentChartIndex, setCurrentChartIndex] = useState(0);
 
-  // Busca inicial dos dados
   const fetchData = async () => {
     if (!user) return;
     try {
@@ -33,6 +34,13 @@ function Dashboard({ user }) {
       const catSnapshot = await getDocs(catQuery);
       const catData = catSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setCategories(catData);
+      
+      const currentMonth = new Date().getMonth() + 1;
+      const currentYear = new Date().getFullYear();
+      const budgetQuery = query(collection(db, "budgets"), where("userId", "==", user.uid), where("month", "==", currentMonth), where("year", "==", currentYear));
+      const budgetSnapshot = await getDocs(budgetQuery);
+      const budgetData = budgetSnapshot.docs.map(doc => doc.data());
+      setBudgets(budgetData);
 
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
@@ -41,15 +49,11 @@ function Dashboard({ user }) {
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, [user]);
+  useEffect(() => { fetchData(); }, [user]);
 
-  // Hook de memorização para todos os cálculos
   const summaryData = useMemo(() => {
     const income = transactions.filter(tx => tx.type === 'income');
     const expenses = transactions.filter(tx => tx.type === 'expense' || !tx.type);
-
     const totalIncome = income.reduce((acc, tx) => acc + tx.amount, 0);
     const totalExpense = expenses.reduce((acc, tx) => acc + tx.amount, 0);
     const balance = totalIncome - totalExpense;
@@ -70,10 +74,8 @@ function Dashboard({ user }) {
             }],
         };
     };
-
     const expenseChartData = processDataForChart(expenses, 'Gastos R$');
     const incomeChartData = processDataForChart(income, 'Rendas R$');
-    
     const balanceChartData = {
         labels: ['Rendas', 'Despesas'],
         datasets: [{
@@ -85,58 +87,55 @@ function Dashboard({ user }) {
         }],
     };
 
-    return { totalIncome, totalExpense, balance, expenseChartData, incomeChartData, balanceChartData };
-  }, [transactions]);
+    const expenseByCategory = {};
+    expenses.forEach(tx => {
+      expenseByCategory[tx.category] = (expenseByCategory[tx.category] || 0) + tx.amount;
+    });
 
-  // Lógica do Carrossel de Gráficos
+    const budgetProgress = budgets.map(budget => ({
+      category: budget.categoryName,
+      spent: expenseByCategory[budget.categoryName] || 0,
+      budget: budget.amount,
+    })).filter(b => b.budget > 0);
+    
+    return { totalIncome, totalExpense, balance, expenseChartData, incomeChartData, balanceChartData, budgetProgress };
+  }, [transactions, budgets]);
+
   const charts = [
     { title: "Gastos por Categoria", data: summaryData.expenseChartData },
     { title: "Origem das Rendas", data: summaryData.incomeChartData },
     { title: "Rendas vs. Despesas", data: summaryData.balanceChartData }
   ];
 
-  const goToNextChart = () => {
-    setCurrentChartIndex(prevIndex => (prevIndex + 1) % charts.length);
-  };
-
-  const goToPrevChart = () => {
-    setCurrentChartIndex(prevIndex => (prevIndex - 1 + charts.length) % charts.length);
-  };
+  const goToNextChart = () => setCurrentChartIndex(prev => (prev + 1) % charts.length);
+  const goToPrevChart = () => setCurrentChartIndex(prev => (prev - 1 + charts.length) % charts.length);
   
-  // Funções de Ação
   const handleLogout = () => signOut(auth);
-
   const handleDelete = async (transactionId) => {
-    if (!window.confirm("Tem certeza que deseja excluir esta transação?")) return;
+    if (!window.confirm("Tem certeza?")) return;
     try {
       await deleteDoc(doc(db, "transactions", transactionId));
       fetchData();
     } catch (error) {
       console.error("Erro ao excluir transação:", error);
-      alert("Ocorreu um erro ao excluir a transação.");
     }
   };
-
   const handleOpenEditModal = (transaction) => {
     setEditingTransaction(transaction);
     setIsModalOpen(true);
   };
-
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingTransaction(null);
   };
-
   const handleSaveTransaction = async (updatedData) => {
     if (!editingTransaction) return;
     try {
-      const transactionDocRef = doc(db, "transactions", editingTransaction.id);
-      await updateDoc(transactionDocRef, updatedData);
+      await updateDoc(doc(db, "transactions", editingTransaction.id), updatedData);
       handleCloseModal();
       fetchData();
     } catch (error) {
       console.error("Erro ao atualizar transação:", error);
-      alert("Falha ao salvar as alterações.");
     }
   };
 
@@ -146,52 +145,30 @@ function Dashboard({ user }) {
     <>
       <div className={styles.dashboard}>
         <header className={styles.header}>
-          <div>
-            <h1>Dashboard Oikonomos</h1>
-            <p>Olá, {user.email}</p>
-          </div>
+          <div><h1>Dashboard Oikonomos</h1><p>Olá, {user.email}</p></div>
           <button onClick={handleLogout} className={styles.logoutButton}>Sair</button>
         </header>
 
         <section className={styles.summary}>
-          <div>
-            <h4>Total de Rendas</h4>
-            <p className={styles.incomeAmount}>R$ {summaryData.totalIncome.toFixed(2)}</p>
-          </div>
-          <div>
-            <h4>Total de Despesas</h4>
-            <p className={styles.expenseAmount}>R$ {summaryData.totalExpense.toFixed(2)}</p>
-          </div>
-          <div>
-            <h4>Saldo Atual</h4>
-            <p>R$ {summaryData.balance.toFixed(2)}</p>
-          </div>
+          <div><h4>Total de Rendas</h4><p className={styles.incomeAmount}>R$ {summaryData.totalIncome.toFixed(2)}</p></div>
+          <div><h4>Total de Despesas</h4><p className={styles.expenseAmount}>R$ {summaryData.totalExpense.toFixed(2)}</p></div>
+          <div><h4>Saldo Atual</h4><p>R$ {summaryData.balance.toFixed(2)}</p></div>
         </section>
+
+        <section className={styles.managerSection}><BudgetStatus budgetProgress={summaryData.budgetProgress} /></section>
 
         <main className={styles.mainContent}>
           <div className={styles.chartContainer}>
             <div className={styles.chartHeader}>
               <h3 className={styles.chartTitle}>{charts[currentChartIndex].title}</h3>
-              <div className={styles.navButtons}>
-                <button onClick={goToPrevChart}>&lt;</button>
-                <button onClick={goToNextChart}>&gt;</button>
-              </div>
+              <div className={styles.navButtons}><button onClick={goToPrevChart}>&lt;</button><button onClick={goToNextChart}>&gt;</button></div>
             </div>
             <SummaryChart chartData={charts[currentChartIndex].data} />
           </div>
-
           <div className={styles.transactionsContainer}>
             <h2>Suas Transações</h2>
             <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Categoria</th>
-                  <th>Descrição</th>
-                  <th>Valor (R$)</th>
-                  <th>Ações</th>
-                </tr>
-              </thead>
+              <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor (R$)</th><th>Ações</th></tr></thead>
               <tbody>
                 {transactions.length > 0 ? (
                   transactions.map(tx => (
@@ -199,36 +176,23 @@ function Dashboard({ user }) {
                       <td>{tx.createdAt ? tx.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</td>
                       <td>{tx.category}</td>
                       <td>{tx.description || '-'}</td>
-                      <td className={tx.type === 'income' ? styles.incomeAmount : styles.expenseAmount}>
-                        {tx.type === 'income' ? '+ ' : '- '}R$ {tx.amount.toFixed(2)}
-                      </td>
+                      <td className={tx.type === 'income' ? styles.incomeAmount : styles.expenseAmount}>{tx.type === 'income' ? '+ ' : '- '}R$ {tx.amount.toFixed(2)}</td>
                       <td>
                         <button onClick={() => handleOpenEditModal(tx)} className={styles.editButton}>Editar</button>
                         <button onClick={() => handleDelete(tx.id)} className={styles.deleteButton}>Excluir</button>
                       </td>
                     </tr>
                   ))
-                ) : (
-                  <tr><td colSpan="5">Nenhuma transação encontrada.</td></tr>
-                )}
+                ) : ( <tr><td colSpan="5">Nenhuma transação encontrada.</td></tr> )}
               </tbody>
             </table>
           </div>
         </main>
         
-        <section className={styles.managerSection}>
-            <CategoryManager />
-        </section>
+        <section className={styles.managerSection}><BudgetManager /></section>
+        <section className={styles.managerSection}><CategoryManager /></section>
       </div>
-
-      {isModalOpen && (
-        <EditModal 
-          transaction={editingTransaction}
-          onSave={handleSaveTransaction}
-          onCancel={handleCloseModal}
-          categories={categories}
-        />
-      )}
+      {isModalOpen && (<EditModal transaction={editingTransaction} onSave={handleSaveTransaction} onCancel={handleCloseModal} categories={categories} />)}
     </>
   );
 }
