@@ -107,14 +107,28 @@ def index():
 
 @app.route("/api/bot", methods=['POST'])
 def webhook():
+    """Processa webhooks do Telegram com o ciclo de vida completo."""
+
+    # Cria uma função interna assíncrona para lidar com o ciclo de vida
+    async def handle_update():
+        # Deserializa os dados da requisição para um objeto Update
+        update = Update.de_json(request.get_json(), ptb_app.bot)
+        
+        # 1. LIGA o bot
+        await ptb_app.initialize()
+        # 2. PROCESSA a mensagem
+        await ptb_app.process_update(update)
+        # 3. DESLIGA o bot
+        await ptb_app.shutdown()
+
     try:
-        update_data = request.get_json()
-        update = Update.de_json(update_data, ptb_app.bot)
-        asyncio.run(ptb_app.process_update(update))
-        return {"status": "ok"}, 200
+        # Executa a função assíncrona completa
+        asyncio.run(handle_update())
+        return "ok", 200
     except Exception as e:
+        # Captura qualquer erro que aconteça no processo
         print(f"Erro no webhook: {e}")
-        return {"status": "error"}, 500
+        return "error", 500
 
 # --- 4. BLOCO DE EXECUÇÃO LOCAL ---
 
