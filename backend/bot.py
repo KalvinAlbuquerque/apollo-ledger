@@ -99,8 +99,8 @@ async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
         }
         db.collection('transactions').add(saving_expense_data)
         
-        # Busca os dados atualizados para a mensagem de confirmação
-        updated_goal_doc = await goal_doc_ref.get() # .get() precisa de await
+        # Busca os dados atualizados para a mensagem de confirmação (SEM AWAIT)
+        updated_goal_doc = goal_doc_ref.get()
         updated_data = updated_goal_doc.to_dict()
         saved = updated_data.get('savedAmount', 0)
         target = updated_data.get('targetAmount', 0)
@@ -116,7 +116,7 @@ async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
         await update.message.reply_text(f"Valor inválido: '{value_str}'.")
     except Exception as e:
         print(f"Erro ao processar poupança: {e}")
-        await update.message.reply_text("❌ Ocorreu um erro interno.")
+        await update.message.reply_text("❌ Ocorreu um erro interno ao processar a contribuição.")
         
 async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
     """Processa e salva uma despesa, e retorna o status detalhado e intuitivo do orçamento."""
