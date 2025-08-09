@@ -275,11 +275,14 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         await update.message.reply_text("❌ Ocorreu um erro interno ao processar o gasto.")
 
 async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
-    """Processa e salva uma renda, separando a origem da descrição opcional."""
+    """Processa e salva uma renda, separando a origem da descrição e ignorando acentos."""
     try:
         # 1. Busca as categorias de renda válidas
         categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'income')).stream()
+        
+        # Guarda as categorias originais (com acento) e uma lista normalizada para comparação
         original_categories = [doc.to_dict()['name'] for doc in categories_ref]
+        valid_categories_normalized = [normalize_text(name) for name in original_categories]
 
         if not original_categories:
             await update.message.reply_text("Você não tem nenhuma categoria de RENDA cadastrada.")
@@ -292,21 +295,22 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
         value_str = text_parts[0]
         potential_source_and_desc = text_parts[1:]
 
-        # 2. Lógica para encontrar a categoria e a descrição
-        found_category = None
+        # 2. Lógica de busca normalizada para encontrar a categoria
+        found_category_original = None
         category_word_count = 0
 
-        # Tenta encontrar a maior combinação de palavras que corresponde a uma categoria
-        # Ex: "vale alimentação" (2 palavras) deve ser encontrado antes de "vale" (1 palavra)
         for i in range(len(potential_source_and_desc), 0, -1):
-            potential_category = " ".join(potential_source_and_desc[:i]).lower()
-            if potential_category in original_categories:
-                found_category = potential_category
+            potential_category_input = " ".join(potential_source_and_desc[:i])
+            potential_category_normalized = normalize_text(potential_category_input)
+            
+            if potential_category_normalized in valid_categories_normalized:
+                # Encontra o nome original correspondente para salvar com acento
+                match_index = valid_categories_normalized.index(potential_category_normalized)
+                found_category_original = original_categories[match_index]
                 category_word_count = i
                 break
         
-        if not found_category:
-            # Se não encontrou, mostra o erro
+        if not found_category_original:
             input_source = " ".join(potential_source_and_desc)
             available_cats_text = "\n- ".join(original_categories)
             error_message = f"❌ Origem de RENDA '{input_source}' não encontrada.\n\nCategorias de renda disponíveis:\n- {available_cats_text}"
@@ -320,14 +324,14 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
         income_data = {
             'type': 'income',
             'amount': amount,
-            'category': found_category,
-            'description': description, # <<< AGORA SALVAMOS A DESCRIÇÃO
+            'category': found_category_original, # Salva o nome com acento
+            'description': description,
             'createdAt': firestore.SERVER_TIMESTAMP,
             'userId': firebase_uid
         }
         db.collection('transactions').add(income_data)
         
-        reply_message = f"💰 Renda de R$ {amount:.2f} da origem '{found_category}' registrada!"
+        reply_message = f"💰 Renda de R$ {amount:.2f} da origem '{found_category_original}' registrada!"
         if description:
             reply_message += f"\nDescrição: {description}"
             
@@ -338,6 +342,7 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
     except Exception as e:
         print(f"Erro ao processar renda: {e}")
         await update.message.reply_text("❌ Ocorreu um erro interno ao processar a renda.")
+
         
 async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list,firebase_uid: str):
     """Processa uma contribuição para uma meta de poupança."""
