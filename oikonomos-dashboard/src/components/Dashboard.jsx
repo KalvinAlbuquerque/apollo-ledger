@@ -416,7 +416,9 @@ function Dashboard({ user }) {
         <section className={styles.managerSection}>
            <GoalManager fetchData={fetchData} />        
         </section>
-        <section className={styles.managerSection}><BudgetManager /></section>
+        <section className={styles.managerSection}>
+            <BudgetManager fetchData={fetchData} />
+        </section>        
         <section className={styles.managerSection}><CategoryManager /></section>
       </div>
       {isModalOpen && (<EditModal transaction={editingTransaction} onSave={handleSaveTransaction} onCancel={handleCloseModal} categories={categories} />)}

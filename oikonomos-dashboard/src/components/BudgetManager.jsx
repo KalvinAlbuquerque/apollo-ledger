@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../../firebaseClient';
 import { collection, query, where, getDocs, setDoc, doc } from 'firebase/firestore';
-import styles from './BudgetManager.module.css'; // Vamos criar este estilo
-import toast from 'react-hot-toast'; 
-function BudgetManager() {
+import toast from 'react-hot-toast'; // Importamos o toast
+import styles from './BudgetManager.module.css';
+
+function BudgetManager({ fetchData }) { // <<< 1. RECEBE A FUNÇÃO fetchData
   const [expenseCategories, setExpenseCategories] = useState([]);
-  const [budgets, setBudgets] = useState({}); // Objeto para guardar os orçamentos: { categoria: valor }
+  const [budgets, setBudgets] = useState({});
   const [loading, setLoading] = useState(true);
 
   const user = auth.currentUser;
@@ -17,15 +18,13 @@ function BudgetManager() {
   useEffect(() => {
     if (!user) return;
 
-    const fetchData = async () => {
+    const fetchInitialData = async () => {
       setLoading(true);
-      // 1. Buscar apenas as categorias de despesa
       const catQuery = query(collection(db, "categories"), where("userId", "==", user.uid), where("type", "==", "expense"));
       const catSnapshot = await getDocs(catQuery);
       const catData = catSnapshot.docs.map(doc => doc.data().name);
       setExpenseCategories(catData);
 
-      // 2. Buscar os orçamentos já definidos para o mês atual
       const budgetQuery = query(collection(db, "budgets"), where("userId", "==", user.uid), where("month", "==", currentMonth), where("year", "==", currentYear));
       const budgetSnapshot = await getDocs(budgetQuery);
       const budgetData = {};
@@ -37,7 +36,7 @@ function BudgetManager() {
       setLoading(false);
     };
 
-    fetchData();
+    fetchInitialData();
   }, [user]);
 
   const handleBudgetChange = (categoryName, amount) => {
@@ -45,16 +44,14 @@ function BudgetManager() {
     setBudgets(prev => ({ ...prev, [categoryName]: newAmount }));
   };
 
- const handleSaveBudgets = async () => {
+  const handleSaveBudgets = async () => {
     if (!user) return;
     
-    // Mostra um toast de "carregando" enquanto salva
     const savePromise = new Promise(async (resolve, reject) => {
         const savePromises = expenseCategories.map(categoryName => {
             const budgetAmount = budgets[categoryName] || 0;
             const docId = `${user.uid}-${currentYear}-${currentMonth}-${categoryName}`;
             const budgetDocRef = doc(db, "budgets", docId);
-
             return setDoc(budgetDocRef, {
                 userId: user.uid,
                 categoryName: categoryName,
@@ -68,19 +65,18 @@ function BudgetManager() {
             await Promise.all(savePromises);
             resolve();
         } catch (error) {
-            console.error("Erro ao salvar orçamentos:", error);
             reject(error);
         }
     });
 
-    // 2. SUBSTITUA OS ALERTS POR ESTA LÓGICA DE TOAST
     toast.promise(savePromise, {
         loading: 'Salvando orçamentos...',
         success: 'Orçamentos salvos com sucesso!',
         error: 'Falha ao salvar orçamentos.',
+    }).then(() => {
+        fetchData(); // <<< 2. CHAMA A FUNÇÃO PARA ATUALIZAR O DASHBOARD
     });
   };
-
   
   if (loading) return <p>Carregando orçamentos...</p>;
 

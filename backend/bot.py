@@ -9,6 +9,7 @@ import calendar
 
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
+from google.cloud.firestore_v1.base_query import FieldFilter
 from dotenv import load_dotenv
 from flask import Flask, request
 from telegram import Update
@@ -121,7 +122,7 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
     """Processa e salva uma despesa, e retorna o status detalhado e intuitivo do orçamento."""
     try:
         # --- Parte 1: Validação da Categoria (sem alterações) ---
-        categories_ref = db.collection('categories').where('userId', '==', 'firebase_uid').where('type', '==', 'expense').stream()
+        categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).stream()
         original_categories = [doc.to_dict()['name'] for doc in categories_ref]
         valid_categories_normalized = [normalize_text(name) for name in original_categories]
 
@@ -161,14 +162,14 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         current_month = today.month
         current_year = today.year
 
-        budget_query = db.collection('budgets').where('userId', '==', firebase_uid).where('categoryName', '==', correct_category_name).where('month', '==', current_month).where('year', '==', current_year).limit(1).stream()
+        budget_query = db.collection('budgets').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('categoryName', '==', correct_category_name)).where(filter=FieldFilter('month', '==', current_month)).where(filter=FieldFilter('year', '==', current_year)).limit(1).stream()        
         budget_doc = next(budget_query, None)
         
         if budget_doc and budget_doc.to_dict().get('amount', 0) > 0:
             budget_amount = budget_doc.to_dict().get('amount', 0)
             
             start_of_month = datetime(current_year, current_month, 1)
-            all_month_expenses_query = db.collection('transactions').where('userId', '==', firebase_uid).where('type', '==', 'expense').where('category', '==', correct_category_name).where('createdAt', '>=', start_of_month).stream()
+            all_month_expenses_query = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).where(filter=FieldFilter('category', '==', correct_category_name)).where(filter=FieldFilter('createdAt', '>=', start_of_month)).stream()            
             total_spent_this_month = sum(doc.to_dict().get('amount', 0) for doc in all_month_expenses_query)
             remaining_budget_month = budget_amount - total_spent_this_month
             
@@ -178,7 +179,7 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
             allowance_before_spend = (remaining_budget_month + amount) / days_remaining if days_remaining > 0 else 0
 
             start_of_day = today.replace(hour=0, minute=0, second=0, microsecond=0)
-            today_expenses_query = db.collection('transactions').where('userId', '==', firebase_uid).where('type', '==', 'expense').where('category', '==', correct_category_name).where('createdAt', '>=', start_of_day).stream()
+            today_expenses_query = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).where(filter=FieldFilter('category', '==', correct_category_name)).where(filter=FieldFilter('createdAt', '>=', start_of_day)).stream()            
             total_spent_today = sum(doc.to_dict().get('amount', 0) for doc in today_expenses_query)
 
             budget_feedback = f"\n\n*Resumo de Hoje ({correct_category_name}):*"
@@ -220,8 +221,7 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
     """Processa e salva uma renda, validando contra categorias do tipo 'income'."""
     try:
         # --- MUDANÇA CRUCIAL: Adicionado filtro por 'type' ---
-        categories_ref = db.collection('categories').where('userId', '==', firebase_uid).where('type', '==', 'income').stream()
-
+        categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'income')).stream()
         original_categories = [doc.to_dict()['name'] for doc in categories_ref]
         valid_categories_normalized = [normalize_text(name) for name in original_categories]
 
@@ -269,7 +269,7 @@ async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
         goal_name_input = " ".join(text_parts[1:]).strip()
         goal_name_normalized = normalize_text(goal_name_input)
         
-        goals_ref = db.collection('goals').where('userId', '==', firebase_uid).stream()
+        goals_ref = db.collection('goals').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()        
         user_goals = list(goals_ref)
         
         found_goal = None
@@ -396,7 +396,7 @@ def run_recurrence_check():
 
             print(f"Verificando recorrências para o usuário: {firebase_uid}")
             today = datetime.now(timezone.utc)
-            query = db.collection('scheduled_transactions').where('userId', '==', firebase_uid).where('isRecurring', '==', True).where('status', '==', 'paid').stream()
+            query = db.collection('scheduled_transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('isRecurring', '==', True)).where(filter=FieldFilter('status', '==', 'paid')).stream()            
             
             user_created_count = 0
             for paid_doc in query:
@@ -408,7 +408,7 @@ def run_recurrence_check():
                 while next_due_date < today: next_due_date += relativedelta(months=1)
 
                 next_month_start = next_due_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-                next_month_query = db.collection('scheduled_transactions').where('userId', '==', firebase_uid).where('description', '==', paid_data['description']).where('categoryName', '==', paid_data['categoryName']).where('dueDate', '>=', next_month_start).limit(1).stream()
+                next_month_query = db.collection('scheduled_transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('description', '==', paid_data['description'])).where(filter=FieldFilter('categoryName', '==', paid_data['categoryName'])).where(filter=FieldFilter('dueDate', '>=', next_month_start)).limit(1).stream()                
                 
                 if not next(next_month_query, None):
                     new_scheduled_transaction = {"userId": firebase_uid, "description": paid_data['description'],"amount": paid_data['amount'],"categoryName": paid_data['categoryName'],"dueDate": next_due_date,"status": "pending","isRecurring": True}
