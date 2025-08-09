@@ -275,39 +275,63 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         await update.message.reply_text("❌ Ocorreu um erro interno ao processar o gasto.")
 
 async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
-    """Processa e salva uma renda, validando contra categorias do tipo 'income'."""
+    """Processa e salva uma renda, separando a origem da descrição opcional."""
     try:
-        # --- MUDANÇA CRUCIAL: Adicionado filtro por 'type' ---
+        # 1. Busca as categorias de renda válidas
         categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'income')).stream()
         original_categories = [doc.to_dict()['name'] for doc in categories_ref]
-        valid_categories_normalized = [normalize_text(name) for name in original_categories]
 
         if not original_categories:
             await update.message.reply_text("Você não tem nenhuma categoria de RENDA cadastrada.")
             return
             
         if len(text_parts) < 2:
-            await update.message.reply_text("Formato de renda inválido. Use: <saldo/renda> <valor> <origem>")
+            await update.message.reply_text("Formato de renda inválido. Use: <saldo/renda> <valor> <origem> [descrição]")
             return
             
         value_str = text_parts[0]
-        source_input = " ".join(text_parts[1:]).strip()
-        source_normalized = normalize_text(source_input)
+        potential_source_and_desc = text_parts[1:]
 
-        if source_normalized not in valid_categories_normalized:
+        # 2. Lógica para encontrar a categoria e a descrição
+        found_category = None
+        category_word_count = 0
+
+        # Tenta encontrar a maior combinação de palavras que corresponde a uma categoria
+        # Ex: "vale alimentação" (2 palavras) deve ser encontrado antes de "vale" (1 palavra)
+        for i in range(len(potential_source_and_desc), 0, -1):
+            potential_category = " ".join(potential_source_and_desc[:i]).lower()
+            if potential_category in original_categories:
+                found_category = potential_category
+                category_word_count = i
+                break
+        
+        if not found_category:
+            # Se não encontrou, mostra o erro
+            input_source = " ".join(potential_source_and_desc)
             available_cats_text = "\n- ".join(original_categories)
-            error_message = f"❌ Origem de RENDA '{source_input}' não encontrada.\n\nCategorias de renda disponíveis:\n- {available_cats_text}"
+            error_message = f"❌ Origem de RENDA '{input_source}' não encontrada.\n\nCategorias de renda disponíveis:\n- {available_cats_text}"
             await update.message.reply_text(error_message)
             return
 
-        match_index = valid_categories_normalized.index(source_normalized)
-        correct_source_name = original_categories[match_index]
-
+        # 3. Se encontrou, o que sobrar é a descrição
+        description = " ".join(potential_source_and_desc[category_word_count:]).strip() or None
         amount = float(value_str.replace(',', '.'))
         
-        income_data = { 'type': 'income', 'amount': amount, 'category': correct_source_name, 'description': None, 'createdAt': firestore.SERVER_TIMESTAMP, 'userId': firebase_uid }
+        income_data = {
+            'type': 'income',
+            'amount': amount,
+            'category': found_category,
+            'description': description, # <<< AGORA SALVAMOS A DESCRIÇÃO
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'userId': firebase_uid
+        }
         db.collection('transactions').add(income_data)
-        await update.message.reply_text(f"💰 Renda de R$ {amount:.2f} da origem '{correct_source_name}' registrada!")
+        
+        reply_message = f"💰 Renda de R$ {amount:.2f} da origem '{found_category}' registrada!"
+        if description:
+            reply_message += f"\nDescrição: {description}"
+            
+        await update.message.reply_text(reply_message)
 
     except ValueError:
         await update.message.reply_text(f"Valor inválido: '{value_str}'. O valor deve ser um número.")
