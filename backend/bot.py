@@ -72,7 +72,7 @@ async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_manual(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str):
     """Envia uma mensagem de ajuda com todos os comandos disponíveis."""
     manual_text = """
-        *Manual de Comandos Oikonomos* 📖
+    *Manual de Comandos Oikonomos* 📖
 
         Aqui estão todos os comandos que eu entendo. Lembre-se que as categorias, origens e metas devem ser cadastradas primeiro no seu dashboard web!
 
@@ -113,9 +113,19 @@ async def send_manual(update: Update, context: ContextTypes.DEFAULT_TYPE, fireba
 
         ---
 
+        *Para SACAR dinheiro de uma META:*
+        Use a palavra-chave `sacar`. O valor sacado será adicionado como uma renda na categoria de renda que você especificar.
+
+        `sacar <valor> <nome da meta> para <categoria de renda>`
+
+        *Exemplo:*
+        `sacar 50 fundo de emergencia para outras rendas`
+
+        ---
+
         *Para ver este manual novamente:*
         Basta enviar `?` a qualquer momento.
-            """
+    """
     await update.message.reply_text(manual_text.strip(), parse_mode='Markdown')
 
 async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
@@ -322,6 +332,82 @@ async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
     except Exception as e:
         print(f"Erro ao processar poupança: {e}")
         await update.message.reply_text("❌ Ocorreu um erro interno ao processar a contribuição.")
+        
+        
+        
+        
+async def process_withdrawal(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
+    """Processa um saque de uma meta de poupança, transferindo o valor para uma categoria de renda."""
+    try:
+        # 1. Parse do comando: sacar <valor> <meta> para <categoria>
+        # Ex: ['100', 'fundo', 'de', 'emergencia', 'para', 'salário']
+        if 'para' not in text_parts:
+            await update.message.reply_text("Formato inválido. Use: sacar <valor> <nome da meta> para <categoria de renda>")
+            return
+
+        para_index = text_parts.index('para')
+        value_str = text_parts[0]
+        goal_name_input = " ".join(text_parts[1:para_index]).strip()
+        income_category_input = " ".join(text_parts[para_index+1:]).strip()
+
+        if not all([value_str, goal_name_input, income_category_input]):
+             await update.message.reply_text("Formato inválido. Faltam informações. Use: sacar <valor> <meta> para <categoria>")
+             return
+
+        amount = float(value_str.replace(',', '.'))
+        
+        # 2. Valida a meta de poupança
+        goal_name_normalized = normalize_text(goal_name_input)
+        goals_ref = db.collection('goals').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
+        user_goals = list(goals_ref)
+        found_goal = next((g for g in user_goals if normalize_text(g.to_dict().get('goalName', '')) == goal_name_normalized), None)
+
+        if not found_goal:
+            await update.message.reply_text(f"❌ Meta '{goal_name_input}' não encontrada.")
+            return
+
+        # Valida se há saldo suficiente na meta
+        saved_amount = found_goal.to_dict().get('savedAmount', 0)
+        if saved_amount < amount:
+            await update.message.reply_text(f"❌ Saldo insuficiente na meta '{goal_name_input}'. Você tem R$ {saved_amount:.2f} e tentou sacar R$ {amount:.2f}.")
+            return
+
+        # 3. Valida a categoria de renda
+        income_category_normalized = normalize_text(income_category_input)
+        categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'income')).stream()
+        income_categories = list(categories_ref)
+        found_income_category = next((c for c in income_categories if normalize_text(c.to_dict().get('name', '')) == income_category_normalized), None)
+        
+        if not found_income_category:
+            available_cats_text = "\n- ".join([c.to_dict().get('name') for c in income_categories])
+            await update.message.reply_text(f"❌ Categoria de renda '{income_category_input}' não encontrada.\n\nCategorias de renda disponíveis:\n- {available_cats_text}")
+            return
+
+        # 4. Executa as operações no banco de dados
+        # Ação A: Subtrai o valor da meta usando 'increment' com valor negativo
+        goal_doc_ref = db.collection('goals').document(found_goal.id)
+        goal_doc_ref.update({'savedAmount': firestore.firestore.Increment(-amount)})
+        
+        # Ação B: Adiciona uma nova transação de RENDA
+        income_transaction_data = {
+            'type': 'income',
+            'amount': amount,
+            'category': found_income_category.to_dict().get('name'),
+            'description': f"Saque da meta: {found_goal.to_dict().get('goalName')}",
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'userId': firebase_uid
+        }
+        db.collection('transactions').add(income_transaction_data)
+
+        await update.message.reply_text(f"✅ Saque de R$ {amount:.2f} da meta '{found_goal.to_dict().get('goalName')}' realizado e adicionado à renda '{found_income_category.to_dict().get('name')}'.")
+
+    except ValueError:
+        await update.message.reply_text(f"Valor inválido: '{value_str}'. O valor deve ser um número.")
+    except Exception as e:
+        print(f"Erro ao processar saque: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro interno ao processar o saque.")
+        
+        
 # --- 5. ORQUESTRADOR PRINCIPAL ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Função principal que recebe todas as mensagens e decide o que fazer."""
@@ -346,6 +432,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await process_expense(update, context, parts[1:], firebase_uid)
         elif command == 'guardar':
             await process_saving(update, context, parts[1:], firebase_uid)
+        elif command == 'sacar': # <<< NOVA CONDIÇÃO AQUI
+            await process_withdrawal(update, context, parts[1:], firebase_uid)
         else:
             await process_expense(update, context, parts, firebase_uid)
     else:
