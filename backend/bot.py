@@ -9,7 +9,7 @@ import unicodedata
 import calendar
 from dotenv import load_dotenv
 from flask import Flask, request
-from datetime import datetime
+from datetime import datetime, timezone
 from firebase_admin import credentials, firestore
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
@@ -159,7 +159,7 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         base_reply = f"💸 Gasto de R$ {amount:.2f} na categoria '{correct_category_name}' registrado!"
         
         # --- Parte 3: LÓGICA DE FEEDBACK REESTRUTURADA ---
-        today = datetime.now()
+        today = datetime.now(timezone.utc)
         current_month = today.month
         current_year = today.year
 
@@ -331,7 +331,9 @@ def run_recurrence_check():
 
     print("Iniciando verificação de recorrência...")
     try:
-        today = datetime.now()
+        # <<< CORREÇÃO APLICADA AQUI
+        today = datetime.now(timezone.utc)
+        
         query = db.collection('scheduled_transactions').where('userId', '==', FIREBASE_USER_ID).where('isRecurring', '==', True).where('status', '==', 'paid').stream()
         
         created_count = 0
@@ -340,6 +342,10 @@ def run_recurrence_check():
             last_due_date = paid_data['dueDate']
             next_due_date = last_due_date + relativedelta(months=1)
             
+            # Garante que a data de vencimento futura também seja 'aware'
+            if next_due_date.tzinfo is None:
+                next_due_date = next_due_date.replace(tzinfo=timezone.utc)
+
             while next_due_date < today:
                 next_due_date += relativedelta(months=1)
 
@@ -352,7 +358,7 @@ def run_recurrence_check():
                     "description": paid_data['description'],
                     "amount": paid_data['amount'],
                     "categoryName": paid_data['categoryName'],
-                    "dueDate": firestore.Timestamp.from_datetime(next_due_date), # <<< CORREÇÃO APLICADA
+                    "dueDate": firestore.Timestamp.from_datetime(next_due_date),
                     "status": "pending",
                     "isRecurring": True,
                 }
@@ -366,6 +372,7 @@ def run_recurrence_check():
     except Exception as e:
         print(f"Erro no Cron Job: {e}")
         return f"Erro: {e}", 500
+
 # --- 4. BLOCO DE EXECUÇÃO LOCAL ---
 
 if __name__ == '__main__':
