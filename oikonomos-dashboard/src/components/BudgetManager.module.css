@@ -11,12 +11,29 @@
 }
 
 .budgetList {
-  display: flex; /* Muda para flexbox */
-  flex-direction: column; /* Organiza em uma coluna vertical */
-  gap: 12px; /* Espaçamento entre os itens */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin: 20px 0;
+  max-height: 250px; /* <<< Defina uma altura máxima (ajuste como preferir) */
+  overflow-y: auto;  /* <<< Adiciona a barra de rolagem vertical */
+  padding-right: 10px; /* <<< Espaço para a barra de rolagem não sobrepor o conteúdo */
 }
-
+/* Estilização da barra de rolagem para navegadores Webkit (Chrome, etc.) */
+.budgetList::-webkit-scrollbar {
+  width: 8px;
+}
+.budgetList::-webkit-scrollbar-track {
+  background: var(--fundo-secundario);
+  border-radius: 4px;
+}
+.budgetList::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 4px;
+}
+.budgetList::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
 .budgetItem {
   background-color: var(--fundo-secundario);
   padding: 15px 20px;
