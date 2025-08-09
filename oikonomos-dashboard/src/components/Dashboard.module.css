@@ -1,30 +1,32 @@
+/* ==========================================================================
+   Estilos Principais do Dashboard (Desktop)
+   ========================================================================== */
+
 .dashboard {
   max-width: 1200px;
   margin: 40px auto;
   padding: 20px;
 }
 
+/* --- Header --- */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 40px;
-  border-bottom: 1px solid #2c2c2c;
+  border-bottom: 1px solid var(--borda-sutil);
   padding-bottom: 20px;
 }
-
 .header h1 {
   font-size: 2rem;
   margin: 0;
 }
-
 .header p {
   margin: 0;
-  color: #A0A0A0;
+  color: var(--texto-secundario);
 }
-
 .logoutButton {
-  background-color: #FF1D58;
+  background-color: var(--vermelho-destaque);
   color: #fff;
   border: none;
   padding: 10px 20px;
@@ -33,254 +35,57 @@
   cursor: pointer;
   transition: transform 0.2s ease;
 }
-
 .logoutButton:hover {
   transform: scale(1.05);
 }
 
+/* --- Resumo Financeiro --- */
 .summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
-  margin-bottom: 40px;
+  margin-bottom: 20px;
   text-align: center;
 }
-
 .summary > div {
-  background-color: #1E1E1E;
+  background-color: var(--cinza-elemento);
   padding: 20px;
   border-radius: 12px;
-  border: 1px solid #2c2c2c;
+  border: 1px solid var(--borda-sutil);
 }
-
 .summary h4 {
   margin: 0 0 10px 0;
-  color: #A0A0A0;
+  color: var(--texto-secundario);
   font-weight: 500;
 }
-
 .summary p {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 700;
 }
-
 .incomeAmount {
-  color: #39FF14;
+  color: var(--verde-destaque);
 }
-
 .expenseAmount {
-  color: #FF1D58;
+  color: var(--vermelho-destaque);
 }
 
-.mainContent {
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-  margin-top: 40px;
-}
-
-
-
-.chartWrapper {
-  background-color: var(--cinza-elemento);
-  padding: 20px;
-  border-radius: 12px;
-  border: 1px solid var(--borda-sutil);
-  /* height: 400px; <<< LINHA REMOVIDA */
-  display: flex;
-  flex-direction: column;
-  min-height: 400px; /* Usamos uma altura mínima para manter a estética */
-}
-
-.chartCanvasContainer {
-  position: relative; /* Essencial para o Chart.js se posicionar corretamente */
-  flex-grow: 1; /* A mágica está aqui: faz este container ocupar todo o espaço vertical restante */
-}
-/* NOVO CONTAINER PARA OS CONTROLES DO GRÁFICO DE LINHA */
-.lineChartControls {
-    display: flex;
-    gap: 20px;
-    margin-bottom: 20px;
-    padding: 10px;
-    background-color: var(--fundo-secundario);
-    border-radius: 8px;
-}
-
-.lineChartControls label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-}
-
-.transactionsContainer h2 {
-  margin-top: 0;
-}
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  background-color: #1E1E1E;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.table th, .table td {
-  padding: 15px;
-  text-align: left;
-}
-
-.table thead {
-  background-color: #252525;
-}
-
-.table tbody tr {
-  border-bottom: 1px solid #2c2c2c;
-}
-
-.table tbody tr:last-child {
-  border-bottom: none;
-}
-
-.table td:nth-child(2) {
-  color: #4A90E2;
-  font-weight: 500;
-}
-
-.editButton {
-  background-color: #4A90E2;
-  color: white;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  margin-right: 5px;
-}
-
-.editButton:hover {
-  opacity: 0.8;
-}
-
-.deleteButton {
-  background-color: #555;
-  color: white;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 0.8rem;
-}
-
-.deleteButton:hover {
-  background-color: #FF1D58;
-}
-
-.managerSection {
-  margin-top: 40px;
-  padding: 20px;
-  background-color: #1E1E1E;
-  border-radius: 12px;
-  border: 1px solid #2c2c2c;
-}
-
-.mainContent {
-  display: flex;
-  flex-direction: column; /* Organiza em coluna */
-  gap: 40px;
-}
-
-.chartsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Grid responsivo */
-  gap: 20px;
-}
-
-chartHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.chartTitle {
-  margin: 0;
-  font-weight: 500;
-  color: var(--texto-principal);
-}
-
-.navButtons {
-  display: flex;
-  gap: 10px;
-}
-
-.navButtons button {
-  background-color: #333;
-  color: var(--texto-principal);
-  border: 1px solid var(--borda-sutil);
-  border-radius: 50%; /* Deixa os botões redondos */
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-weight: bold;
-  transition: background-color 0.2s;
-}
-
-.navButtons button:hover {
-  background-color: #444;
-}
-
-/* Adicione ao final de Dashboard.module.css */
-
+/* --- Seção de Filtros (Desktop) --- */
 .filterSection {
   background-color: var(--cinza-elemento);
   padding: 15px 20px;
   border-radius: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 40px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 20px;
 }
-
 .filterGroup {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
-.filterGroup label {
-  color: var(--texto-secundario);
-  font-size: 0.9rem;
-}
-
-.filterGroup input[type="date"],
-.filterGroup select {
-  background-color: var(--fundo-primario);
-  color: var(--texto-principal);
-  border: 1px solid var(--borda-sutil);
-  border-radius: 6px;
-  padding: 8px;
-}
-
-.filterButton {
-  background-color: var(--acento-azul);
-  color: white;
-  border: none;
-  padding: 8px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-  margin-left: auto; /* Empurra o botão para a direita */
-}
-
-.filterButton:hover {
-  opacity: 0.8;
-}
-
 .quickFilters {
   display: flex;
   align-items: center;
@@ -289,7 +94,6 @@ chartHeader {
   padding-left: 20px;
   margin-left: 10px;
 }
-
 .quickFilters button {
   background-color: #333;
   color: var(--texto-secundario);
@@ -300,12 +104,10 @@ chartHeader {
   cursor: pointer;
   transition: all 0.2s;
 }
-
 .quickFilters button:hover {
   background-color: #444;
   color: var(--texto-principal);
 }
-
 .tooltip {
   display: inline-block;
   width: 20px;
@@ -319,18 +121,156 @@ chartHeader {
   cursor: help;
   margin-left: 10px;
 }
+.filterButton {
+  margin-left: auto; /* Empurra o botão "Filtrar" para a direita */
+}
 
-.lineChartContainer {
+/* --- Conteúdo Principal (Gráficos e Tabela) --- */
+.mainContent {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+/* Layout dos Gráficos Lado a Lado (Desktop) */
+.chartsContainer {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 40px;
+  align-items: stretch; 
+}
+.chartWrapper {
   background-color: var(--cinza-elemento);
   padding: 20px;
   border-radius: 12px;
   border: 1px solid var(--borda-sutil);
-  height: 400px; /* Define uma altura fixa para o gráfico de linha */
+  display: flex;
+  flex-direction: column;
+}
+.chartHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.chartTitle {
+  margin: 0;
+  font-weight: 500;
+}
+.navButtons {
+  display: flex;
+  gap: 10px;
+}
+.navButtons button {
+  background-color: #333;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-principal);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+.navButtons button:hover {
+  background-color: #444;
+}
+.chartCanvasContainer {
+  position: relative;
+  flex-grow: 1;
+}
+
+/* --- Tabela de Transações --- */
+.transactionsContainer h2 {
+  margin-top: 0;
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--cinza-elemento);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.table th, .table td {
+  padding: 15px;
+  text-align: left;
+}
+.table thead {
+  background-color: #252525;
+}
+.table tbody tr {
+  border-bottom: 1px solid var(--borda-sutil);
+}
+.table tbody tr:last-child {
+  border-bottom: none;
+}
+.table td:nth-child(2) {
+  color: #4A90E2;
+  font-weight: 500;
+}
+.editButton, .deleteButton {
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.editButton {
+  background-color: #4A90E2;
+  color: white;
+  margin-right: 5px;
+}
+.deleteButton {
+  background-color: #555;
+  color: white;
+}
+.editButton:hover { opacity: 0.8; }
+.deleteButton:hover { background-color: var(--vermelho-destaque); }
+
+/* --- Seções de Gerenciadores --- */
+.managerSection {
+  margin-top: 40px;
+  padding: 20px;
+  background-color: #1E1E1E;
+  border-radius: 12px;
+  border: 1px solid #2c2c2c;
+}
+
+.budgetStatusSection {
+  margin-bottom: 40px;
 }
 
 
-/* --- REGRAS DE RESPONSIVIDADE --- */
-/* Estilos aplicados quando a tela tem 768px de largura ou menos */
+  .filterButton {
+    background-color: var(--acento-azul);
+    color: white;
+    border: none;
+    padding: 10px 25px; /* Aumenta um pouco o padding para mais destaque */
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-left: auto; /* Mantém o alinhamento à direita no desktop */
+    transition: opacity 0.2s;
+  }
+
+.filterButton:hover {
+  opacity: 0.8;
+}
+
+.doughnutChartWrapper {
+  aspect-ratio: 1 / 1; /* Força o container a ser um quadrado */
+  max-height: 450px;   /* Define uma altura máxima para não ficar gigante */
+  justify-self: center; /* Centraliza o card na sua coluna do grid */
+}
+
+
+/* ==========================================================================
+   Estilos Responsivos (Mobile)
+   ========================================================================== */
 @media (max-width: 768px) {
   .dashboard {
     padding: 15px;
@@ -341,55 +281,68 @@ chartHeader {
     grid-template-columns: 1fr;
   }
 
+  .filterSection {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+  .quickFilters {
+    padding-left: 0;
+    margin-left: 0;
+    border-left: none;
+    width: 100%;
+    justify-content: center;
+  }
+  .filterButton {
+    background-color: var(--acento-azul);
+    color: white;
+    border: none;
+    padding: 10px 25px; /* Aumenta um pouco o padding para mais destaque */
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.9rem;
+    margin-left: auto; /* Mantém o alinhamento à direita no desktop */
+    transition: opacity 0.2s;
+  }
+
+.filterButton:hover {
+  opacity: 0.8;
+}
+
   .chartsContainer {
     grid-template-columns: 1fr;
   }
   
-  .mainContent {
-    gap: 20px;
-    margin-top: 20px;
+  .chartWrapper {
+    min-height: 320px;
+    height: auto;
   }
 
-  /* --- REGRAS DA TABELA RESPONSIVA AQUI DENTRO --- */
-  
-  /* Esconde o cabeçalho da tabela em telas pequenas */
   .table thead {
     display: none;
   }
-
-  /* Transforma a tabela, corpo, linhas e células em blocos */
   .table, .table tbody, .table tr, .table td {
     display: block;
     width: 100%;
   }
-
-  /* Estilo do "Card" para cada linha */
   .table tr {
     margin-bottom: 15px;
-    background-color: var(--fundo-secundario);
-    border-radius: 8px;
-    border: 1px solid var(--borda-sutil);
     padding: 10px;
   }
-
-  /* Transforma cada célula em uma linha, com a etiqueta antes */
   .table td {
-    text-align: right; /* Alinha o valor à direita */
+    text-align: right;
     position: relative;
-    padding-left: 50%; /* Espaço para a etiqueta */
+    padding-left: 50%;
     border-bottom: 1px solid var(--borda-sutil);
     padding-top: 10px;
     padding-bottom: 10px;
   }
-
-  /* Remove a borda da última célula de cada card */
   .table tr td:last-child {
     border-bottom: none;
   }
-
-  /* A mágica acontece aqui: adiciona as etiquetas */
   .table td::before {
-    content: attr(data-label); /* Pega o texto da etiqueta do atributo data-label */
+    content: attr(data-label);
     position: absolute;
     left: 10px;
     width: 45%;
@@ -399,37 +352,4 @@ chartHeader {
     color: var(--texto-secundario);
     text-transform: capitalize;
   }
-  /* --- FIM DAS REGRAS DA TABELA --- */
 }
-
-.chartWrapper {
-  min-height: 320px;
-  height: auto; /* Deixa a altura ser automática no mobile */
-}
-
-/* Adicione estas regras DENTRO de @media (max-width: 768px) */
-/* em Dashboard.module.css */
-
-  .filterSection {
-    flex-direction: column; /* Empilha os itens do filtro */
-    align-items: stretch;   /* Faz os itens ocuparem a largura total */
-    gap: 15px;              /* Ajusta o espaçamento vertical */
-  }
-
-  .filterGroup {
-    justify-content: space-between; /* Espaça o label e o input */
-  }
-
-  .quickFilters {
-    padding-left: 0;
-    margin-left: 0;
-    border-left: none; /* Remove a linha divisória no mobile */
-    width: 100%;
-    justify-content: center; /* Centraliza os botões rápidos */
-  }
-
-  .filterButton {
-    margin-left: 0; /* Remove a margem do botão de filtrar */
-    width: 100%; /* Faz o botão de filtrar ocupar a largura toda */
-    margin-top: 10px;
-  }

@@ -337,7 +337,9 @@ function Dashboard({ user }) {
           </div>
           <button onClick={fetchData} className={styles.filterButton}>Filtrar</button>
         </section>
-        <section className={styles.managerSection}><BudgetStatus budgetProgress={summaryData.budgetProgress} /></section>
+        <section className={`${styles.managerSection} ${styles.budgetStatusSection}`}>
+            <BudgetStatus budgetProgress={summaryData.budgetProgress} />
+        </section>
 
          <main className={styles.mainContent}>
       
@@ -357,7 +359,7 @@ function Dashboard({ user }) {
           </div>
 
           {/* Carrossel do Gráfico de Pizza/Rosca */}
-          <div className={styles.chartWrapper}>
+            <div className={`${styles.chartWrapper} ${styles.doughnutChartWrapper}`}>
               <div className={styles.chartHeader}>
                 <h3 className={styles.chartTitle}>{charts[currentChartIndex].title}</h3>
                 <div className={styles.navButtons}><button onClick={goToPrevChart}>&lt;</button><button onClick={goToNextChart}>&gt;</button></div>

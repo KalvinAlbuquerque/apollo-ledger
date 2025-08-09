@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { db, auth } from '../../firebaseClient';
 import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import styles from './DebtManager.module.css';
-
+import { showConfirmationToast } from '../utils/toastUtils.jsx';
 function DebtManager({ expenseCategories }) {
   const [debts, setDebts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,40 +63,46 @@ const [isRecurring, setIsRecurring] = useState(false);
     }
   };
 
-  const handleMarkAsPaid = async (debt) => {
-    if (!user) return;
-    try {
-      // 1. Cria uma transação real de despesa
-      await addDoc(collection(db, "transactions"), {
-        userId: user.uid,
-        amount: debt.amount,
-        category: debt.categoryName,
-        description: `Pagamento de: ${debt.description}`,
-        createdAt: Timestamp.now(), // Data de hoje, pois foi pago hoje
-        type: 'expense',
-      });
+  const handleMarkAsPaid = (debt) => {
+    const payAction = async () => {
+        try {
+            await addDoc(collection(db, "transactions"), {
+                userId: user.uid,
+                amount: debt.amount,
+                category: debt.categoryName,
+                description: `Pagamento de: ${debt.description}`,
+                createdAt: Timestamp.now(),
+                type: 'expense',
+            });
 
-      // 2. Atualiza o status da dívida para 'paid'
-      const debtDocRef = doc(db, "scheduled_transactions", debt.id);
-      await updateDoc(debtDocRef, { status: 'paid' });
+            const debtDocRef = doc(db, "scheduled_transactions", debt.id);
+            await updateDoc(debtDocRef, { status: 'paid' });
 
-      // 3. Remove da lista da tela
-      setDebts(prevDebts => prevDebts.filter(d => d.id !== debt.id));
-      alert(`'${debt.description}' marcada como paga e registrada como despesa!`);
-    } catch (error) {
-      console.error("Erro ao marcar como paga:", error);
-    }
-  };
+            fetchDebts(); // Re-busca as dívidas pendentes
+            toast.success(`'${debt.description}' foi paga e registrada como despesa!`);
+        } catch (error) {
+            console.error("Erro ao marcar como paga:", error);
+            toast.error("Ocorreu um erro ao registrar o pagamento.");
+        }
+    };
+    
+    showConfirmationToast(payAction, `Confirmar pagamento de ${debt.description}?`);
+};
 
-  const handleDeleteDebt = async (debtId) => {
-    if (!window.confirm("Tem certeza que deseja apagar esta conta agendada?")) return;
-    try {
-      await deleteDoc(doc(db, "scheduled_transactions", debtId));
-      fetchDebts();
-    } catch (error) {
-      console.error("Erro ao apagar dívida:", error);
-    }
-  };
+  const handleDeleteDebt = (debtId) => {
+    const deleteAction = async () => {
+        try {
+            await deleteDoc(doc(db, "scheduled_transactions", debtId));
+            fetchDebts();
+            toast.success("Conta agendada excluída com sucesso!");
+        } catch (error) {
+            console.error("Erro ao apagar dívida:", error);
+            toast.error("Falha ao excluir a conta agendada.");
+        }
+    };
+
+    showConfirmationToast(deleteAction, "Apagar esta conta agendada?");
+};
 
   if (loading) return <p>Carregando contas a pagar...</p>;
 
