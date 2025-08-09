@@ -217,6 +217,59 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
     except Exception as e:
         print(f"Erro ao processar despesa: {e}")
         await update.message.reply_text("❌ Ocorreu um erro interno ao processar o gasto.")
+        
+async def send_manual(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Envia uma mensagem de ajuda com todos os comandos disponíveis."""
+    if not is_admin(update): return
+
+    manual_text = """
+        *Manual de Comandos Oikonomos* 📖
+
+        Aqui estão todos os comandos que eu entendo. Lembre-se que as categorias, origens e metas devem ser cadastradas primeiro no seu dashboard web!
+
+        ---
+
+        *Para registrar um GASTO:*
+        Use a palavra-chave `gasto` ou simplesmente comece com o valor.
+
+        `gasto <valor> <categoria> [descrição]`
+        _ou_
+        `<valor> <categoria> [descrição]`
+
+        *Exemplos:*
+        `gasto 55,30 alimentação compras do mês`
+        `12 café`
+
+        ---
+
+        *Para registrar uma RENDA:*
+        Use as palavras-chave `renda` ou `saldo`.
+
+        `renda <valor> <origem>`
+        _ou_
+        `saldo <valor> <origem>`
+
+        *Exemplo:*
+        `renda 3000 salário`
+
+        ---
+
+        *Para GUARDAR dinheiro em uma META:*
+        Use a palavra-chave `guardar`.
+
+        `guardar <valor> <nome da meta>`
+
+        *Exemplo:*
+        `guardar 150 viagem de férias`
+
+        ---
+
+        *Para ver este manual novamente:*
+        Basta enviar `?` a qualquer momento.
+            """
+    # Usamos strip() para remover espaços em branco extras do início e fim
+    await update.message.reply_text(manual_text.strip(), parse_mode='Markdown')
+
 
 async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list):
     """Processa e salva uma renda, validando contra categorias do tipo 'income'."""
@@ -268,11 +321,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     parts = text.split()
     command = parts[0].lower()
 
-    if command in ['saldo', 'renda', 'ganhei']:
+    if command == '?': # <<< NOVA CONDIÇÃO AQUI
+        await send_manual(update, context)
+    elif command in ['saldo', 'renda', 'ganhei']:
         await process_income(update, context, parts[1:])
     elif command == 'gasto':
         await process_expense(update, context, parts[1:])
-    elif command == 'guardar': # <<< NOVA CONDIÇÃO AQUI
+    elif command == 'guardar':
         await process_saving(update, context, parts[1:])
     else:
         await process_expense(update, context, parts)
@@ -372,6 +427,8 @@ def run_recurrence_check():
     except Exception as e:
         print(f"Erro no Cron Job: {e}")
         return f"Erro: {e}", 500
+    
+
 
 # --- 4. BLOCO DE EXECUÇÃO LOCAL ---
 
