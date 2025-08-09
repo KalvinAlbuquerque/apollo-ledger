@@ -88,6 +88,28 @@
   background-color: var(--acento-azul);
 }
 
+.filterTabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--borda-sutil);
+}
+
+.filterTab {
+  background: transparent;
+  border: none;
+  color: var(--texto-secundario);
+  padding: 10px 15px;
+  cursor: pointer;
+  font-size: 1rem;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.activeTab {
+  color: var(--acento-azul);
+  border-bottom-color: var(--acento-azul);
+}
 
 @media (max-width: 768px) {
   .form {

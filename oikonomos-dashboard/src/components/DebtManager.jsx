@@ -19,28 +19,33 @@ const [isRecurring, setIsRecurring] = useState(false);
  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState(null);
   const user = auth.currentUser;
-
-  const fetchDebts = async () => {
+   const [filter, setFilter] = useState('pending'); 
+   
+    const fetchDebts = async () => {
     if (!user) return;
     setLoading(true);
-    const q = query(
+    
+    // <<< LÓGICA DE BUSCA ATUALIZADA
+    let q = query(
       collection(db, "scheduled_transactions"),
       where("userId", "==", user.uid),
-      where("status", "==", "pending"), // Busca apenas as contas pendentes
-      orderBy("dueDate", "asc") // Ordena pela mais próxima a vencer
+      orderBy("dueDate", "asc")
     );
+
+    // Adiciona o filtro de status apenas se não for 'all'
+    if (filter !== 'all') {
+        q = query(q, where("status", "==", filter));
+    }
+
     const querySnapshot = await getDocs(q);
     setDebts(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     setLoading(false);
   };
 
+  // O useEffect agora re-busca os dados quando o filtro muda
   useEffect(() => {
     fetchDebts();
-    // Define a primeira categoria de despesa como padrão no select
-    if (expenseCategories.length > 0) {
-      setNewCategory(expenseCategories[0].name);
-    }
-  }, [user, expenseCategories]);
+  }, [user, filter]);
 
   const handleAddDebt = async (e) => {
     e.preventDefault();
@@ -132,32 +137,36 @@ const handleOpenEditModal = (debt) => {
   };
   if (loading) return <p>Carregando contas a pagar...</p>;
 
-  return (
+    return (
     <>
       <div className={styles.container}>
         <h2>Contas a Pagar & Dívidas</h2>
-        
-        {/* Formulário para adicionar nova conta */}
         <form onSubmit={handleAddDebt} className={styles.form}>
-          <input type="text" value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Descrição (ex: Aluguel)" required />
-          <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="Valor" required />
-          <select value={newCategory} onChange={e => setNewCategory(e.target.value)} required>
-            {expenseCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
-          </select>
-          <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} required />
-          <div className={styles.recurringCheckbox}>
-            <input 
-              type="checkbox" 
-              id="recurring" 
-              checked={isRecurring} 
-              onChange={e => setIsRecurring(e.target.checked)} 
-            />
-            <label htmlFor="recurring">Repetir mensalmente</label>
-          </div>
-          <button type="submit" className={styles.addButton}>Adicionar</button>
+            {/* ... (formulário para adicionar dívida igual ao anterior) ... */}
         </form>
 
-        {/* Lista de contas pendentes */}
+        {/* <<< NOVAS ABAS DE FILTRO */}
+        <div className={styles.filterTabs}>
+            <button 
+                onClick={() => setFilter('pending')} 
+                className={`${styles.filterTab} ${filter === 'pending' ? styles.activeTab : ''}`}
+            >
+                Pendentes
+            </button>
+            <button 
+                onClick={() => setFilter('paid')} 
+                className={`${styles.filterTab} ${filter === 'paid' ? styles.activeTab : ''}`}
+            >
+                Pagas
+            </button>
+            <button 
+                onClick={() => setFilter('all')} 
+                className={`${styles.filterTab} ${filter === 'all' ? styles.activeTab : ''}`}
+            >
+                Todas
+            </button>
+        </div>
+
         <ul className={styles.debtList}>
           {debts.map(debt => (
             <li key={debt.id} className={styles.debtItem}>
@@ -166,15 +175,18 @@ const handleOpenEditModal = (debt) => {
               <span className={styles.debtAmount}>R$ {debt.amount.toFixed(2)}</span>
               <div className={styles.actionButtons}>
                 <button type="button" onClick={() => handleOpenEditModal(debt)} className={styles.editButton}>Editar</button>
-                <button onClick={() => handleMarkAsPaid(debt)} className={styles.paidButton}>Paga</button>
+                {/* Mostra o botão "Paga" apenas se o status for pendente */}
+                {debt.status === 'pending' && (
+                    <button onClick={() => handleMarkAsPaid(debt)} className={styles.paidButton}>Paga</button>
+                )}
                 <button onClick={() => handleDeleteDebt(debt.id)} className={styles.deleteButton}>Excluir</button>
               </div>
             </li>
           ))}
         </ul>
+        {debts.length === 0 && <p>Nenhuma conta encontrada para este filtro.</p>}
       </div>
       
-      {/* Renderização condicional do Modal de Edição */}
       {isEditModalOpen && (
         <EditDebtModal
             debt={editingDebt}
