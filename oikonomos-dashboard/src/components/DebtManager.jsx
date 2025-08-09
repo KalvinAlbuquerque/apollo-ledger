@@ -4,6 +4,8 @@ import { db, auth } from '../../firebaseClient';
 import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import styles from './DebtManager.module.css';
 import { showConfirmationToast } from '../utils/toastUtils.jsx';
+import EditDebtModal from './EditDebtModal';
+import toast from 'react-hot-toast';
 function DebtManager({ expenseCategories }) {
   const [debts, setDebts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -14,6 +16,8 @@ function DebtManager({ expenseCategories }) {
   const [newCategory, setNewCategory] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
 const [isRecurring, setIsRecurring] = useState(false); 
+ const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingDebt, setEditingDebt] = useState(null);
   const user = auth.currentUser;
 
   const fetchDebts = async () => {
@@ -104,45 +108,82 @@ const [isRecurring, setIsRecurring] = useState(false);
     showConfirmationToast(deleteAction, "Apagar esta conta agendada?");
 };
 
+const handleOpenEditModal = (debt) => {
+    setEditingDebt(debt);
+    setIsEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setEditingDebt(null);
+    setIsEditModalOpen(false);
+  };
+
+  const handleUpdateDebt = async (debtId, updatedData) => {
+    try {
+        const debtDocRef = doc(db, "scheduled_transactions", debtId);
+        await updateDoc(debtDocRef, updatedData);
+        toast.success("Conta atualizada com sucesso!");
+        handleCloseEditModal();
+        fetchDebts(); // Re-busca as dívidas para atualizar a lista
+    } catch(error) {
+        toast.error("Falha ao atualizar a conta.");
+        console.error("Erro ao atualizar conta:", error);
+    }
+  };
   if (loading) return <p>Carregando contas a pagar...</p>;
 
   return (
-    <div className={styles.container}>
-      <h2>Contas a Pagar & Dívidas</h2>
-      <form onSubmit={handleAddDebt} className={styles.form}>
-        <input type="text" value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Descrição (ex: Aluguel)" required />
-        <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="Valor" required />
-        <select value={newCategory} onChange={e => setNewCategory(e.target.value)} required>
-          {expenseCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
-        </select>
-        <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} required />
-         <div className={styles.recurringCheckbox}>
-    <input 
-      type="checkbox" 
-      id="recurring" 
-      checked={isRecurring} 
-      onChange={e => setIsRecurring(e.target.checked)} 
-    />
-    <label htmlFor="recurring">Repetir mensalmente</label>
-  </div>
+    <>
+      <div className={styles.container}>
+        <h2>Contas a Pagar & Dívidas</h2>
+        
+        {/* Formulário para adicionar nova conta */}
+        <form onSubmit={handleAddDebt} className={styles.form}>
+          <input type="text" value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Descrição (ex: Aluguel)" required />
+          <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="Valor" required />
+          <select value={newCategory} onChange={e => setNewCategory(e.target.value)} required>
+            {expenseCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+          </select>
+          <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} required />
+          <div className={styles.recurringCheckbox}>
+            <input 
+              type="checkbox" 
+              id="recurring" 
+              checked={isRecurring} 
+              onChange={e => setIsRecurring(e.target.checked)} 
+            />
+            <label htmlFor="recurring">Repetir mensalmente</label>
+          </div>
+          <button type="submit" className={styles.addButton}>Adicionar</button>
+        </form>
 
-        <button type="submit" className={styles.addButton}>Adicionar</button>
-      </form>
-
-      <ul className={styles.debtList}>
-        {debts.map(debt => (
-          <li key={debt.id} className={styles.debtItem}>
-            <span className={styles.debtDescription}>{debt.description}</span>
-            <span className={styles.debtDate}>Vence: {debt.dueDate.toDate().toLocaleDateString('pt-BR')}</span>
-            <span className={styles.debtAmount}>R$ {debt.amount.toFixed(2)}</span>
-            <div className={styles.actionButtons}>
-              <button onClick={() => handleMarkAsPaid(debt)} className={styles.paidButton}>Paga</button>
-              <button onClick={() => handleDeleteDebt(debt.id)} className={styles.deleteButton}>Excluir</button>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
+        {/* Lista de contas pendentes */}
+        <ul className={styles.debtList}>
+          {debts.map(debt => (
+            <li key={debt.id} className={styles.debtItem}>
+              <span className={styles.debtDescription}>{debt.description}</span>
+              <span className={styles.debtDate}>Vence: {debt.dueDate.toDate().toLocaleDateString('pt-BR')}</span>
+              <span className={styles.debtAmount}>R$ {debt.amount.toFixed(2)}</span>
+              <div className={styles.actionButtons}>
+                <button type="button" onClick={() => handleOpenEditModal(debt)} className={styles.editButton}>Editar</button>
+                <button onClick={() => handleMarkAsPaid(debt)} className={styles.paidButton}>Paga</button>
+                <button onClick={() => handleDeleteDebt(debt.id)} className={styles.deleteButton}>Excluir</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+      
+      {/* Renderização condicional do Modal de Edição */}
+      {isEditModalOpen && (
+        <EditDebtModal
+            debt={editingDebt}
+            onSave={handleUpdateDebt}
+            onCancel={handleCloseEditModal}
+            expenseCategories={expenseCategories}
+        />
+      )}
+    </>
   );
 }
 
