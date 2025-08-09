@@ -353,3 +353,28 @@
     text-transform: capitalize;
   }
 }
+
+
+
+
+
+.lineChartControls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.lineChartControls label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8rem;
+    color: var(--texto-secundario);
+    cursor: pointer;
+}
+
+/* Garante que o LineChart ocupe o espaço restante */
+.chartWrapper > .chartCanvasContainer {
+    flex-grow: 1;
+    position: relative;
+}
