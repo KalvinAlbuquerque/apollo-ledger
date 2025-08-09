@@ -44,6 +44,9 @@ function BudgetManager({ fetchData }) { // <<< 1. RECEBE A FUNÇÃO fetchData
     setBudgets(prev => ({ ...prev, [categoryName]: newAmount }));
   };
 
+    const handleClearBudget = (categoryName) => {
+    setBudgets(prev => ({ ...prev, [categoryName]: 0 }));
+  };
   const handleSaveBudgets = async () => {
     if (!user) return;
     
@@ -80,7 +83,7 @@ function BudgetManager({ fetchData }) { // <<< 1. RECEBE A FUNÇÃO fetchData
   
   if (loading) return <p>Carregando orçamentos...</p>;
 
-  return (
+ return (
     <div className={styles.container}>
       <h2>Orçamentos para {new Date().toLocaleString('pt-BR', { month: 'long' })}</h2>
       <div className={styles.budgetList}>
@@ -95,6 +98,10 @@ function BudgetManager({ fetchData }) { // <<< 1. RECEBE A FUNÇÃO fetchData
                 value={budgets[categoryName] || ''}
                 onChange={(e) => handleBudgetChange(categoryName, e.target.value)}
               />
+              {/* <<< NOVO BOTÃO DE LIMPAR/EXCLUIR */}
+              <button onClick={() => handleClearBudget(categoryName)} className={styles.clearButton} title="Zerar orçamento">
+                &times;
+              </button>
             </div>
           </div>
         ))}
