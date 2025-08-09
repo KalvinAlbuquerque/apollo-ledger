@@ -95,3 +95,18 @@
   .debtAmount { grid-area: amount; text-align: left; }
   .actionButtons { grid-area: buttons; flex-direction: column; }
 }
+
+/* Adicione ao final de DebtManager.module.css */
+.recurringCheckbox {
+  grid-column: 1 / -1; /* Faz o checkbox ocupar todas as colunas no grid do form */
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: var(--texto-secundario);
+}
+
+.recurringCheckbox input {
+  width: 16px;
+  height: 16px;
+}

@@ -13,7 +13,7 @@ function DebtManager({ expenseCategories }) {
   const [newAmount, setNewAmount] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
-
+const [isRecurring, setIsRecurring] = useState(false); 
   const user = auth.currentUser;
 
   const fetchDebts = async () => {
@@ -50,12 +50,13 @@ function DebtManager({ expenseCategories }) {
         categoryName: newCategory,
         dueDate: Timestamp.fromDate(new Date(newDueDate)),
         status: 'pending',
-        isRecurring: false, // Por enquanto, não vamos implementar a recorrência
+        isRecurring: isRecurring, // Por enquanto, não vamos implementar a recorrência
       });
       // Limpa o formulário e busca os dados novamente
       setNewDesc('');
       setNewAmount('');
       setNewDueDate('');
+      setIsRecurring(false); 
       fetchDebts();
     } catch (error) {
       console.error("Erro ao adicionar dívida:", error);
@@ -109,6 +110,16 @@ function DebtManager({ expenseCategories }) {
           {expenseCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
         </select>
         <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} required />
+         <div className={styles.recurringCheckbox}>
+    <input 
+      type="checkbox" 
+      id="recurring" 
+      checked={isRecurring} 
+      onChange={e => setIsRecurring(e.target.checked)} 
+    />
+    <label htmlFor="recurring">Repetir mensalmente</label>
+  </div>
+
         <button type="submit" className={styles.addButton}>Adicionar</button>
       </form>
 
