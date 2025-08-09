@@ -324,7 +324,6 @@ def webhook():
 # --- 4. FUNÇÃO AGENDADA (CRON JOB) ---
 @app.route("/api/cron", methods=['GET'])
 def run_recurrence_check():
-    # 1. Proteção: Verifica se a requisição tem a senha secreta
     auth_header = request.headers.get('Authorization')
     cron_secret = os.getenv("CRON_SECRET")
     if auth_header != f'Bearer {cron_secret}':
@@ -333,32 +332,27 @@ def run_recurrence_check():
     print("Iniciando verificação de recorrência...")
     try:
         today = datetime.now()
-        # 2. Busca todas as contas recorrentes que já foram pagas
         query = db.collection('scheduled_transactions').where('userId', '==', FIREBASE_USER_ID).where('isRecurring', '==', True).where('status', '==', 'paid').stream()
         
         created_count = 0
         for paid_doc in query:
             paid_data = paid_doc.to_dict()
-            
-            # 3. Calcula qual seria a data de vencimento do próximo mês
-            last_due_date = paid_data['dueDate'].to_datetime()
+            last_due_date = paid_data['dueDate']
             next_due_date = last_due_date + relativedelta(months=1)
             
-            # Se a próxima data já passou (ex: rodando o cron atrasado), ajusta para o futuro
             while next_due_date < today:
                 next_due_date += relativedelta(months=1)
 
-            # 4. Verifica se a conta do próximo mês JÁ EXISTE
-            next_month_query = db.collection('scheduled_transactions').where('userId', '==', FIREBASE_USER_ID).where('description', '==', paid_data['description']).where('categoryName', '==', paid_data['categoryName']).where('dueDate', '>=', next_due_date.replace(day=1)).limit(1).stream()
+            next_month_start = next_due_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            next_month_query = db.collection('scheduled_transactions').where('userId', '==', FIREBASE_USER_ID).where('description', '==', paid_data['description']).where('categoryName', '==', paid_data['categoryName']).where('dueDate', '>=', next_month_start).limit(1).stream()
             
             if not next(next_month_query, None):
-                # 5. Se não existe, CRIA a nova conta para o próximo mês
                 new_scheduled_transaction = {
                     "userId": FIREBASE_USER_ID,
                     "description": paid_data['description'],
                     "amount": paid_data['amount'],
                     "categoryName": paid_data['categoryName'],
-                    "dueDate": Timestamp.from_datetime(next_due_date),
+                    "dueDate": firestore.Timestamp.from_datetime(next_due_date), # <<< CORREÇÃO APLICADA
                     "status": "pending",
                     "isRecurring": True,
                 }
