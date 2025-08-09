@@ -81,29 +81,22 @@
 }
 
 
-.chartsContainer {
-  display: grid;
-  grid-template-columns: 2fr 1fr; /* Gráfico de linha ocupa 2/3, pizza ocupa 1/3 */
-  gap: 40px;
-  align-items: stretch;
-}
 
-.lineChartContainer {
+.chartWrapper {
   background-color: var(--cinza-elemento);
   padding: 20px;
   border-radius: 12px;
   border: 1px solid var(--borda-sutil);
-}
-
-.chartContainer {
-  background-color: var(--cinza-elemento);
-  padding: 20px;
-  border-radius: 12px;
-  border: 1px solid var(--borda-sutil);
+  /* height: 400px; <<< LINHA REMOVIDA */
   display: flex;
   flex-direction: column;
+  min-height: 400px; /* Usamos uma altura mínima para manter a estética */
 }
 
+.chartCanvasContainer {
+  position: relative; /* Essencial para o Chart.js se posicionar corretamente */
+  flex-grow: 1; /* A mágica está aqui: faz este container ocupar todo o espaço vertical restante */
+}
 /* NOVO CONTAINER PARA OS CONTROLES DO GRÁFICO DE LINHA */
 .lineChartControls {
     display: flex;
@@ -334,3 +327,109 @@ chartHeader {
   border: 1px solid var(--borda-sutil);
   height: 400px; /* Define uma altura fixa para o gráfico de linha */
 }
+
+
+/* --- REGRAS DE RESPONSIVIDADE --- */
+/* Estilos aplicados quando a tela tem 768px de largura ou menos */
+@media (max-width: 768px) {
+  .dashboard {
+    padding: 15px;
+    margin: 20px auto;
+  }
+
+  .summary {
+    grid-template-columns: 1fr;
+  }
+
+  .chartsContainer {
+    grid-template-columns: 1fr;
+  }
+  
+  .mainContent {
+    gap: 20px;
+    margin-top: 20px;
+  }
+
+  /* --- REGRAS DA TABELA RESPONSIVA AQUI DENTRO --- */
+  
+  /* Esconde o cabeçalho da tabela em telas pequenas */
+  .table thead {
+    display: none;
+  }
+
+  /* Transforma a tabela, corpo, linhas e células em blocos */
+  .table, .table tbody, .table tr, .table td {
+    display: block;
+    width: 100%;
+  }
+
+  /* Estilo do "Card" para cada linha */
+  .table tr {
+    margin-bottom: 15px;
+    background-color: var(--fundo-secundario);
+    border-radius: 8px;
+    border: 1px solid var(--borda-sutil);
+    padding: 10px;
+  }
+
+  /* Transforma cada célula em uma linha, com a etiqueta antes */
+  .table td {
+    text-align: right; /* Alinha o valor à direita */
+    position: relative;
+    padding-left: 50%; /* Espaço para a etiqueta */
+    border-bottom: 1px solid var(--borda-sutil);
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  /* Remove a borda da última célula de cada card */
+  .table tr td:last-child {
+    border-bottom: none;
+  }
+
+  /* A mágica acontece aqui: adiciona as etiquetas */
+  .table td::before {
+    content: attr(data-label); /* Pega o texto da etiqueta do atributo data-label */
+    position: absolute;
+    left: 10px;
+    width: 45%;
+    padding-right: 10px;
+    text-align: left;
+    font-weight: bold;
+    color: var(--texto-secundario);
+    text-transform: capitalize;
+  }
+  /* --- FIM DAS REGRAS DA TABELA --- */
+}
+
+.chartWrapper {
+  min-height: 320px;
+  height: auto; /* Deixa a altura ser automática no mobile */
+}
+
+/* Adicione estas regras DENTRO de @media (max-width: 768px) */
+/* em Dashboard.module.css */
+
+  .filterSection {
+    flex-direction: column; /* Empilha os itens do filtro */
+    align-items: stretch;   /* Faz os itens ocuparem a largura total */
+    gap: 15px;              /* Ajusta o espaçamento vertical */
+  }
+
+  .filterGroup {
+    justify-content: space-between; /* Espaça o label e o input */
+  }
+
+  .quickFilters {
+    padding-left: 0;
+    margin-left: 0;
+    border-left: none; /* Remove a linha divisória no mobile */
+    width: 100%;
+    justify-content: center; /* Centraliza os botões rápidos */
+  }
+
+  .filterButton {
+    margin-left: 0; /* Remove a margem do botão de filtrar */
+    width: 100%; /* Faz o botão de filtrar ocupar a largura toda */
+    margin-top: 10px;
+  }

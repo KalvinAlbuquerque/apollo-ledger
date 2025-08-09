@@ -340,46 +340,72 @@ function Dashboard({ user }) {
         <section className={styles.managerSection}><BudgetStatus budgetProgress={summaryData.budgetProgress} /></section>
 
          <main className={styles.mainContent}>
-
+      
         
-          <div className={styles.chartsContainer}>
-            <div className={styles.lineChartContainer}>
-              <LineChart 
-                title="Evolução Financeira" 
-                chartData={summaryData.lineChartData} 
-              />
+          {/* Gráfico de Linha */}
+          <div className={styles.chartWrapper}>
+            <LineChart 
+              title="Evolução Financeira" 
+              chartData={{
+                ...summaryData.lineChartData,
+                datasets: summaryData.lineChartData.datasets.map(ds => ({
+                  ...ds,
+                  hidden: !lineChartVisibility[ds.label]
+                }))
+              }} 
+            />
+          </div>
 
-            </div>
-            <div className={styles.chartContainer}>
+          {/* Carrossel do Gráfico de Pizza/Rosca */}
+          <div className={styles.chartWrapper}>
               <div className={styles.chartHeader}>
                 <h3 className={styles.chartTitle}>{charts[currentChartIndex].title}</h3>
                 <div className={styles.navButtons}><button onClick={goToPrevChart}>&lt;</button><button onClick={goToNextChart}>&gt;</button></div>
               </div>
-              <SummaryChart chartData={charts[currentChartIndex].data} />
+
+              {/* NOVO SUB-CONTÊINER AQUI */}
+              <div className={styles.chartCanvasContainer}>
+                <SummaryChart chartData={charts[currentChartIndex].data} />
+              </div>
+              
             </div>
-          </div>
+          
+          {/* Tabela de Transações */}
           <div className={styles.transactionsContainer}>
             <h2>Suas Transações</h2>
             <table className={styles.table}>
-              <thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor (R$)</th><th>Ações</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Categoria</th>
+                  <th>Descrição</th>
+                  <th>Valor (R$)</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
               <tbody>
                 {transactions.length > 0 ? (
                   transactions.map(tx => (
                     <tr key={tx.id}>
-                      <td>{tx.createdAt ? tx.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</td>
-                      <td>{tx.category}</td>
-                      <td>{tx.description || '-'}</td>
-                      <td className={tx.type === 'income' ? styles.incomeAmount : styles.expenseAmount}>{tx.type === 'income' ? '+ ' : '- '}R$ {tx.amount.toFixed(2)}</td>
-                      <td>
+                      <td data-label="Data">{tx.createdAt ? tx.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</td>
+                      <td data-label="Categoria">{tx.category}</td>
+                      <td data-label="Descrição">{tx.description || '-'}</td>
+                      <td data-label="Valor (R$)" className={tx.type === 'income' ? styles.incomeAmount : styles.expenseAmount}>
+                        {tx.type === 'income' ? '+ ' : '- '}R$ {tx.amount.toFixed(2)}
+                      </td>
+                      <td data-label="Ações">
                         <button onClick={() => handleOpenEditModal(tx)} className={styles.editButton}>Editar</button>
                         <button onClick={() => handleDelete(tx.id)} className={styles.deleteButton}>Excluir</button>
                       </td>
                     </tr>
                   ))
-                ) : ( <tr><td colSpan="5">Nenhuma transação encontrada.</td></tr> )}
+                ) : (
+                  <tr><td colSpan="5">Nenhuma transação encontrada.</td></tr>
+                )}
               </tbody>
             </table>
           </div>
+          
         </main>
         
         <section className={styles.managerSection}>

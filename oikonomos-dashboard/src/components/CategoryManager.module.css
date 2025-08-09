@@ -132,3 +132,15 @@
   background-color: var(--vermelho-destaque);
   color: white;
 }
+
+@media (max-width: 768px) {
+  .form {
+    flex-direction: column;
+    align-items: stretch; /* Faz os itens ocuparem a largura total */
+  }
+
+  .filterGroup {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

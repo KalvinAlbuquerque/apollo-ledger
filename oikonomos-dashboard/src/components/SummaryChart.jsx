@@ -10,6 +10,7 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 function SummaryChart({ chartData, title }) { 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       title: {
         display: true,
