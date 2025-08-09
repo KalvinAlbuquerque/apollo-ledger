@@ -32,8 +32,17 @@ function Dashboard({ user }) {
   const [filterCategory, setFilterCategory] = useState('all');
   const [tooltipText, setTooltipText] = useState('Filtre por um período ou categoria');
   const [lineChartVisibility, setLineChartVisibility] = useState({ Saldo: true, Despesas: true });
-  const [dataVersion, setDataVersion] = useState(0);
+  const [dataVersion, setDataVersion] = useState(0);  
+  const [currentPage, setCurrentPage] = useState(1); // <<< NOVO ESTADO AQUI
 
+  const itemsPerPage = 15;
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentTransactions = transactions.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(transactions.length / itemsPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  
   const triggerRefresh = () => {
     setDataVersion(currentVersion => currentVersion + 1);
   };
@@ -351,8 +360,8 @@ function Dashboard({ user }) {
                     <tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor (R$)</th><th>Ações</th></tr>
                 </thead>
                 <tbody>
-                    {transactions.length > 0 ? (
-                    transactions.map(tx => (
+                    {currentTransactions.length > 0 ? (
+                    currentTransactions.map(tx => (
                         <tr key={tx.id}>
                         <td data-label="Data">{tx.createdAt ? tx.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</td>
                         <td data-label="Categoria">{tx.category}</td>
@@ -367,6 +376,20 @@ function Dashboard({ user }) {
                     ) : ( <tr><td colSpan="5">Nenhuma transação encontrada.</td></tr> )}
                 </tbody>
             </table>
+                    {totalPages > 1 && (
+              <div className={styles.pagination}>
+                <button onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1}>
+                  Anterior
+                </button>
+                <span>
+                  Página {currentPage} de {totalPages}
+                </span>
+                <button onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages}>
+                  Próxima
+                </button>
+              </div>
+            )}
+
           </div>
         </main>
         
