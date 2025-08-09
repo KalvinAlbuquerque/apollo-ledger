@@ -599,6 +599,12 @@ def webhook():
     except Exception as e:
         print(f"Erro no webhook: {e}")
         return "error", 500
+    
+@app.route('/favicon.ico')
+def favicon():
+    # Retorna uma resposta '204 No Content', que diz ao navegador
+    # "Eu recebi seu pedido, mas não tenho um ícone para te dar."
+    return '', 204
 
 # --- 7. FUNÇÃO AGENDADA (CRON JOB) ATUALIZADA ---
 @app.route("/api/cron", methods=['GET'])
