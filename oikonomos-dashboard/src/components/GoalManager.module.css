@@ -59,6 +59,18 @@
   appearance: textfield;
 }
 
+.editButton {
+  background-color: #555;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.editButton:hover {
+  background-color: var(--acento-azul);
+}
+
 @media (max-width: 768px) {
   .form {
     grid-template-columns: 1fr; /* Todas as colunas viram uma só */
