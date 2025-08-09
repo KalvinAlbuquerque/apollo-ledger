@@ -358,7 +358,7 @@ def run_recurrence_check():
                     "description": paid_data['description'],
                     "amount": paid_data['amount'],
                     "categoryName": paid_data['categoryName'],
-                    "dueDate": firestore.Timestamp.from_datetime(next_due_date),
+                    "dueDate": next_due_date,
                     "status": "pending",
                     "isRecurring": True,
                 }
