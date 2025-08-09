@@ -69,64 +69,111 @@ async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Ocorreu um erro ao vincular sua conta.")
 
 # --- 4. FUNÇÕES DE COMANDO (agora recebem firebase_uid) ---
+# Em: backend/bot.py
+
 async def send_manual(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str):
     """Envia uma mensagem de ajuda com todos os comandos disponíveis."""
     manual_text = """
-    *Manual de Comandos Oikonomos* 📖
+📖 *Manual de Comandos Oikonomos*
 
-        Aqui estão todos os comandos que eu entendo. Lembre-se que as categorias, origens e metas devem ser cadastradas primeiro no seu dashboard web!
+A seguir, todos os comandos que eu entendo. Lembre-se que as categorias, origens e metas devem ser cadastradas primeiro no seu dashboard web!
 
-        ---
+---
+*✍️ REGISTRAR TRANSAÇÕES*
+---
+> *Para registrar um GASTO:*
+> `gasto <valor> <categoria> [descrição]`
+> _ou simplesmente:_
+> `<valor> <categoria> [descrição]`
 
-        *Para registrar um GASTO:*
-        Use a palavra-chave `gasto` ou simplesmente comece com o valor.
+> *Para registrar uma RENDA:*
+> `renda <valor> <origem>`
 
-        `gasto <valor> <categoria> [descrição]`
-        _ou_
-        `<valor> <categoria> [descrição]`
+> *Para GUARDAR dinheiro em uma META:*
+> `guardar <valor> <nome da meta>`
 
-        *Exemplos:*
-        `gasto 55,30 alimentação compras do mês`
-        `12 café`
+> *Para SACAR dinheiro de uma META:*
+> `sacar <valor> <meta> para <categoria de renda>`
 
-        ---
+> *Para PAGAR uma CONTA agendada:*
+> `pagar <descrição da conta>`
 
-        *Para registrar uma RENDA:*
-        Use as palavras-chave `renda` ou `saldo`.
+---
+*📊 CONSULTAR INFORMAÇÕES*
+---
+> *Para listar suas CATEGORIAS:*
+> `categorias ?`
+> `categorias renda ?`
+> `categorias despesa ?`
 
-        `renda <valor> <origem>`
-        _ou_
-        `saldo <valor> <origem>`
+> *Para listar suas CONTAS do mês:*
+> `contas ?`
+> `contas pagas ?`
+> `contas pendentes ?`
 
-        *Exemplo:*
-        `renda 3000 salário`
-
-        ---
-
-        *Para GUARDAR dinheiro em uma META:*
-        Use a palavra-chave `guardar`.
-
-        `guardar <valor> <nome da meta>`
-
-        *Exemplo:*
-        `guardar 150 viagem de férias`
-
-        ---
-
-        *Para SACAR dinheiro de uma META:*
-        Use a palavra-chave `sacar`. O valor sacado será adicionado como uma renda na categoria de renda que você especificar.
-
-        `sacar <valor> <nome da meta> para <categoria de renda>`
-
-        *Exemplo:*
-        `sacar 50 fundo de emergencia para outras rendas`
-
-        ---
-
-        *Para ver este manual novamente:*
-        Basta enviar `?` a qualquer momento.
+---
+> *Para ver este manual novamente:*
+> `?`
     """
     await update.message.reply_text(manual_text.strip(), parse_mode='Markdown')
+
+
+async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
+    """Marca uma conta agendada como 'paga' e cria a transação de despesa correspondente."""
+    try:
+        if not text_parts:
+            await update.message.reply_text("Formato inválido. Use: pagar <descrição da conta>")
+            return
+
+        description_input = " ".join(text_parts).strip()
+        description_normalized = normalize_text(description_input)
+
+        # 1. Busca todas as contas PENDENTES do usuário
+        q = db.collection('scheduled_transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('status', '==', 'pending'))
+        pending_debts_docs = list(q.stream())
+
+        if not pending_debts_docs:
+            await update.message.reply_text("Você não tem nenhuma conta pendente para pagar.")
+            return
+
+        # 2. Procura a conta correspondente na lista de pendentes
+        found_debt = None
+        for debt_doc in pending_debts_docs:
+            if normalize_text(debt_doc.to_dict().get('description', '')) == description_normalized:
+                found_debt = debt_doc
+                break
+        
+        if not found_debt:
+            pending_debts_names = [d.to_dict().get('description') for d in pending_debts_docs]
+            available_debts_text = "\n- ".join(pending_debts_names)
+            error_message = f"❌ Conta pendente '{description_input}' não encontrada.\n\nSuas contas a pagar são:\n- {available_debts_text}"
+            await update.message.reply_text(error_message)
+            return
+
+        # 3. Se encontrou, executa as ações
+        debt_data = found_debt.to_dict()
+
+        # Ação A: Cria a transação de despesa
+        payment_expense_data = {
+            'type': 'expense',
+            'amount': debt_data.get('amount'),
+            'category': debt_data.get('categoryName'),
+            'description': f"Pagamento de: {debt_data.get('description')}",
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'userId': firebase_uid
+        }
+        db.collection('transactions').add(payment_expense_data)
+
+        # Ação B: Atualiza o status da conta para 'paid'
+        debt_doc_ref = db.collection('scheduled_transactions').document(found_debt.id)
+        debt_doc_ref.update({'status': 'paid'})
+
+        await update.message.reply_text(f"✅ Pagamento de '{debt_data.get('description')}' no valor de R$ {debt_data.get('amount'):.2f} foi registrado com sucesso!")
+
+    except Exception as e:
+        print(f"Erro ao processar pagamento: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro interno ao registrar o pagamento.")
+
 
 async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Processa e salva uma despesa, e retorna o status detalhado e intuitivo do orçamento."""
@@ -407,7 +454,87 @@ async def process_withdrawal(update: Update, context: ContextTypes.DEFAULT_TYPE,
         print(f"Erro ao processar saque: {e}")
         await update.message.reply_text("❌ Ocorreu um erro interno ao processar o saque.")
         
+ 
+async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str, parts: list):
+    """Lista as categorias de renda, despesa, ou ambas."""
+    try:
+        filter_type = None
+        if parts and parts[0].lower() in ['renda', 'despesa']:
+            filter_type = parts[0].lower()
+
+        q = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid))
+        if filter_type:
+            q = q.where(filter=FieldFilter('type', '==', filter_type))
         
+        docs = q.stream()
+        
+        income_cats = []
+        expense_cats = []
+        for doc in docs:
+            cat = doc.to_dict()
+            if cat.get('type') == 'income':
+                income_cats.append(cat.get('name'))
+            else:
+                expense_cats.append(cat.get('name'))
+
+        reply_message = ""
+        if not filter_type or filter_type == 'income':
+            reply_message += "*Categorias de Renda:*\n"
+            reply_message += "- " + "\n- ".join(sorted(income_cats)) if income_cats else "_Nenhuma cadastrada._\n"
+        
+        if not filter_type:
+            reply_message += "\n" # Adiciona um espaço entre as listas
+
+        if not filter_type or filter_type == 'expense':
+            reply_message += "*Categorias de Despesa:*\n"
+            reply_message += "- " + "\n- ".join(sorted(expense_cats)) if expense_cats else "_Nenhuma cadastrada._\n"
+            
+        await update.message.reply_text(reply_message, parse_mode='Markdown')
+        
+    except Exception as e:
+        print(f"Erro ao listar categorias: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro ao buscar as categorias.")
+
+async def list_scheduled_transactions(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str, parts: list):
+    """Lista as contas do mês, podendo filtrar por 'pagas' ou 'pendentes'."""
+    try:
+        status_filter = None
+        if parts and parts[0].lower() in ['pagas', 'pendentes']:
+            status_filter = 'paid' if parts[0].lower() == 'pagas' else 'pending'
+        
+        today = datetime.now(timezone.utc)
+        start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_of_month = start_of_month + relativedelta(months=1) - relativedelta(seconds=1)
+
+        q = db.collection('scheduled_transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('dueDate', '>=', start_of_month)).where(filter=FieldFilter('dueDate', '<=', end_of_month))
+        
+        if status_filter:
+            q = q.where(filter=FieldFilter('status', '==', status_filter))
+
+        docs = q.stream()
+        
+        accounts = list(docs)
+        if not accounts:
+            await update.message.reply_text("Nenhuma conta encontrada para este mês com os filtros aplicados.")
+            return
+
+        title = "Contas do Mês"
+        if status_filter == 'paid': title = "Contas Pagas do Mês"
+        if status_filter == 'pending': title = "Contas Pendentes do Mês"
+        
+        reply_message = f"*{title}:*\n\n"
+        for doc in sorted(accounts, key=lambda x: x.to_dict()['dueDate']):
+            account = doc.to_dict()
+            status_icon = "✅" if account.get('status') == 'paid' else "⏳"
+            due_date = account['dueDate'].strftime('%d/%m')
+            reply_message += f"{status_icon} *{account.get('description')}* - R$ {account.get('amount'):.2f} (Vence: {due_date})\n"
+            
+        await update.message.reply_text(reply_message, parse_mode='Markdown')
+
+    except Exception as e:
+        print(f"Erro ao listar contas: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro ao buscar as contas. Pode ser necessário criar um índice no Firestore (verifique os logs).")
+               
 # --- 5. ORQUESTRADOR PRINCIPAL ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Função principal que recebe todas as mensagens e decide o que fazer."""
@@ -423,17 +550,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = update.message.text.strip()
         parts = text.split()
         command = parts[0].lower()
-
+        sub_command_parts = parts[1:]
+        
         if command == '?':
             await send_manual(update, context, firebase_uid)
+        elif command == 'categorias':
+            await list_categories(update, context, firebase_uid, sub_command_parts)
+        elif command == 'contas':
+            await list_scheduled_transactions(update, context, firebase_uid, sub_command_parts)
         elif command in ['saldo', 'renda', 'ganhei']:
             await process_income(update, context, parts[1:], firebase_uid)
         elif command == 'gasto':
             await process_expense(update, context, parts[1:], firebase_uid)
         elif command == 'guardar':
             await process_saving(update, context, parts[1:], firebase_uid)
-        elif command == 'sacar': # <<< NOVA CONDIÇÃO AQUI
+        elif command == 'sacar':
             await process_withdrawal(update, context, parts[1:], firebase_uid)
+        elif command == 'pagar':
+            await process_payment(update, context, parts[1:], firebase_uid)
         else:
             await process_expense(update, context, parts, firebase_uid)
     else:
