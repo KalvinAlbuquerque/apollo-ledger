@@ -493,15 +493,15 @@ async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE, fi
     """Lista as categorias de renda, despesa, ou ambas."""
     try:
         filter_type = None
-        if parts and parts[0].lower() in ['renda', 'despesa']:
-            filter_type = parts[0].lower()
+        # Limpa o '?' dos argumentos
+        args = [p.lower() for p in parts if p != '?']
+        if args and args[0] in ['renda', 'despesa']:
+            filter_type = args[0]
 
+        # Busca todas as categorias do usuário de uma vez
         q = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid))
-        # O filtro de tipo é aplicado depois, na lógica do Python, para evitar um índice extra
-        
         docs = list(q.stream())
         
-        # <<< CORREÇÃO AQUI: Verifica se há alguma categoria ANTES de continuar
         if not docs:
             await update.message.reply_text("Você ainda não cadastrou nenhuma categoria no dashboard.")
             return
@@ -516,23 +516,20 @@ async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE, fi
                 expense_cats.append(cat.get('name'))
 
         reply_message = ""
-        # Monta a mensagem apenas para os tipos relevantes
+        
+        # Monta a mensagem apenas para os tipos relevantes com base no filtro
         if not filter_type or filter_type == 'income':
             reply_message += "*Categorias de Renda:*\n"
             reply_message += "- " + "\n- ".join(sorted(income_cats)) if income_cats else "_Nenhuma cadastrada._\n"
         
         if not filter_type:
-            reply_message += "\n"
+            reply_message += "\n" # Adiciona um espaço entre as listas
 
         if not filter_type or filter_type == 'expense':
             reply_message += "*Categorias de Despesa:*\n"
             reply_message += "- " + "\n- ".join(sorted(expense_cats)) if expense_cats else "_Nenhuma cadastrada._\n"
             
-        # Garante que a mensagem não seja enviada vazia
-        if reply_message.strip():
-            await update.message.reply_text(reply_message, parse_mode='Markdown')
-        else: # Caso raro onde um filtro por tipo não encontra nada
-            await update.message.reply_text(f"Nenhuma categoria do tipo '{filter_type}' encontrada.")
+        await update.message.reply_text(reply_message.strip(), parse_mode='Markdown')
         
     except Exception as e:
         print(f"Erro ao listar categorias: {e}")
