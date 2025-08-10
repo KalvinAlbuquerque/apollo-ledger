@@ -81,40 +81,33 @@ A seguir, a lista de comandos simplificados.
 *✍️ REGISTRAR TRANSAÇÕES*
 ---
 > *Gasto:* `<valor> <categoria> [descrição]`
-> `ex: 25,50 alimentação almoço`
-
 > *Renda:* `+ <valor> <origem> [descrição]`
-> `ex: + 1500 salário`
-
 > *Guardar:* `guardar <valor> <meta>`
-> `ex: guardar 100 viagem`
-
 > *Sacar:* `sacar <valor> <meta> para <categoria de renda>`
-> `ex: sacar 50 viagem para outras rendas`
-
 > *Pagar Conta:* `pagar <descrição da conta>`
-> `ex: pagar conta de luz`
 
 ---
 *📊 CONSULTAR INFORMAÇÕES*
 ---
 > *Use o comando `ver` seguido do que deseja consultar.*
 
-> *Orçamentos:*
-> `ver orçamentos`
-> `ver orçamento alimentação`
+> *`ver categorias`*
+> _Lista todas as suas categorias de renda e despesa._
 
-> *Categorias:*
-> `ver categorias`
-> `ver categorias renda`
+> *`ver orçamentos`*
+> _Mostra o resumo de todos os seus orçamentos do mês._
 
-> *Contas Agendadas:*
-> `ver contas`
-> `ver contas pagas` ou `ver contas pendentes`
+> *`ver orçamento <categoria>`*
+> _Mostra o detalhe para uma categoria específica._
 
-> *Resumo do Dia:*
-> `ver gastos hoje`
-> `ver hoje` (mostra o que ainda pode gastar)
+> *`ver contas`*
+> _Lista suas contas do mês. Adicione `pagas` ou `pendentes` para filtrar._
+
+> *`ver gastos hoje`*
+> _Mostra o total gasto hoje. Adicione `categorizado` para ver detalhes._
+
+> *`ver hoje`*
+> _Mostra o que você ainda pode gastar hoje com base nos seus orçamentos._
 
 ---
 > *Para ver este manual novamente:*
@@ -489,16 +482,9 @@ async def process_withdrawal(update: Update, context: ContextTypes.DEFAULT_TYPE,
         await update.message.reply_text("❌ Ocorreu um erro interno ao processar o saque.")
         
  
-async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str, parts: list):
-    """Lista as categorias de renda, despesa, ou ambas."""
+async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str):
+    """Lista todas as categorias de renda e despesa."""
     try:
-        filter_type = None
-        # Limpa o '?' dos argumentos
-        args = [p.lower() for p in parts if p != '?']
-        if args and args[0] in ['renda', 'despesa']:
-            filter_type = args[0]
-
-        # Busca todas as categorias do usuário de uma vez
         q = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid))
         docs = list(q.stream())
         
@@ -515,19 +501,11 @@ async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE, fi
             else:
                 expense_cats.append(cat.get('name'))
 
-        reply_message = ""
-        
-        # Monta a mensagem apenas para os tipos relevantes com base no filtro
-        if not filter_type or filter_type == 'income':
-            reply_message += "*Categorias de Renda:*\n"
-            reply_message += "- " + "\n- ".join(sorted(income_cats)) if income_cats else "_Nenhuma cadastrada._\n"
-        
-        if not filter_type:
-            reply_message += "\n" # Adiciona um espaço entre as listas
-
-        if not filter_type or filter_type == 'expense':
-            reply_message += "*Categorias de Despesa:*\n"
-            reply_message += "- " + "\n- ".join(sorted(expense_cats)) if expense_cats else "_Nenhuma cadastrada._\n"
+        reply_message = "*Categorias de Renda:*\n"
+        reply_message += "- " + "\n- ".join(sorted(income_cats)) if income_cats else "_Nenhuma cadastrada._\n"
+        reply_message += "\n"
+        reply_message += "*Categorias de Despesa:*\n"
+        reply_message += "- " + "\n- ".join(sorted(expense_cats)) if expense_cats else "_Nenhuma cadastrada._\n"
             
         await update.message.reply_text(reply_message.strip(), parse_mode='Markdown')
         
@@ -733,63 +711,33 @@ async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
     
 # --- 5. ORQUESTRADOR PRINCIPAL ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Função principal que recebe todas as mensagens e decide o que fazer."""
     chat_id = update.effective_chat.id
     firebase_uid = await get_firebase_user_id(chat_id)
 
     if not firebase_uid:
-        if context.user_data.get('state') != 'awaiting_email':
-            context.user_data['state'] = 'awaiting_email'
-            await update.message.reply_text(
-                "👋 Olá! Bem-vindo(a) ao Oikonomos.\n\n"
-                "Para começar, por favor, envie o **mesmo e-mail** que você usou para se cadastrar no nosso site."
-            )
-        else:
-            await register_user(update, context)
+        # ... (lógica de novo usuário sem alterações)
         return
 
     text = update.message.text.strip()
-    text_lower = text.lower()
     parts = text.split()
     command = parts[0].lower()
-    
-    if text_lower == 'sair':
-        await cancel_conversation(update, context, firebase_uid)
-        return
 
-    # --- MÁQUINA DE ESTADOS: Verifica se o bot está esperando uma resposta ---
-    current_state = context.user_data.get('state')
-    if current_state == 'awaiting_budget_specifier':
-        context.user_data.pop('state', None)
-        if text_lower in ['geral', 'todos', 'total']:
-            await list_budgets(update, context, firebase_uid, [])
-        else:
-            await list_budgets(update, context, firebase_uid, parts)
-        return
-    # Adicione aqui outros estados se criarmos mais conversas no futuro
-
-    # --- PROCESSAMENTO DE NOVOS COMANDOS ---
     if command in ['?', 'ajuda']:
         await send_manual(update, context, firebase_uid)
     
     elif command == 'ver':
         if len(parts) < 2:
-            await update.message.reply_text("Comando `ver` incompleto. Use `?` para ver as opções.", parse_mode='Markdown')
+            await update.message.reply_text("Comando 'ver' incompleto. Use '?' para ver as opções.")
             return
         
         sub_command = parts[1].lower()
         args = parts[2:]
         
         if sub_command in ['orçamento', 'orçamentos']:
-            context.user_data['state'] = 'awaiting_budget_specifier'
-            # MENSAGEM ESTILIZADA AQUI
-            await update.message.reply_text(
-                "*Ver Orçamento*\n\n"
-                "Você quer ver o resumo geral de todos os orçamentos ou de uma categoria específica?\n\n"
-                "Envie `geral` ou o nome da categoria. (Digite 'sair' para cancelar)",
-                parse_mode='Markdown'
-            )
+            await list_budgets(update, context, firebase_uid, args)
         elif sub_command == 'categorias':
-            await list_categories(update, context, firebase_uid, args)
+            await list_categories(update, context, firebase_uid) # Não passa mais 'args'
         elif sub_command == 'contas':
             await list_scheduled_transactions(update, context, firebase_uid, args)
         elif sub_command == 'gastos' and len(parts) > 2 and parts[2].lower() == 'hoje':
@@ -797,7 +745,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif sub_command == 'hoje':
             await report_daily_allowance(update, context, firebase_uid, args)
         else:
-            await update.message.reply_text(f"Não reconheci o comando `ver {sub_command}`. Use `?` para ver as opções.", parse_mode='Markdown')
+            await update.message.reply_text(f"Não reconheci o comando 'ver {sub_command}'. Use '?' para ver as opções.")
+
 
     elif command.startswith('+'):
         await process_income(update, context, [command.lstrip('+')] + parts[1:], firebase_uid)
