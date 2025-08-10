@@ -362,6 +362,7 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
         
 async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list,firebase_uid: str):
     """Processa uma contribuição para uma meta de poupança."""
+    sent_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="⏳ Guardando dinheiro na meta...")
     try:
         if len(text_parts) < 2:
             await update.message.reply_text("Formato inválido. Use: guardar <valor> <nome da meta>")
@@ -417,19 +418,19 @@ async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
             f"✅ Você guardou R$ {amount:.2f} para a meta '{updated_data.get('goalName')}'!\n\n"
             f"Progresso: R$ {saved:.2f} / R$ {target:.2f} (*{progress:.1f}%*)"
         )
-        await update.message.reply_text(reply_message, parse_mode='Markdown')
-
+        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=sent_message.message_id, text=reply_message, parse_mode='Markdown')
     except ValueError:
-        await update.message.reply_text(f"Valor inválido: '{value_str}'.")
+        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=sent_message.message_id, text=f"Valor inválido: '{value_str}'.")
     except Exception as e:
         print(f"Erro ao processar poupança: {e}")
-        await update.message.reply_text("❌ Ocorreu um erro interno ao processar a contribuição.")
+        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=sent_message.message_id, text="❌ Ocorreu um erro interno ao processar a contribuição.")
         
         
         
         
 async def process_withdrawal(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Processa um saque de uma meta de poupança, transferindo o valor para uma categoria de renda."""
+    sent_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="⏳ Processando saque...")
     try:
         # 1. Parse do comando: sacar <valor> <meta> para <categoria>
         # Ex: ['100', 'fundo', 'de', 'emergencia', 'para', 'salário']
@@ -491,13 +492,22 @@ async def process_withdrawal(update: Update, context: ContextTypes.DEFAULT_TYPE,
         }
         db.collection('transactions').add(income_transaction_data)
 
-        await update.message.reply_text(f"✅ Saque de R$ {amount:.2f} da meta '{found_goal.to_dict().get('goalName')}' realizado e adicionado à renda '{found_income_category.to_dict().get('name')}'.")
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=sent_message.message_id,
+            text=f"✅ Saque de R$ {amount:.2f} da meta '{found_goal.to_dict().get('goalName')}' realizado e adicionado à renda '{found_income_category.to_dict().get('name')}'."
+        )
 
     except ValueError:
         await update.message.reply_text(f"Valor inválido: '{value_str}'. O valor deve ser um número.")
     except Exception as e:
         print(f"Erro ao processar saque: {e}")
-        await update.message.reply_text("❌ Ocorreu um erro interno ao processar o saque.")
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=sent_message.message_id,
+            text="❌ Ocorreu um erro interno ao processar o saque."
+        )
+
         
  
 async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str):
