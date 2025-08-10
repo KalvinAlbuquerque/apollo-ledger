@@ -49,3 +49,35 @@
   height: 400px; /* Define uma altura para o gráfico */
   margin-top: 20px;
 }
+
+/* Adicione em: src/pages/ReportsPage.module.css */
+
+.filterSection {
+  background-color: var(--cinza-elemento);
+  padding: 15px 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.clearButton {
+  margin-left: auto;
+  background-color: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 8px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.fullWidth {
+  grid-column: 1 / -1; /* Faz este card ocupar todas as colunas do grid */
+}
