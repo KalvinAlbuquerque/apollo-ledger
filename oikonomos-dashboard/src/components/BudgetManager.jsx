@@ -9,7 +9,7 @@ function BudgetManager({ onDataChanged, totalMonthIncome }) {
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [budgets, setBudgets] = useState({});
   const [loading, setLoading] = useState(true);
-
+const [searchTerm, setSearchTerm] = useState('');
   const user = auth.currentUser;
   const currentMonth = new Date().getMonth() + 1;
   const currentYear = new Date().getFullYear();
@@ -47,7 +47,7 @@ function BudgetManager({ onDataChanged, totalMonthIncome }) {
 
   const handleSaveBudgets = async () => {
     if (!user) return;
-    
+
     const totalBudgetedAmount = Object.values(budgets).reduce((acc, amount) => acc + (amount || 0), 0);
 
     if (totalBudgetedAmount > totalMonthIncome) {
@@ -89,15 +89,30 @@ function BudgetManager({ onDataChanged, totalMonthIncome }) {
         }
     });
   };
+
+    const filteredCategories = expenseCategories.filter(categoryName => 
+    categoryName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
   
   if (loading) return <p>Carregando orçamentos...</p>;
 
 
  return (
     <div className={styles.container}>
-      <h2>Orçamentos para {new Date().toLocaleString('pt-BR', { month: 'long' })}</h2>
+      <div className={styles.header}>
+        <h2>Orçamentos para {new Date().toLocaleString('pt-BR', { month: 'long' })}</h2>
+        {/* <<< NOVA BARRA DE BUSCA */}
+        <input 
+            type="text"
+            placeholder="Pesquisar orçamento..."
+            className={styles.searchInput}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
       <div className={styles.budgetList}>
-        {expenseCategories.map(categoryName => (
+        {/* <<< USA A LISTA FILTRADA */}
+        {filteredCategories.map(categoryName => (
           <div key={categoryName} className={styles.budgetItem}>
             <label>{categoryName}</label>
             <div className={styles.inputGroup}>
@@ -108,7 +123,6 @@ function BudgetManager({ onDataChanged, totalMonthIncome }) {
                 value={budgets[categoryName] || ''}
                 onChange={(e) => handleBudgetChange(categoryName, e.target.value)}
               />
-              {/* <<< NOVO BOTÃO DE LIMPAR/EXCLUIR */}
               <button onClick={() => handleClearBudget(categoryName)} className={styles.clearButton} title="Zerar orçamento">
                 &times;
               </button>
