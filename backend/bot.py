@@ -1,3 +1,5 @@
+# backend/bot.py (Versão Final com Teclado Interativo)
+
 import os
 import re
 import asyncio
@@ -12,8 +14,9 @@ from firebase_admin import credentials, firestore, auth
 from google.cloud.firestore_v1.base_query import FieldFilter
 from dotenv import load_dotenv
 from flask import Flask, request
-from telegram import Update
-from telegram.ext import Application, MessageHandler, filters,ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+
 
 # --- 1. CONFIGURAÇÃO INICIAL ---
 load_dotenv()
@@ -184,10 +187,9 @@ async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE, te
 
 
 async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
-    """Processa e salva uma despesa, e retorna o status detalhado e intuitivo do orçamento."""
-    sent_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="⏳ Registrando gasto...")
+    """Valida uma despesa e inicia a conversa para seleção de conta."""
     try:
-        # --- Parte 1: Validação da Categoria (sem alterações) ---
+        # --- Validação da Categoria (lógica que já tínhamos) ---
         categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).stream()
         original_categories = [doc.to_dict()['name'] for doc in categories_ref]
         valid_categories_normalized = [normalize_text(name) for name in original_categories]
@@ -200,7 +202,7 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         match = re.match(r"^\s*(\d+[\.,]?\d*)\s+([\w\sáàâãéèêíïóôõöúçñ]+?)(?:\s+(.+))?$", expense_text)
 
         if not match:
-            await update.message.reply_text("Formato de gasto inválido. Use: [gasto] <valor> <categoria> [descrição]")
+            await update.message.reply_text("Formato de gasto inválido. Use: <valor> <categoria> [descrição]")
             return
 
         value_str, category_name_input, description = match.groups()
@@ -217,88 +219,43 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         amount = float(value_str.replace(',', '.'))
         description = description.strip() if description else None
         
-        # --- Parte 2: Salvar a Transação (sem alterações) ---
-        expense_data = { 'type': 'expense', 'amount': amount, 'category': correct_category_name, 'description': description, 'createdAt': firestore.SERVER_TIMESTAMP, 'userId': firebase_uid }
-        db.collection('transactions').add(expense_data)
+        # --- Lógica de Conversa ---
+        # 1. Busca as contas do usuário
+        accounts_query = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
+        accounts = list(accounts_query)
+
+        if not accounts:
+            await update.message.reply_text("Você precisa criar uma conta no dashboard primeiro antes de registrar uma transação.")
+            return
+
+        # 2. Guarda os detalhes da transação na "memória" do usuário
+        context.user_data['pending_transaction'] = {
+            'type': 'expense',
+            'amount': amount,
+            'category': correct_category_name,
+            'description': description
+        }
         
-        base_reply = f"💸 Gasto de R$ {amount:.2f} na categoria '{correct_category_name}' registrado!"
-        
-        # --- Parte 3: LÓGICA DE FEEDBACK REESTRUTURADA ---
-        today = datetime.now(timezone.utc)
-        current_month = today.month
-        current_year = today.year
+        # 3. Cria os botões para cada conta
+        keyboard = []
+        for acc_doc in accounts:
+            acc = acc_doc.to_dict()
+            button_text = f"{acc.get('accountName')} (R$ {acc.get('balance', 0):.2f})"
+            button = InlineKeyboardButton(button_text, callback_data=f"account_{acc_doc.id}")
+            keyboard.append([button])
 
-        budget_query = db.collection('budgets').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('categoryName', '==', correct_category_name)).where(filter=FieldFilter('month', '==', current_month)).where(filter=FieldFilter('year', '==', current_year)).limit(1).stream()        
-        budget_doc = next(budget_query, None)
-        
-        if budget_doc and budget_doc.to_dict().get('amount', 0) > 0:
-            budget_amount = budget_doc.to_dict().get('amount', 0)
-            
-            start_of_month = datetime(current_year, current_month, 1)
-            all_month_expenses_query = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).where(filter=FieldFilter('category', '==', correct_category_name)).where(filter=FieldFilter('createdAt', '>=', start_of_month)).stream()            
-            total_spent_this_month = sum(doc.to_dict().get('amount', 0) for doc in all_month_expenses_query)
-            remaining_budget_month = budget_amount - total_spent_this_month
-            
-            total_days_in_month = calendar.monthrange(current_year, current_month)[1]
-            days_remaining = total_days_in_month - today.day + 1
-            
-            allowance_before_spend = (remaining_budget_month + amount) / days_remaining if days_remaining > 0 else 0
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("De qual conta deseja debitar este gasto?", reply_markup=reply_markup)
 
-            start_of_day = today.replace(hour=0, minute=0, second=0, microsecond=0)
-            today_expenses_query = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).where(filter=FieldFilter('category', '==', correct_category_name)).where(filter=FieldFilter('createdAt', '>=', start_of_day)).stream()            
-            total_spent_today = sum(doc.to_dict().get('amount', 0) for doc in today_expenses_query)
-
-            budget_feedback = f"\n\n*Resumo de Hoje ({correct_category_name}):*"
-            budget_feedback += f"\n- Gasto de Hoje: R$ {total_spent_today:.2f}"
-            budget_feedback += f"\n- Meta do Dia: R$ {allowance_before_spend:.2f}"
-            
-            remaining_for_today = allowance_before_spend - total_spent_today
-
-            if remaining_for_today >= 0:
-                # Cenário A: Dentro da meta diária
-                budget_feedback += f"\n- *Disponível para Hoje: R$ {remaining_for_today:.2f}*"
-                # Calcula a média semanal atual
-                current_daily_avg = remaining_budget_month / days_remaining if days_remaining > 0 else 0
-                current_weekly_avg = current_daily_avg * 7
-                budget_feedback += f"\n\n*Orçamento Atualizado:*"
-                budget_feedback += f"\n- Saldo Mensal Restante: R$ {remaining_budget_month:.2f}"
-                budget_feedback += f"\n- Média Semanal Segura: R$ {current_weekly_avg:.2f}"
-            else:
-                # Cenário B: Acima da meta diária
-                budget_feedback += f"\n- Você ultrapassou a meta em R$ {abs(remaining_for_today):.2f}"
-                budget_feedback += f"\n\n🔴 *Orçamento Recalculado:*"
-                budget_feedback += f"\n- Saldo Mensal Restante: R$ {remaining_budget_month:.2f}"
-                # Recalcula as novas médias para o futuro
-                days_truly_remaining = days_remaining - 1
-                new_daily_avg = remaining_budget_month / days_truly_remaining if days_truly_remaining > 0 else remaining_budget_month
-                new_weekly_avg = new_daily_avg * 7
-                budget_feedback += f"\n- Nova Média Diária: R$ {new_daily_avg:.2f}"
-                budget_feedback += f"\n- Nova Média Semanal: R$ {new_weekly_avg:.2f}"
-            
-            base_reply += budget_feedback
-
-        await context.bot.edit_message_text(
-                    chat_id=update.effective_chat.id,
-                    message_id=sent_message.message_id,
-                    text=base_reply,
-                    parse_mode='Markdown'
-                )
     except Exception as e:
-        print(f"Erro ao processar despesa: {e}")
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=sent_message.message_id,
-            text="❌ Ocorreu um erro interno ao processar o gasto."
-        )
-
-async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
-    """Processa e salva uma renda, separando a origem da descrição e ignorando acentos."""
-    sent_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="⏳ Registrando renda...")
-    try:
-        # 1. Busca as categorias de renda válidas
-        categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'income')).stream()
+        print(f"Erro ao iniciar processamento de despesa: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro ao processar sua despesa.")
         
-        # Guarda as categorias originais (com acento) e uma lista normalizada para comparação
+async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
+    """Valida uma renda e inicia a conversa para seleção de conta."""
+    try:
+        # --- Validação da Categoria de Renda (lógica que já tínhamos) ---
+        categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'income')).stream()
         original_categories = [doc.to_dict()['name'] for doc in categories_ref]
         valid_categories_normalized = [normalize_text(name) for name in original_categories]
 
@@ -307,13 +264,12 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
             return
             
         if len(text_parts) < 2:
-            await update.message.reply_text("Formato de renda inválido. Use: <saldo/renda> <valor> <origem> [descrição]")
+            await update.message.reply_text("Formato de renda inválido. Use: + <valor> <origem> [descrição]")
             return
             
         value_str = text_parts[0]
         potential_source_and_desc = text_parts[1:]
 
-        # 2. Lógica de busca normalizada para encontrar a categoria
         found_category_original = None
         category_word_count = 0
 
@@ -322,7 +278,6 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
             potential_category_normalized = normalize_text(potential_category_input)
             
             if potential_category_normalized in valid_categories_normalized:
-                # Encontra o nome original correspondente para salvar com acento
                 match_index = valid_categories_normalized.index(potential_category_normalized)
                 found_category_original = original_categories[match_index]
                 category_word_count = i
@@ -335,32 +290,81 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
             await update.message.reply_text(error_message)
             return
 
-        # 3. Se encontrou, o que sobrar é a descrição
         description = " ".join(potential_source_and_desc[category_word_count:]).strip() or None
         amount = float(value_str.replace(',', '.'))
         
-        income_data = {
+        # --- Lógica de Conversa ---
+        accounts_query = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
+        accounts = list(accounts_query)
+
+        if not accounts:
+            await update.message.reply_text("Você precisa criar uma conta no dashboard primeiro antes de registrar uma transação.")
+            return
+
+        context.user_data['pending_transaction'] = {
             'type': 'income',
             'amount': amount,
-            'category': found_category_original, # Salva o nome com acento
-            'description': description,
-            'createdAt': firestore.SERVER_TIMESTAMP,
-            'userId': firebase_uid
+            'category': found_category_original,
+            'description': description
         }
-        db.collection('transactions').add(income_data)
         
-        reply_message = f"💰 Renda de R$ {amount:.2f} da origem '{found_category_original}' registrada!"
-        if description:
-            reply_message += f"\nDescrição: {description}"
-            
-        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=sent_message.message_id, text=reply_message)
-    except ValueError:
-        await update.message.reply_text(f"Valor inválido: '{value_str}'. O valor deve ser um número.")
-    except Exception as e:
-        print(f"Erro ao processar renda: {e}")
-        await update.message.reply_text("❌ Ocorreu um erro interno ao processar a renda.")
+        keyboard = []
+        for acc_doc in accounts:
+            acc = acc_doc.to_dict()
+            button_text = f"{acc.get('accountName')} (R$ {acc.get('balance', 0):.2f})"
+            button = InlineKeyboardButton(button_text, callback_data=f"account_{acc_doc.id}")
+            keyboard.append([button])
 
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text("Em qual conta deseja registrar esta renda?", reply_markup=reply_markup)
+
+    except Exception as e:
+        print(f"Erro ao iniciar processamento de renda: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro ao processar sua renda.")
+
+async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    chat_id = query.message.chat_id
+    firebase_uid = await get_firebase_user_id(chat_id)
+    
+    if not firebase_uid:
+        await query.edit_message_text(text="Erro: não consegui identificar seu usuário.")
+        return
+
+    pending_transaction = context.user_data.get('pending_transaction')
+    if not pending_transaction:
+        await query.edit_message_text(text="Parece que a operação expirou. Por favor, tente novamente.")
+        return
         
+    selected_account_id = query.data.split('_')[1]
+
+    try:
+        # Usa 'firestore' para aceder às funções Increment, etc.
+        batch = firestore.write_batch(db)
+
+        new_transaction_ref = firestore.document(f'transactions/{db.collection("transactions").document().id}')
+        pending_transaction['userId'] = firebase_uid
+        pending_transaction['accountId'] = selected_account_id
+        pending_transaction['createdAt'] = firestore.SERVER_TIMESTAMP
+        batch.set(new_transaction_ref, pending_transaction)
+
+        account_doc_ref = firestore.document(f'accounts/{selected_account_id}')
+        amount_to_update = pending_transaction['amount'] if pending_transaction['type'] == 'income' else -pending_transaction['amount']
+        batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(amount_to_update)})
+
+        batch.commit()
+
+        account_name = db.collection('accounts').document(selected_account_id).get().to_dict()['accountName']
+        await query.edit_message_text(text=f"✅ Transação registada com sucesso na conta '{account_name}'!")
+
+    except Exception as e:
+        print(f"Erro ao salvar transação via callback: {e}")
+        await query.edit_message_text(text="❌ Ocorreu um erro ao salvar sua transação.")
+    finally:
+        context.user_data.pop('pending_transaction', None)
+
 async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list,firebase_uid: str):
     """Processa uma contribuição para uma meta de poupança."""
     sent_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="⏳ Guardando dinheiro na meta...")
@@ -794,6 +798,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 app = Flask(__name__)
 ptb_app = Application.builder().token(TELEGRAM_TOKEN).build()
 ptb_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+ptb_app.add_handler(CallbackQueryHandler(handle_account_selection)) # Adiciona o novo "ouvinte" de botões
 
 @app.route("/")
 def index():
