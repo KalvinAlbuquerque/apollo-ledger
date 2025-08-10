@@ -118,7 +118,7 @@ A seguir, a lista de comandos simplificados.
 
 async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Marca uma conta agendada como 'paga' e cria a transação de despesa correspondente."""
-    processing_message = await update.message.reply_text("⏳ Processando pagamento...")
+    sent_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="⏳ Processando pagamento...")
     try:
         if not text_parts:
             await update.message.reply_text("Formato inválido. Use: pagar <descrição da conta>")
@@ -157,7 +157,7 @@ async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE, te
             'type': 'expense',
             'amount': debt_data.get('amount'),
             'category': debt_data.get('categoryName'),
-            'description': f"Pagamento de: {debt_data.get('description')}",
+            'description': f"Pagamento de: {debt_data.get('descripti    sent_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="⏳ Registrando gasto...")on')}",
             'createdAt': firestore.SERVER_TIMESTAMP,
             'userId': firebase_uid
         }
@@ -167,15 +167,23 @@ async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         debt_doc_ref = db.collection('scheduled_transactions').document(found_debt.id)
         debt_doc_ref.update({'status': 'paid'})
 
-        await processing_message.edit_message_text(f"✅ Pagamento de '{debt_data.get('description')}' foi registrado!")
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=sent_message.message_id,
+            text=f"✅ Pagamento de '{debt_data.get('description')}' no valor de R$ {debt_data.get('amount'):.2f} foi registrado com sucesso!"
+        )
     except Exception as e:
         print(f"Erro ao processar pagamento: {e}")
-        await update.message.reply_text("❌ Ocorreu um erro interno ao registrar o pagamento.")
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=sent_message.message_id,
+            text="❌ Ocorreu um erro interno ao registrar o pagamento."
+        )
 
 
 async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Processa e salva uma despesa, e retorna o status detalhado e intuitivo do orçamento."""
-    processing_message = await update.message.reply_text("⏳ Registrando gasto...")
+    sent_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="⏳ Registrando gasto...")
     try:
         # --- Parte 1: Validação da Categoria (sem alterações) ---
         categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).stream()
@@ -267,10 +275,19 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
             
             base_reply += budget_feedback
 
-        await processing_message.edit_message_text(base_reply, parse_mode='Markdown')
+            await context.bot.edit_message_text(
+                        chat_id=update.effective_chat.id,
+                        message_id=sent_message.message_id,
+                        text=base_reply,
+                        parse_mode='Markdown'
+                    )
     except Exception as e:
         print(f"Erro ao processar despesa: {e}")
-        await update.message.reply_text("❌ Ocorreu um erro interno ao processar o gasto.")
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=sent_message.message_id,
+            text="❌ Ocorreu um erro interno ao processar o gasto."
+        )
 
 async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Processa e salva uma renda, separando a origem da descrição e ignorando acentos."""
