@@ -65,6 +65,24 @@ function Dashboard({ user }) {
     setIsSelectionMode(!isSelectionMode);
   };
 
+  const handleSelectAllOnPage = (e) => {
+    const isChecked = e.target.checked;
+    const newSelection = new Set(selectedTransactions);
+    
+    // Pega os IDs apenas dos itens na página atual
+    const idsOnCurrentPage = currentTransactions.map(tx => tx.id);
+
+    if (isChecked) {
+      // Adiciona todos os IDs da página atual à seleção
+      idsOnCurrentPage.forEach(id => newSelection.add(id));
+    } else {
+      // Remove todos os IDs da página atual da seleção
+      idsOnCurrentPage.forEach(id => newSelection.delete(id));
+    }
+    
+    setSelectedTransactions(newSelection);
+  };
+
   const handleRowSelect = (transactionId) => {
     // Cria uma cópia do Set para o React detectar a mudança
     const newSelection = new Set(selectedTransactions);
@@ -440,42 +458,58 @@ function Dashboard({ user }) {
       )}
     </div>
     <table className={styles.table}>
-        <thead>
-            <tr>
-              {isSelectionMode && <th className={styles.checkboxCell}></th>}
-              <th>Data</th>
-              <th>Categoria</th>
-              <th>Descrição</th>
-              <th>Valor (R$)</th>
-              <th>Ações</th>
-            </tr>
-        </thead>
-        <tbody>
-            {currentTransactions.length > 0 ? (
-            currentTransactions.map(tx => (
-              <tr key={tx.id} className={isSelectionMode && selectedTransactions.has(tx.id) ? styles.selectedRow : ''}>
-                {isSelectionMode && (
-                  <td className={styles.checkboxCell}>
-                    <input 
-                      type="checkbox" 
-                      checked={selectedTransactions.has(tx.id)}
-                      onChange={() => handleRowSelect(tx.id)}
-                    />
-                  </td>
+              <thead>
+                <tr>
+                  {isSelectionMode && (
+                    <th className={styles.checkboxCell}>
+                      <input 
+                        type="checkbox" 
+                        onChange={handleSelectAllOnPage}
+                        // O checkbox principal estará marcado se todos os itens visíveis na página estiverem selecionados
+                        checked={currentTransactions.length > 0 && currentTransactions.every(tx => selectedTransactions.has(tx.id))}
+                      />
+                    </th>
+                  )}
+                  <th>Data</th>
+                  <th>Categoria</th>
+                  <th>Descrição</th>
+                  <th>Valor (R$)</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentTransactions.length > 0 ? (
+                  currentTransactions.map(tx => {
+                    const isSelected = selectedTransactions.has(tx.id);
+                    return (
+                      <tr key={tx.id} className={isSelected ? styles.selectedRow : ''}>
+                        {isSelectionMode && (
+                          // A célula inteira se torna clicável para selecionar/deselecionar a linha
+                          <td className={styles.checkboxCell} onClick={() => handleRowSelect(tx.id)}>
+                            <input 
+                              type="checkbox" 
+                              checked={isSelected}
+                              readOnly // O clique é gerenciado pela <td>, então o checkbox é apenas visual
+                            />
+                          </td>
+                        )}
+                        <td data-label="Data">{tx.createdAt ? tx.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</td>
+                        <td data-label="Categoria">{tx.category}</td>
+                        <td data-label="Descrição">{tx.description || '-'}</td>
+                        <td data-label="Valor (R$)" className={tx.type === 'income' ? styles.incomeAmount : styles.expenseAmount}>{tx.type === 'income' ? '+ ' : '- '}R$ {tx.amount.toFixed(2)}</td>
+                        <td data-label="Ações">
+                            <button onClick={() => handleOpenEditModal(tx)} className={styles.editButton}>Editar</button>
+                            <button onClick={() => handleDelete(tx.id)} className={styles.deleteButton}>Excluir</button>
+                        </td>
+                      </tr>
+                    )
+                  })
+                ) : ( 
+                  // O colSpan se ajusta se o modo de seleção está ativo ou não
+                  <tr><td colSpan={isSelectionMode ? 6 : 5}>Nenhuma transação encontrada.</td></tr> 
                 )}
-                <td data-label="Data">{tx.createdAt ? tx.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</td>
-                <td data-label="Categoria">{tx.category}</td>
-                <td data-label="Descrição">{tx.description || '-'}</td>
-                <td data-label="Valor (R$)" className={tx.type === 'income' ? styles.incomeAmount : styles.expenseAmount}>{tx.type === 'income' ? '+ ' : '- '}R$ {tx.amount.toFixed(2)}</td>
-                <td data-label="Ações">
-                    <button onClick={() => handleOpenEditModal(tx)} className={styles.editButton}>Editar</button>
-                    <button onClick={() => handleDelete(tx.id)} className={styles.deleteButton}>Excluir</button>
-                </td>
-              </tr>
-            ))
-            ) : ( <tr><td colSpan={isSelectionMode ? 6 : 5}>Nenhuma transação encontrada.</td></tr> )}
-        </tbody>
-    </table>
+              </tbody>
+            </table>
     {totalPages > 1 && (
       <div className={styles.pagination}>
         <button onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1}>
