@@ -354,7 +354,7 @@
   }
 }
 
-primaryActionButton {
+.primaryActionButton {
   background-color: var(--acento-azul);
   color: white;
   border: none;
@@ -362,10 +362,11 @@ primaryActionButton {
   border-radius: 8px;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, opacity 0.2s;
 }
 
 .primaryActionButton:hover {
+  opacity: 0.9;
   transform: scale(1.05);
 }
 
@@ -374,6 +375,17 @@ primaryActionButton {
   align-items: center;
   gap: 15px;
 }
+.accountSelector {
+  margin-top: 10px;
+}
+
+.accountSelector select {
+  /* Usa o estilo global de 'select' que já definimos */
+  font-weight: bold;
+  padding: 8px 12px;
+  font-size: 1rem;
+}
+
 
 .headerButton {
   background-color: transparent;

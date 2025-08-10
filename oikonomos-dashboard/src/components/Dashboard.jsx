@@ -18,7 +18,6 @@ import GoalManager from './GoalManager';
 import AccountManager from './AccountManager';
 import AddTransactionModal from './AddTransactionModal';
 import { showConfirmationToast } from '../utils/toastUtils.jsx';
-
 // Estilos
 import styles from './Dashboard.module.css';
 
@@ -37,6 +36,7 @@ function Dashboard({ user }) {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dataVersion, setDataVersion] = useState(0);
+  const [accountView, setAccountView] = useState('geral');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [isAddTransactionModalOpen, setIsAddTransactionModalOpen] = useState(false);
@@ -161,8 +161,19 @@ function Dashboard({ user }) {
   }, [filterStartDate, filterEndDate]);
 
   const summaryData = useMemo(() => {
-    const income = transactions.filter(tx => tx.type === 'income');
-    const expenses = transactions.filter(tx => tx.type === 'expense' || !tx.type);
+
+     const filteredTransactions = transactions.filter(tx => {
+        if (accountView === 'total') return true; // Mostra tudo
+        if (accountView === 'geral') {
+            const nonReserveAccountIds = new Set(accounts.filter(acc => !acc.isReserve).map(acc => acc.id));
+            return nonReserveAccountIds.has(tx.accountId);
+        }
+        // Filtra por uma conta específica
+        return tx.accountId === accountView;
+    });
+
+    const income = filteredTransactions.filter(tx => tx.type === 'income');
+    const expenses = filteredTransactions.filter(tx => tx.type === 'expense' || !tx.type);
     const totalIncome = income.reduce((acc, tx) => acc + tx.amount, 0);
     const totalExpense = expenses.reduce((acc, tx) => acc + tx.amount, 0);
     const balance = totalIncome - totalExpense;
@@ -257,7 +268,7 @@ function Dashboard({ user }) {
     }
     
     return { totalIncome, totalExpense, balance, expenseChartData, incomeChartData, balanceChartData, budgetProgress, lineChartData, singleDayChartData, isSingleDayView };
-  }, [transactions, budgets, filterStartDate, filterEndDate]);
+  }, [transactions, budgets, filterStartDate, filterEndDate, accounts, accountView]);
 
   const charts = [
     { title: "Gastos por Categoria", data: summaryData.expenseChartData },
@@ -283,9 +294,12 @@ function Dashboard({ user }) {
   const goToPrevChart = () => setCurrentChartIndex(prev => (prev - 1 + charts.length) % charts.length);
   
   const handleLogout = () => signOut(auth);
-    const handleOpenAddTransactionModal = () => setIsAddTransactionModalOpen(true);
-  const handleCloseAddTransactionModal = () => setIsAddTransactionModalOpen(false)
-
+ const handleOpenAddTransactionModal = () => {
+    setIsAddTransactionModalOpen(true);
+  };
+  const handleCloseAddTransactionModal = () => {
+    setIsAddTransactionModalOpen(false);
+  };
     const handleSelectAllOnPage = (e) => {
     const isChecked = e.target.checked;
     const newSelection = new Set(selectedTransactions);
@@ -417,8 +431,20 @@ function Dashboard({ user }) {
       <div className={styles.dashboard}>
         <header className={styles.header}>
           <div><h1>Dashboard Oikonomos</h1><p>Olá, {user.email}</p></div>
+
+            <div className={styles.accountSelector}>
+              <select value={accountView} onChange={(e) => setAccountView(e.target.value)}>
+                <option value="geral">Visão Geral (sem Reservas)</option>
+                <option value="total">Patrimônio Total</option>
+                <option disabled>--- Contas ---</option>
+                {accounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.accountName}</option>
+                ))}
+              </select>
+            </div>
+
           <div className={styles.headerActions}>
-                {/* <<< 4. NOVO BOTÃO DE ADICIONAR TRANSAÇÃO */}
+                {/* <<< BOTÃO DE TRANSFERÊNCIA AGORA CHAMA A NOVA FUNÇÃO */}
                 <button onClick={handleOpenAddTransactionModal} className={styles.primaryActionButton}>+ Adicionar Transação</button>
                 <Link to="/reports" className={styles.headerButton}>Ver Relatórios</Link>
                 <button onClick={handleLogout} className={styles.logoutButton}>Sair</button>
@@ -598,12 +624,12 @@ function Dashboard({ user }) {
           </section>
       </div>
       {isModalOpen && (<EditModal transaction={editingTransaction} onSave={handleSaveTransaction} onCancel={handleCloseModal} categories={categories} />)}
-    {isAddTransactionModalOpen && (
+      {isAddTransactionModalOpen && (
         <AddTransactionModal 
             onCancel={handleCloseAddTransactionModal}
             onSave={() => {
                 handleCloseAddTransactionModal();
-                triggerRefresh(); // Atualiza o dashboard
+                triggerRefresh();
             }}
             categories={categories}
             accounts={accounts}
