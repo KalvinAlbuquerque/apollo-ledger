@@ -20,6 +20,10 @@ import { showConfirmationToast } from '../utils/toastUtils.jsx';
 import styles from './Dashboard.module.css';
 
 function Dashboard({ user }) {
+  const formatDate = (date) => date.toISOString().split('T')[0];
+  const today = new Date();
+  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [budgets, setBudgets] = useState([]);
@@ -27,20 +31,25 @@ function Dashboard({ user }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [currentChartIndex, setCurrentChartIndex] = useState(0);
-  const [filterStartDate, setFilterStartDate] = useState('');
-  const [filterEndDate, setFilterEndDate] = useState('');
+  
+  // --- ESTADOS DO FILTRO CORRIGIDOS ---
+  const [filterStartDate, setFilterStartDate] = useState(formatDate(firstDayOfMonth));
+  const [filterEndDate, setFilterEndDate] = useState(formatDate(lastDayOfMonth));
+  // ------------------------------------
+
   const [filterCategory, setFilterCategory] = useState('all');
   const [tooltipText, setTooltipText] = useState('Filtre por um período ou categoria');
   const [lineChartVisibility, setLineChartVisibility] = useState({ Saldo: true, Despesas: true });
   const [dataVersion, setDataVersion] = useState(0);  
-  const [currentPage, setCurrentPage] = useState(1); // <<< NOVO ESTADO AQUI
- const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedTransactions, setSelectedTransactions] = useState(new Set())
   const itemsPerPage = 15;
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentTransactions = transactions.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(transactions.length / itemsPerPage);
+
 
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
   
@@ -111,7 +120,6 @@ function Dashboard({ user }) {
     fetchData(); 
   }, [user, dataVersion, filterStartDate, filterEndDate, filterCategory]);
 
-  const formatDate = (date) => date.toISOString().split('T')[0];
   const handleSetMonthlyFilter = () => {
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
