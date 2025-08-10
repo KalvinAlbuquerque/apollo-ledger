@@ -40,10 +40,19 @@
 /* NOVO ESTILO PARA O FILTRO DE BOTÕES */
 .filterGroup {
   display: flex;
-  gap: 10px;
+  gap: 15px;
+  align-items: center;
   margin-bottom: 15px;
   border-bottom: 1px solid var(--borda-sutil);
   padding-bottom: 15px;
+}
+.searchInput {
+  flex-grow: 1; /* Faz a barra de busca ocupar o espaço disponível */
+}
+
+.filterTabs {
+  display: flex;
+  gap: 10px;
 }
 
 .filterButton {

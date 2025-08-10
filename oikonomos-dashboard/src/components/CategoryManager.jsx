@@ -12,6 +12,7 @@ function CategoryManager({ onDataChanged }) {
   const [newCategoryType, setNewCategoryType] = useState('expense');
   const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState(''); 
 
   // --- ESTADOS QUE FALTAVAM ---
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -94,10 +95,19 @@ function CategoryManager({ onDataChanged }) {
   };
   // -------------------------
 
+
   const filteredCategories = useMemo(() => {
-    if (filterType === 'all') return categories;
-    return categories.filter(cat => cat.type === filterType);
-  }, [categories, filterType]);
+    return categories
+      .filter(cat => {
+        // Primeiro, filtra pelo tipo (renda/despesa/todos)
+        if (filterType === 'all') return true;
+        return cat.type === filterType;
+      })
+      .filter(cat => {
+        // Depois, filtra pelo termo da busca
+        return cat.name.toLowerCase().includes(searchTerm.toLowerCase());
+      });
+  }, [categories, filterType, searchTerm]); 
 
   if (loading) return <p>Carregando categorias...</p>;
 
@@ -115,9 +125,25 @@ function CategoryManager({ onDataChanged }) {
         </form>
 
         <div className={styles.filterGroup}>
-            <button onClick={() => setFilterType('all')} className={`${styles.filterButton} ${filterType === 'all' ? styles.activeFilter : ''}`}>Todas</button>
-            <button onClick={() => setFilterType('expense')} className={`${styles.filterButton} ${filterType === 'expense' ? styles.activeFilter : ''}`}>Despesas</button>
-            <button onClick={() => setFilterType('income')} className={`${styles.filterButton} ${filterType === 'income' ? styles.activeFilter : ''}`}>Rendas</button>
+          {/* <<< BARRA DE BUSCA ADICIONADA AQUI */}
+          <input 
+            type="text"
+            placeholder="Pesquisar categoria..."
+            className={styles.searchInput}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <div className={styles.filterTabs}> {/* Renomeei a classe para clareza */}
+            <button onClick={() => setFilterType('all')} className={`${styles.filterButton} ${filterType === 'all' ? styles.activeFilter : ''}`}>
+              Todas
+            </button>
+            <button onClick={() => setFilterType('expense')} className={`${styles.filterButton} ${filterType === 'expense' ? styles.activeFilter : ''}`}>
+              Despesas
+            </button>
+            <button onClick={() => setFilterType('income')} className={`${styles.filterButton} ${filterType === 'income' ? styles.activeFilter : ''}`}>
+              Rendas
+            </button>
+          </div>
         </div>
 
         <ul className={styles.categoryList}>
