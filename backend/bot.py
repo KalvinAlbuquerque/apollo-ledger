@@ -115,6 +115,7 @@ A seguir, todos os comandos que eu entendo.
 > *Para ver este manual novamente:*
 > `?`
  """
+    await update.message.reply_text(manual_text.strip(), parse_mode='Markdown')
 
 async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Marca uma conta agendada como 'paga' e cria a transação de despesa correspondente."""
@@ -713,21 +714,18 @@ async def report_daily_allowance(update: Update, context: ContextTypes.DEFAULT_T
 
 # --- 5. ORQUESTRADOR PRINCIPAL ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Função principal que recebe todas as mensagens e decide o que fazer."""
     chat_id = update.effective_chat.id
-    
     if context.user_data.get('state') == 'awaiting_email':
         await register_user(update, context)
         return
 
     firebase_uid = await get_firebase_user_id(chat_id)
-    
     if firebase_uid:
         text = update.message.text.strip().lower()
         parts = text.split()
         command = parts[0]
-        
-        # Lógica para comandos de múltiplas palavras
+        sub_command_parts = parts[1:]
+
         if text.startswith("quanto gastei hoje"):
             await report_today_spending(update, context, firebase_uid, parts[3:])
         elif text.startswith("quanto posso gastar hoje"):
@@ -735,23 +733,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif command == '?':
             await send_manual(update, context, firebase_uid)
         elif command in ['orçamento', 'orçamentos']:
-            await list_budgets(update, context, firebase_uid, parts[1:])
+            await list_budgets(update, context, firebase_uid, sub_command_parts)
         elif command == 'categorias':
-            await list_categories(update, context, firebase_uid, parts[1:])
+            await list_categories(update, context, firebase_uid, sub_command_parts)
         elif command == 'contas':
-            await list_scheduled_transactions(update, context, firebase_uid, parts[1:])
+            await list_scheduled_transactions(update, context, firebase_uid, sub_command_parts)
         elif command in ['saldo', 'renda', 'ganhei']:
-            await process_income(update, context, parts[1:], firebase_uid)
+            await process_income(update, context, sub_command_parts, firebase_uid)
         elif command == 'gasto':
-            await process_expense(update, context, parts[1:], firebase_uid)
+            await process_expense(update, context, sub_command_parts, firebase_uid)
         elif command == 'guardar':
-            await process_saving(update, context, parts[1:], firebase_uid)
+            await process_saving(update, context, sub_command_parts, firebase_uid)
         elif command == 'sacar':
-            await process_withdrawal(update, context, parts[1:], firebase_uid)
+            await process_withdrawal(update, context, sub_command_parts, firebase_uid)
         elif command == 'pagar':
-            await process_payment(update, context, parts[1:], firebase_uid)
+            await process_payment(update, context, sub_command_parts, firebase_uid)
         else:
-            # Assume que é um gasto sem a palavra-chave
             await process_expense(update, context, parts, firebase_uid)
     else:
         context.user_data['state'] = 'awaiting_email'
@@ -759,7 +756,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "👋 Olá! Bem-vindo(a) ao Oikonomos.\n\n"
             "Parece que é sua primeira vez aqui. Para começar, por favor, envie o **mesmo e-mail** que você usou para se cadastrar no nosso site."
         )
-
 # --- 6. SERVIDOR WEB E WEBHOOK ---
 app = Flask(__name__)
 ptb_app = Application.builder().token(TELEGRAM_TOKEN).build()
