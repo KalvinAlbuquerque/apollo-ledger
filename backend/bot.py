@@ -575,7 +575,9 @@ async def list_budgets(update: Update, context: ContextTypes.DEFAULT_TYPE, fireb
 
         q_budget = db.collection('budgets').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('month', '==', current_month)).where(filter=FieldFilter('year', '==', current_year)).where(filter=FieldFilter('amount', '>', 0))
         
-        category_filter = " ".join(parts).strip().lower()
+        category_filter_parts = [p for p in parts if p != '?']
+        category_filter = " ".join(category_filter_parts).strip().lower()
+
         if category_filter:
             q_budget = q_budget.where(filter=FieldFilter('categoryName', '==', category_filter))
 
@@ -728,7 +730,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parts = text.split()
         command = parts[0].lower()
 
-        # --- NOVA LÓGICA DE ROTEAMENTO ---
+        # --- LÓGICA DE ROTEAMENTO CORRIGIDA E SIMPLIFICADA ---
         if command in ['?', 'ajuda']:
             await send_manual(update, context, firebase_uid)
         
@@ -738,7 +740,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             
             sub_command = parts[1].lower()
-            args = parts[2:]
+            args = parts[2:] # Argumentos são tudo que vem depois do sub_comando
             
             if sub_command in ['orçamento', 'orçamentos']:
                 await list_budgets(update, context, firebase_uid, args)
@@ -747,8 +749,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif sub_command == 'contas':
                 await list_scheduled_transactions(update, context, firebase_uid, args)
             elif sub_command == 'gastos' and len(parts) > 2 and parts[2].lower() == 'hoje':
+                # Comando: ver gastos hoje [categorizado]
                 await report_today_spending(update, context, firebase_uid, parts[3:])
             elif sub_command == 'hoje':
+                # Comando: ver hoje [categoria]
                 await report_daily_allowance(update, context, firebase_uid, args)
             else:
                 await update.message.reply_text(f"Não reconheci o comando 'ver {sub_command}'. Use '?' para ver as opções.")
