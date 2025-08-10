@@ -341,21 +341,27 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
     selected_account_id = query.data.split('_')[1]
 
     try:
-        # Usa 'firestore' para aceder às funções Increment, etc.
+        # --- CORREÇÕES APLICADAS AQUI ---
         batch = db.batch()
 
-        new_transaction_ref = firestore.document(f'transactions/{db.collection("transactions").document().id}')
+        # Cria a referência para um novo documento na coleção 'transactions'
+        new_transaction_ref = db.collection("transactions").document()
+        
+        # Prepara os dados da transação
         pending_transaction['userId'] = firebase_uid
         pending_transaction['accountId'] = selected_account_id
         pending_transaction['createdAt'] = firestore.SERVER_TIMESTAMP
         batch.set(new_transaction_ref, pending_transaction)
 
-        account_doc_ref = firestore.document(f'accounts/{selected_account_id}')
+        # Cria a referência para o documento da conta a ser atualizado
+        account_doc_ref = db.collection('accounts').document(selected_account_id)
         amount_to_update = pending_transaction['amount'] if pending_transaction['type'] == 'income' else -pending_transaction['amount']
         batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(amount_to_update)})
 
+        # Envia todas as operações para o Firebase de uma só vez
         batch.commit()
 
+        # Busca o nome da conta para a mensagem de confirmação
         account_name = db.collection('accounts').document(selected_account_id).get().to_dict()['accountName']
         await query.edit_message_text(text=f"✅ Transação registada com sucesso na conta '{account_name}'!")
 
@@ -363,7 +369,9 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
         print(f"Erro ao salvar transação via callback: {e}")
         await query.edit_message_text(text="❌ Ocorreu um erro ao salvar sua transação.")
     finally:
+        # Limpa a memória, independentemente do resultado
         context.user_data.pop('pending_transaction', None)
+
 
 async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list,firebase_uid: str):
     """Processa uma contribuição para uma meta de poupança."""
