@@ -291,7 +291,7 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
 
 async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Processa e salva uma renda, separando a origem da descrição e ignorando acentos."""
-    processing_message = await update.message.reply_text("⏳ Registrando renda...")
+    sent_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="⏳ Registrando renda...")
     try:
         # 1. Busca as categorias de renda válidas
         categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'income')).stream()
@@ -351,8 +351,7 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
         if description:
             reply_message += f"\nDescrição: {description}"
             
-        await update.message.reply_text(reply_message)
-
+        await context.bot.edit_message_text(chat_id=update.effective_chat.id, message_id=sent_message.message_id, text=reply_message)
     except ValueError:
         await update.message.reply_text(f"Valor inválido: '{value_str}'. O valor deve ser um número.")
     except Exception as e:
