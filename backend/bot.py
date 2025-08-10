@@ -72,7 +72,6 @@ async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Em: backend/bot.py
 
 async def send_manual(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str):
-    """Envia uma mensagem de ajuda com todos os comandos disponíveis."""
     manual_text = """
 📖 *Manual de Comandos Oikonomos*
 
@@ -99,15 +98,19 @@ A seguir, a lista de comandos simplificados.
 ---
 *📊 CONSULTAR INFORMAÇÕES*
 ---
-> *Visão Geral:*
-> `ver orçamentos`
-> `ver categorias`
-> `ver contas`
+> *Use o comando `ver` seguido do que deseja consultar.*
 
-> *Consultas Específicas:*
+> *Orçamentos:*
+> `ver orçamentos`
 > `ver orçamento alimentação`
+
+> *Categorias:*
+> `ver categorias`
 > `ver categorias renda`
-> `ver contas pagas`
+
+> *Contas Agendadas:*
+> `ver contas`
+> `ver contas pagas` ou `ver contas pendentes`
 
 > *Resumo do Dia:*
 > `ver gastos hoje`
@@ -118,6 +121,7 @@ A seguir, a lista de comandos simplificados.
 > `?` ou `ajuda`
     """
     await update.message.reply_text(manual_text.strip(), parse_mode='Markdown')
+
 
 async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Marca uma conta agendada como 'paga' e cria a transação de despesa correspondente."""
@@ -723,68 +727,61 @@ async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
     
 # --- 5. ORQUESTRADOR PRINCIPAL ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Função principal que gerencia a conversa e o roteamento de comandos."""
     chat_id = update.effective_chat.id
-    
-    # Primeiro, tenta encontrar o usuário do Firebase
     firebase_uid = await get_firebase_user_id(chat_id)
 
-    # --- FLUXO DE NOVO USUÁRIO ---
     if not firebase_uid:
-        # Se o bot não estava esperando um e-mail, ele pede.
         if context.user_data.get('state') != 'awaiting_email':
             context.user_data['state'] = 'awaiting_email'
             await update.message.reply_text(
                 "👋 Olá! Bem-vindo(a) ao Oikonomos.\n\n"
-                "Parece que é sua primeira vez aqui. Para começar, por favor, envie o **mesmo e-mail** que você usou para se cadastrar no nosso site."
+                "Para começar, por favor, envie o **mesmo e-mail** que você usou para se cadastrar no nosso site."
             )
         else:
-            # Se já estava esperando, ele tenta registrar.
             await register_user(update, context)
         return
 
-    # --- FLUXO DE USUÁRIO JÁ REGISTRADO ---
     text = update.message.text.strip()
     text_lower = text.lower()
     parts = text.split()
     command = parts[0].lower()
     
-    # Verifica se o usuário quer cancelar a conversa atual
     if text_lower == 'sair':
         await cancel_conversation(update, context, firebase_uid)
         return
 
     # --- MÁQUINA DE ESTADOS: Verifica se o bot está esperando uma resposta ---
     current_state = context.user_data.get('state')
-
     if current_state == 'awaiting_budget_specifier':
-        context.user_data.pop('state', None) # Limpa o estado
+        context.user_data.pop('state', None)
         if text_lower in ['geral', 'todos', 'total']:
             await list_budgets(update, context, firebase_uid, [])
         else:
             await list_budgets(update, context, firebase_uid, parts)
         return
-        
-    # (Adicionaremos outros estados aqui no futuro, como 'awaiting_category_specifier')
+    # Adicione aqui outros estados se criarmos mais conversas no futuro
 
     # --- PROCESSAMENTO DE NOVOS COMANDOS ---
-    # Se não está em nenhum estado de espera, trata como um novo comando
-
     if command in ['?', 'ajuda']:
         await send_manual(update, context, firebase_uid)
     
     elif command == 'ver':
         if len(parts) < 2:
-            await update.message.reply_text("Comando 'ver' incompleto. Use: `ver <orçamentos|categorias|contas|gastos hoje|hoje>`", parse_mode='Markdown')
+            await update.message.reply_text("Comando `ver` incompleto. Use `?` para ver as opções.", parse_mode='Markdown')
             return
         
         sub_command = parts[1].lower()
         args = parts[2:]
         
         if sub_command in ['orçamento', 'orçamentos']:
-            # Em vez de chamar a função, define o estado e faz a pergunta
             context.user_data['state'] = 'awaiting_budget_specifier'
-            await update.message.reply_text("Orçamento geral ou de uma categoria específica?\n_(Envie 'geral' ou o nome da categoria. Digite 'sair' para cancelar.)_")
+            # MENSAGEM ESTILIZADA AQUI
+            await update.message.reply_text(
+                "*Ver Orçamento*\n\n"
+                "Você quer ver o resumo geral de todos os orçamentos ou de uma categoria específica?\n\n"
+                "Envie `geral` ou o nome da categoria. (Digite 'sair' para cancelar)",
+                parse_mode='Markdown'
+            )
         elif sub_command == 'categorias':
             await list_categories(update, context, firebase_uid, args)
         elif sub_command == 'contas':
@@ -794,21 +791,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif sub_command == 'hoje':
             await report_daily_allowance(update, context, firebase_uid, args)
         else:
-            await update.message.reply_text(f"Não reconheci o comando 'ver {sub_command}'. Use '?' ou 'ajuda' para ver as opções.")
+            await update.message.reply_text(f"Não reconheci o comando `ver {sub_command}`. Use `?` para ver as opções.", parse_mode='Markdown')
 
     elif command.startswith('+'):
-        new_parts = [command.lstrip('+')] + parts[1:]
-        await process_income(update, context, new_parts, firebase_uid)
+        await process_income(update, context, [command.lstrip('+')] + parts[1:], firebase_uid)
     elif command == 'guardar':
         await process_saving(update, context, parts[1:], firebase_uid)
     elif command == 'sacar':
         await process_withdrawal(update, context, parts[1:], firebase_uid)
     elif command == 'pagar':
         await process_payment(update, context, parts[1:], firebase_uid)
-    elif command == 'renda': # Mantém compatibilidade
-            await process_income(update, context, parts[1:], firebase_uid)
+    elif command == 'renda':
+        await process_income(update, context, parts[1:], firebase_uid)
     else:
-        # Assume que é um gasto (o mais comum)
         await process_expense(update, context, parts, firebase_uid)
 
 # --- 6. SERVIDOR WEB E WEBHOOK ---
