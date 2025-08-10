@@ -121,7 +121,6 @@ A seguir, a lista de comandos simplificados.
 async def process_transfer(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Inicia a conversa para uma transferência entre contas."""
     try:
-        # Valida a sintaxe: transferir <valor> da <origem> para <destino>
         if 'da' not in text_parts or 'para' not in text_parts:
             await update.message.reply_text("Formato inválido. Use: `transferir <valor> da <conta origem> para <conta destino>`", parse_mode='Markdown')
             return
@@ -206,8 +205,10 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
     # Define qual mensagem será editada no final
     message_to_edit = None
     if is_transfer:
-        message_to_edit = await update.message.reply_text("⏳ A processar transferência...")
+        # Para transferências, envia uma nova mensagem de "processando"
+        message_to_edit = await update.message.reply_text("⏳ A processar...")
     else:
+        # Para outras ações, usa a mensagem que continha os botões
         query = update.callback_query
         await query.answer()
         message_to_edit = query.message
@@ -217,12 +218,14 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
         if not pending_transaction:
             await message_to_edit.edit_message_text(text="Parece que a operação expirou. Por favor, tente novamente.")
             return
-
-        batch = db.batch()
+            
+        transaction_type = pending_transaction.get('type')
+        batch = db.batch() # Cria o lote de escrita
+        
         accounts_query = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
         accounts = {acc.id: acc.to_dict() for acc in accounts_query}
-        transaction_type = pending_transaction.get('type')
 
+        # --- LÓGICA PARA TRANSAÇÕES DE RENDA OU DESPESA ---
         if transaction_type in ['income', 'expense']:
             selected_account_id = update.callback_query.data.split('_')[1]
             account_doc_ref = db.collection('accounts').document(selected_account_id)
@@ -237,6 +240,7 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
             account_name = accounts.get(selected_account_id, {}).get('accountName', 'desconhecida')
             await message_to_edit.edit_message_text(text=f"✅ Transação registada com sucesso na conta '{account_name}'!")
 
+        # --- LÓGICA PARA PAGAMENTOS ---
         elif transaction_type == 'payment':
             selected_account_id = update.callback_query.data.split('_')[1]
             debt = pending_transaction['debt_doc']
@@ -255,8 +259,16 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
             batch.update(db.collection('scheduled_transactions').document(debt_id), {'status': 'paid'})
             batch.update(db.collection('accounts').document(selected_account_id), {'balance': firestore.firestore.Increment(-debt.get('amount', 0))})
 
+            # Lógica de "Repor Reserva"
+            if source_account.get('isReserve'):
+                # Esta lógica pode ser ativada por um botão de confirmação no futuro
+                # Por agora, vamos assumir que a reposição é desejada
+                payback_ref = db.collection("scheduled_transactions").document()
+                batch.set(payback_ref, {'userId': firebase_uid, 'description': f"Reposição para: {source_account.get('accountName')}", 'amount': debt.get('amount'), 'categoryName': 'reservas', 'dueDate': datetime.now(timezone.utc) + relativedelta(months=1), 'status': 'pending', 'isRecurring': False})
+
             await message_to_edit.edit_message_text(text=f"✅ Pagamento de '{debt.get('description')}' registado a partir de '{source_account.get('accountName')}'!")
 
+        # --- LÓGICA PARA TRANSFERÊNCIAS ---
         elif transaction_type == 'transfer':
             amount = pending_transaction['amount']
             from_name = normalize_text(pending_transaction['from_account_name'])
@@ -283,13 +295,14 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
             
             await message_to_edit.edit_message_text(text=f"✅ Transferência de R$ {amount:.2f} realizada com sucesso!")
 
-        # O commit do batch é síncrono, não precisa de await
+        # O commit é síncrono, não precisa de await
         batch.commit()
     
     except Exception as e:
         print(f"Erro ao finalizar transação: {e}")
         await message_to_edit.edit_message_text(text="❌ Ocorreu um erro ao salvar sua transação.")
     finally:
+        # Limpa a memória para a próxima operação
         context.user_data.pop('pending_transaction', None)
         
 async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
