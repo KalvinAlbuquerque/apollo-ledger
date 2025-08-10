@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { auth, db } from '../../firebaseClient';
 import { signOut } from 'firebase/auth';
-import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore'; 
+import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore'; 
 import toast from 'react-hot-toast';
 
 // Componentes Filhos
@@ -34,7 +34,8 @@ function Dashboard({ user }) {
   const [lineChartVisibility, setLineChartVisibility] = useState({ Saldo: true, Despesas: true });
   const [dataVersion, setDataVersion] = useState(0);  
   const [currentPage, setCurrentPage] = useState(1); // <<< NOVO ESTADO AQUI
-
+ const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedTransactions, setSelectedTransactions] = useState(new Set())
   const itemsPerPage = 15;
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -47,6 +48,24 @@ function Dashboard({ user }) {
     setDataVersion(currentVersion => currentVersion + 1);
   };
 
+  const toggleSelectionMode = () => {
+    // Ao sair do modo de seleção, limpa a lista de selecionados
+    if (isSelectionMode) {
+      setSelectedTransactions(new Set());
+    }
+    setIsSelectionMode(!isSelectionMode);
+  };
+
+  const handleRowSelect = (transactionId) => {
+    // Cria uma cópia do Set para o React detectar a mudança
+    const newSelection = new Set(selectedTransactions);
+    if (newSelection.has(transactionId)) {
+      newSelection.delete(transactionId); // Se já estiver selecionado, desmarca
+    } else {
+      newSelection.add(transactionId); // Se não, marca
+    }
+    setSelectedTransactions(newSelection);
+  };
   const adjustEndDate = (dateStr) => {
     const date = new Date(dateStr);
     date.setUTCHours(23, 59, 59, 999);
@@ -254,6 +273,33 @@ function Dashboard({ user }) {
     showConfirmationToast(deleteAction, "Excluir esta transação?");
   };
 
+  const handleDeleteSelected = () => {
+    // Ação que será executada se o usuário confirmar
+    const deleteAction = async () => {
+      // Cria um "lote" de escrita no Firebase
+      const batch = writeBatch(db);
+      
+      // Adiciona cada ordem de exclusão ao lote
+      selectedTransactions.forEach(transactionId => {
+        const docRef = doc(db, "transactions", transactionId);
+        batch.delete(docRef);
+      });
+
+      try {
+        await batch.commit(); // Envia o lote para o Firebase
+        toast.success(`${selectedTransactions.size} transação(ões) excluída(s)!`);
+        toggleSelectionMode(); // Sai do modo de seleção
+        triggerRefresh(); // Atualiza os dados do dashboard
+      } catch (error) {
+        console.error("Erro ao excluir transações em massa:", error);
+        toast.error("Falha ao excluir as transações selecionadas.");
+      }
+    };
+
+    // Mostra a nossa notificação de confirmação
+    showConfirmationToast(deleteAction, `Excluir ${selectedTransactions.size} transação(ões) permanentemente?`);
+  };
+
   const handleOpenEditModal = (transaction) => {
     setEditingTransaction(transaction);
     setIsModalOpen(true);
@@ -314,84 +360,110 @@ function Dashboard({ user }) {
         <section className={`${styles.managerSection} ${styles.budgetStatusSection}`}>
           <BudgetStatus budgetProgress={summaryData.budgetProgress} />
         </section>
-
-        <main className={styles.mainContent}>
-          <div className={styles.chartsContainer}>
-            <div className={styles.chartWrapper}>
-              {summaryData.isSingleDayView ? (
-                <DailyBarChart 
-                  title={`Resumo do Dia: ${new Date(filterStartDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}`}
-                  chartData={summaryData.singleDayChartData} 
-                />
-              ) : (
-                <>
-                  <div className={styles.chartHeader}>
-                    <h3 className={styles.chartTitle}>Evolução Financeira</h3>
-                    <div className={styles.lineChartControls}>
-                      <label><input type="checkbox" checked={lineChartVisibility.Saldo} onChange={() => handleLineChartToggle('Saldo')} /> Saldo</label>
-                      <label><input type="checkbox" checked={lineChartVisibility.Despesas} onChange={() => handleLineChartToggle('Despesas')} /> Despesas</label>
-                    </div>
-                  </div>
-                  <div className={styles.chartCanvasContainer}>
-                    <LineChart 
-                      chartData={{
-                        ...summaryData.lineChartData,
-                        datasets: summaryData.lineChartData.datasets.map(ds => ({...ds, hidden: !lineChartVisibility[ds.label]}))
-                      }} 
+<main className={styles.mainContent}>
+  <div className={styles.chartsContainer}>
+    <div className={styles.chartWrapper}>
+      {summaryData.isSingleDayView ? (
+        <DailyBarChart 
+          title={`Resumo do Dia: ${new Date(filterStartDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}`}
+          chartData={summaryData.singleDayChartData} 
+        />
+      ) : (
+        <>
+          <div className={styles.chartHeader}>
+            <h3 className={styles.chartTitle}>Evolução Financeira</h3>
+            <div className={styles.lineChartControls}>
+              <label><input type="checkbox" checked={lineChartVisibility.Saldo} onChange={() => handleLineChartToggle('Saldo')} /> Saldo</label>
+              <label><input type="checkbox" checked={lineChartVisibility.Despesas} onChange={() => handleLineChartToggle('Despesas')} /> Despesas</label>
+            </div>
+          </div>
+          <div className={styles.chartCanvasContainer}>
+            <LineChart 
+              chartData={{
+                ...summaryData.lineChartData,
+                datasets: summaryData.lineChartData.datasets.map(ds => ({...ds, hidden: !lineChartVisibility[ds.label]}))
+              }} 
+            />
+          </div>
+        </>
+      )}
+    </div>
+    <div className={`${styles.chartWrapper} ${styles.doughnutChartWrapper}`}>
+      <div className={styles.chartHeader}>
+        <h3 className={styles.chartTitle}>{charts[currentChartIndex].title}</h3>
+        <div className={styles.navButtons}><button onClick={goToPrevChart}>&lt;</button><button onClick={goToNextChart}>&gt;</button></div>
+      </div>
+      <div className={styles.chartCanvasContainer}>
+        <SummaryChart chartData={charts[currentChartIndex].data} />
+      </div>
+    </div>
+  </div>
+  <div className={styles.transactionsContainer}>
+      <div className={styles.transactionsHeader}>
+      <h2>Suas Transações</h2>
+      {isSelectionMode ? (
+        <div className={styles.selectionActions}>
+          <span>{selectedTransactions.size} selecionada(s)</span>
+            <button onClick={handleDeleteSelected} className={styles.deleteSelectedButton}>Excluir Selecionados</button>          
+            <button onClick={toggleSelectionMode} className={styles.cancelSelectionButton}>Cancelar</button>        </div>
+      ) : (
+        <button onClick={toggleSelectionMode} className={styles.selectButton}>
+          Selecionar Vários
+        </button>
+      )}
+    </div>
+    <table className={styles.table}>
+        <thead>
+            <tr>
+              {isSelectionMode && <th className={styles.checkboxCell}></th>}
+              <th>Data</th>
+              <th>Categoria</th>
+              <th>Descrição</th>
+              <th>Valor (R$)</th>
+              <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {currentTransactions.length > 0 ? (
+            currentTransactions.map(tx => (
+              <tr key={tx.id} className={isSelectionMode && selectedTransactions.has(tx.id) ? styles.selectedRow : ''}>
+                {isSelectionMode && (
+                  <td className={styles.checkboxCell}>
+                    <input 
+                      type="checkbox" 
+                      checked={selectedTransactions.has(tx.id)}
+                      onChange={() => handleRowSelect(tx.id)}
                     />
-                  </div>
-                </>
-              )}
-            </div>
-            <div className={`${styles.chartWrapper} ${styles.doughnutChartWrapper}`}>
-              <div className={styles.chartHeader}>
-                <h3 className={styles.chartTitle}>{charts[currentChartIndex].title}</h3>
-                <div className={styles.navButtons}><button onClick={goToPrevChart}>&lt;</button><button onClick={goToNextChart}>&gt;</button></div>
-              </div>
-              <div className={styles.chartCanvasContainer}>
-                <SummaryChart chartData={charts[currentChartIndex].data} />
-              </div>
-            </div>
-          </div>
-          <div className={styles.transactionsContainer}>
-            <h2>Suas Transações</h2>
-            <table className={styles.table}>
-                <thead>
-                    <tr><th>Data</th><th>Categoria</th><th>Descrição</th><th>Valor (R$)</th><th>Ações</th></tr>
-                </thead>
-                <tbody>
-                    {currentTransactions.length > 0 ? (
-                    currentTransactions.map(tx => (
-                        <tr key={tx.id}>
-                        <td data-label="Data">{tx.createdAt ? tx.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</td>
-                        <td data-label="Categoria">{tx.category}</td>
-                        <td data-label="Descrição">{tx.description || '-'}</td>
-                        <td data-label="Valor (R$)" className={tx.type === 'income' ? styles.incomeAmount : styles.expenseAmount}>{tx.type === 'income' ? '+ ' : '- '}R$ {tx.amount.toFixed(2)}</td>
-                        <td data-label="Ações">
-                            <button onClick={() => handleOpenEditModal(tx)} className={styles.editButton}>Editar</button>
-                            <button onClick={() => handleDelete(tx.id)} className={styles.deleteButton}>Excluir</button>
-                        </td>
-                        </tr>
-                    ))
-                    ) : ( <tr><td colSpan="5">Nenhuma transação encontrada.</td></tr> )}
-                </tbody>
-            </table>
-                    {totalPages > 1 && (
-              <div className={styles.pagination}>
-                <button onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1}>
-                  Anterior
-                </button>
-                <span>
-                  Página {currentPage} de {totalPages}
-                </span>
-                <button onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages}>
-                  Próxima
-                </button>
-              </div>
-            )}
-
-          </div>
-        </main>
+                  </td>
+                )}
+                <td data-label="Data">{tx.createdAt ? tx.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</td>
+                <td data-label="Categoria">{tx.category}</td>
+                <td data-label="Descrição">{tx.description || '-'}</td>
+                <td data-label="Valor (R$)" className={tx.type === 'income' ? styles.incomeAmount : styles.expenseAmount}>{tx.type === 'income' ? '+ ' : '- '}R$ {tx.amount.toFixed(2)}</td>
+                <td data-label="Ações">
+                    <button onClick={() => handleOpenEditModal(tx)} className={styles.editButton}>Editar</button>
+                    <button onClick={() => handleDelete(tx.id)} className={styles.deleteButton}>Excluir</button>
+                </td>
+              </tr>
+            ))
+            ) : ( <tr><td colSpan={isSelectionMode ? 6 : 5}>Nenhuma transação encontrada.</td></tr> )}
+        </tbody>
+    </table>
+    {totalPages > 1 && (
+      <div className={styles.pagination}>
+        <button onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1}>
+          Anterior
+        </button>
+        <span>
+          Página {currentPage} de {totalPages}
+        </span>
+        <button onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages}>
+          Próxima
+        </button>
+      </div>
+    )}
+  </div>
+</main>
         
         <section className={styles.managerSection}>
             <DebtManager expenseCategories={categories.filter(c => c.type === 'expense')} fetchData={fetchData} />

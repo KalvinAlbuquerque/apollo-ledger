@@ -354,6 +354,69 @@
   }
 }
 
+.transactionsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+.transactionsHeader h2 {
+  margin: 0;
+}
+.selectButton {
+  background-color: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 8px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.selectButton:hover {
+  border-color: var(--texto-principal);
+  color: var(--texto-principal);
+}
+.selectionActions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.selectionActions span {
+  color: var(--texto-secundario);
+  font-size: 0.9rem;
+}
+.deleteSelectedButton {
+  background-color: var(--vermelho-destaque);
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.checkboxCell {
+  width: 20px;
+}
+.selectedRow {
+  background-color: rgba(74, 144, 226, 0.2) !important; /* Cor de fundo azulada para a linha selecionada */
+}
+
+cancelSelectionButton {
+  background-color: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 8px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+
+.cancelSelectionButton:hover {
+  background-color: var(--fundo-secundario);
+  border-color: var(--texto-principal);
+  color: var(--texto-principal);
+}
+
 
 
 .pagination {
