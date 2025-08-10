@@ -134,6 +134,31 @@
   color: white;
 }
 
+/* NOVA ÁREA DE AÇÕES */
+.actionButtons {
+  margin-left: auto; /* Joga os botões para a direita */
+  display: flex;
+  gap: 8px;
+}
+
+.editButton {
+  background-color: #555;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.editButton:hover {
+  background-color: var(--acento-azul);
+}
+
+.radioGroup {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 15px;
+}
 @media (max-width: 768px) {
   .form {
     flex-direction: column;
