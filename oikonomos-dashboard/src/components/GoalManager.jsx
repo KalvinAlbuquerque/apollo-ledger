@@ -1,20 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../../firebaseClient';
-import { collection, query, where, getDocs, addDoc, deleteDoc, updateDoc, doc, increment, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, deleteDoc, updateDoc, doc, increment, Timestamp, writeBatch } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { showConfirmationToast } from '../utils/toastUtils.jsx';
 
 // Componentes Filhos
-import ContributeModal from './ContributeModal';
 import EditGoalModal from './EditGoalModal';
+import SelectAccountModal from './SelectAccountModal';
 
 // Estilos
 import styles from './GoalManager.module.css';
 
-// Função auxiliar para formatar números como moeda
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
-function GoalManager({ fetchData }) {
+function GoalManager({ onDataChanged, accounts = [] }) {
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -25,7 +24,7 @@ function GoalManager({ fetchData }) {
   // Estados para controlar os modais
   const [isContributeModalOpen, setContributeModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [currentGoal, setCurrentGoal] = useState(null); // Guarda a meta para a ação atual
+  const [currentGoal, setCurrentGoal] = useState(null);
 
   const user = auth.currentUser;
 
@@ -73,20 +72,41 @@ function GoalManager({ fetchData }) {
     setCurrentGoal(null);
     setContributeModalOpen(false);
   };
-  const handleContribute = async (goalId, amount) => {
-    const goal = goals.find(g => g.id === goalId);
-    if (!goal) return;
+  const handleContribute = async (selectedAccountId, form) => {
+    const amountStr = form.amount.value;
+    const amount = parseFloat(amountStr);
+
+    if (!currentGoal || !user || isNaN(amount) || amount <= 0) {
+        toast.error("Por favor, insira um valor válido.");
+        handleCloseContributeModal();
+        return;
+    }
+
+    const sourceAccount = accounts.find(acc => acc.id === selectedAccountId);
+    if (sourceAccount && sourceAccount.balance < amount) {
+        toast.error(`Saldo insuficiente na conta '${sourceAccount.accountName}'.`);
+        handleCloseContributeModal();
+        return;
+    }
 
     const contributePromise = new Promise(async (resolve, reject) => {
         try {
-            const goalDocRef = doc(db, "goals", goalId);
-            await updateDoc(goalDocRef, { savedAmount: increment(amount) });
-            await addDoc(collection(db, "transactions"), {
+            const batch = writeBatch(db);
+            const goalDocRef = doc(db, "goals", currentGoal.id);
+            batch.update(goalDocRef, { savedAmount: increment(amount) });
+            
+            const newTransactionRef = doc(collection(db, "transactions"));
+            batch.set(newTransactionRef, {
                 userId: user.uid, type: 'expense', amount: amount,
-                category: goal.goalName, description: `Contribuição para a meta: ${goal.goalName}`,
-                createdAt: Timestamp.now(),
+                category: currentGoal.goalName, description: `Contribuição para a meta: ${currentGoal.goalName}`,
+                createdAt: Timestamp.now(), accountId: selectedAccountId,
             });
-            await fetchData();
+            
+            const accountDocRef = doc(db, "accounts", selectedAccountId);
+            batch.update(accountDocRef, { balance: increment(-amount) });
+            
+            await batch.commit();
+            if (onDataChanged) onDataChanged();
             resolve();
         } catch (error) {
             console.error("Erro ao adicionar contribuição:", error);
@@ -95,7 +115,7 @@ function GoalManager({ fetchData }) {
     });
 
     toast.promise(contributePromise, {
-        loading: 'Adicionando contribuição...',
+        loading: 'A guardar dinheiro...',
         success: 'Contribuição salva com sucesso!',
         error: 'Falha ao salvar.',
     });
@@ -140,7 +160,7 @@ function GoalManager({ fetchData }) {
     showConfirmationToast(deleteAction, "Apagar esta meta?");
   };
 
-  if (loading) return <p>Carregando metas...</p>;
+  if (loading) return <p>A carregar metas...</p>;
 
   return (
     <>
@@ -170,7 +190,7 @@ function GoalManager({ fetchData }) {
                 
                 <div className={styles.actionButtons}>
                   <button onClick={() => handleOpenEditModal(goal)} className={styles.editButton}>Editar</button>
-                  <button onClick={() => handleContribute(goal.id)} className={styles.contributeButton}>+ Adicionar</button>
+                  <button onClick={() => handleOpenContributeModal(goal)} className={styles.contributeButton}>+ Adicionar</button>
                   <button onClick={() => handleDeleteGoal(goal.id)} className={styles.deleteButton}>Excluir</button>
                 </div>
               </div>
@@ -180,10 +200,31 @@ function GoalManager({ fetchData }) {
       </div>
 
       {isContributeModalOpen && (
-        <ContributeModal goal={currentGoal} onSave={handleContribute} onCancel={handleCloseContributeModal} />
+        <SelectAccountModal
+            title={`Guardar para '${currentGoal.goalName}' a partir de:`}
+            accounts={accounts}
+            onConfirm={handleContribute}
+            onCancel={handleCloseContributeModal}
+        >
+            <label htmlFor="amount">Valor a guardar (R$):</label>
+            <input
+                type="number"
+                id="amount"
+                name="amount"
+                placeholder="Ex: 50.00"
+                required
+                step="0.01"
+                autoFocus
+            />
+        </SelectAccountModal>
       )}
+      
       {isEditModalOpen && (
-        <EditGoalModal goal={currentGoal} onSave={handleUpdateGoal} onCancel={handleCloseEditModal} />
+        <EditGoalModal 
+            goal={currentGoal} 
+            onSave={handleUpdateGoal} 
+            onCancel={handleCloseEditModal} 
+        />
       )}
     </>
   );

@@ -1,32 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../../firebaseClient';
-import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, updateDoc, doc, Timestamp, writeBatch, increment } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { showConfirmationToast } from '../utils/toastUtils.jsx';
 import styles from './DebtManager.module.css';
 import EditDebtModal from './EditDebtModal';
+import SelectAccountModal from './SelectAccountModal';
 
-function DebtManager({ expenseCategories, onDataChanged }) { // Recebe onDataChanged
+function DebtManager({ expenseCategories, accounts, onDataChanged }) {
   const [debts, setDebts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('pending');
 
-  // Estados para o formulário
+  // Estados para o formulário de nova conta
   const [newDesc, setNewDesc] = useState('');
   const [newAmount, setNewAmount] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
   const [isRecurring, setIsRecurring] = useState(false);
-  
+
+  // Estados para os modais
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState(null);
+  const [isSelectAccountModalOpen, setSelectAccountModalOpen] = useState(false);
+  const [debtToPay, setDebtToPay] = useState(null);
 
   const user = auth.currentUser;
 
+  // Função para buscar as contas agendadas do Firestore
   const fetchDebts = async () => {
     if (!user) return;
     setLoading(true);
-    
     let q = query(
       collection(db, "scheduled_transactions"),
       where("userId", "==", user.uid),
@@ -46,74 +50,82 @@ function DebtManager({ expenseCategories, onDataChanged }) { // Recebe onDataCha
     fetchDebts();
   }, [user, filter]);
 
+  // Define uma categoria padrão no formulário
   useEffect(() => {
     if (expenseCategories.length > 0 && !newCategory) {
       setNewCategory(expenseCategories[0].name);
     }
   }, [expenseCategories]);
 
-  // --- FUNÇÃO handleAddDebt CORRIGIDA ---
+  // --- FUNÇÕES DE AÇÃO ---
+
   const handleAddDebt = async (e) => {
     e.preventDefault();
     if (!newDesc || !newAmount || !newCategory || !newDueDate || !user) return;
 
     const addPromise = new Promise(async (resolve, reject) => {
       try {
+        const correctedDate = new Date(`${newDueDate}T12:00:00Z`);
         await addDoc(collection(db, "scheduled_transactions"), {
           userId: user.uid,
           description: newDesc,
           amount: parseFloat(newAmount),
           categoryName: newCategory,
-          dueDate: Timestamp.fromDate(new Date(newDueDate)),
+          dueDate: Timestamp.fromDate(correctedDate),
           status: 'pending',
           isRecurring: isRecurring,
         });
         
-        // Limpa o formulário
         setNewDesc('');
         setNewAmount('');
         setNewDueDate('');
         setIsRecurring(false);
-        
-        await fetchDebts(); // Re-busca as dívidas deste componente
-        
-        if (onDataChanged) {
-            onDataChanged(); // Notifica o Dashboard para atualizar tudo
-        }
-        resolve(); // Resolve a promessa com sucesso
+        await fetchDebts();
+        if (onDataChanged) onDataChanged();
+        resolve();
       } catch (error) {
-        console.error("Erro ao adicionar dívida:", error);
-        reject(error); // Rejeita a promessa em caso de erro
+        reject(error);
       }
     });
 
     toast.promise(addPromise, {
-        loading: 'Adicionando conta...',
+        loading: 'A adicionar conta...',
         success: 'Nova conta agendada adicionada!',
         error: 'Falha ao adicionar conta.',
     });
   };
-  // ------------------------------------
+  
+  const handleMarkAsPaid = (selectedAccountId) => {
+    if (!debtToPay || !user) return;
+    
+    const sourceAccount = accounts.find(acc => acc.id === selectedAccountId);
+    if (sourceAccount && sourceAccount.balance < debtToPay.amount) {
+        toast.error(`Saldo insuficiente na conta '${sourceAccount.accountName}'.`);
+        handleClosePayModal();
+        return;
+    }
 
-  const handleMarkAsPaid = (debt) => {
     const payAction = async () => {
-        try {
-            await addDoc(collection(db, "transactions"), {
-                userId: user.uid, amount: debt.amount, category: debt.categoryName,
-                description: `Pagamento de: ${debt.description}`, createdAt: Timestamp.now(), type: 'expense',
-            });
-            const debtDocRef = doc(db, "scheduled_transactions", debt.id);
-            await updateDoc(debtDocRef, { status: 'paid' });
-            
-            await fetchDebts();
-            if (onDataChanged) { onDataChanged(); }
-            
-            toast.success(`'${debt.description}' foi paga e registrada!`);
-        } catch (error) {
-            toast.error("Ocorreu um erro ao registrar o pagamento.");
-        }
+        const batch = writeBatch(db);
+        const newTransactionRef = doc(collection(db, "transactions"));
+        batch.set(newTransactionRef, {
+            userId: user.uid, amount: debtToPay.amount, category: debtToPay.categoryName,
+            description: `Pagamento de: ${debtToPay.description}`, createdAt: Timestamp.now(), type: 'expense',
+            accountId: selectedAccountId,
+        });
+        const debtDocRef = doc(db, "scheduled_transactions", debtToPay.id);
+        batch.update(debtDocRef, { status: 'paid' });
+        
+        const accountDocRef = doc(db, "accounts", selectedAccountId);
+        batch.update(accountDocRef, { balance: increment(-debtToPay.amount) });
+
+        await batch.commit();
+        if (onDataChanged) onDataChanged();
+        toast.success(`'${debtToPay.description}' foi paga e registada!`);
     };
-    showConfirmationToast(payAction, `Confirmar pagamento de ${debt.description}?`);
+    
+    showConfirmationToast(payAction, `Confirmar pagamento de ${debtToPay.description}?`);
+    handleClosePayModal();
   };
 
   const handleDeleteDebt = (debtId) => {
@@ -121,7 +133,7 @@ function DebtManager({ expenseCategories, onDataChanged }) { // Recebe onDataCha
         try {
             await deleteDoc(doc(db, "scheduled_transactions", debtId));
             await fetchDebts();
-            if (onDataChanged) { onDataChanged(); }
+            if (onDataChanged) onDataChanged();
             toast.success("Conta agendada excluída!");
         } catch (error) {
             toast.error("Falha ao excluir a conta.");
@@ -145,19 +157,26 @@ function DebtManager({ expenseCategories, onDataChanged }) { // Recebe onDataCha
         toast.success("Conta atualizada!");
         handleCloseEditModal();
         await fetchDebts();
-        if (onDataChanged) { onDataChanged(); }
     } catch(error) {
         toast.error("Falha ao atualizar a conta.");
     }
   };
 
-  if (loading) return <p>Carregando contas...</p>;
-    return (
+  const handleOpenPayModal = (debt) => {
+    setDebtToPay(debt);
+    setSelectAccountModalOpen(true);
+  };
+  const handleClosePayModal = () => {
+    setDebtToPay(null);
+    setSelectAccountModalOpen(false);
+  };
+  
+  if (loading) return <p>A carregar contas a pagar...</p>;
+
+  return (
     <>
       <div className={styles.container}>
         <h2>Contas a Pagar & Dívidas</h2>
-
-        {/* --- FORMULÁRIO QUE ESTAVA FALTANDO --- */}
         <form onSubmit={handleAddDebt} className={styles.form}>
           <input type="text" value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Descrição (ex: Aluguel)" required />
           <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="Valor" required />
@@ -166,37 +185,16 @@ function DebtManager({ expenseCategories, onDataChanged }) { // Recebe onDataCha
           </select>
           <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} required />
           <div className={styles.recurringCheckbox}>
-            <input 
-              type="checkbox" 
-              id="recurring" 
-              checked={isRecurring} 
-              onChange={e => setIsRecurring(e.target.checked)} 
-            />
+            <input type="checkbox" id="recurring" checked={isRecurring} onChange={e => setIsRecurring(e.target.checked)} />
             <label htmlFor="recurring">Repetir mensalmente</label>
           </div>
           <button type="submit" className={styles.addButton}>Adicionar</button>
         </form>
-        {/* --- FIM DO FORMULÁRIO --- */}
 
         <div className={styles.filterTabs}>
-            <button 
-                onClick={() => setFilter('pending')} 
-                className={`${styles.filterTab} ${filter === 'pending' ? styles.activeTab : ''}`}
-            >
-                Pendentes
-            </button>
-            <button 
-                onClick={() => setFilter('paid')} 
-                className={`${styles.filterTab} ${filter === 'paid' ? styles.activeTab : ''}`}
-            >
-                Pagas
-            </button>
-            <button 
-                onClick={() => setFilter('all')} 
-                className={`${styles.filterTab} ${filter === 'all' ? styles.activeTab : ''}`}
-            >
-                Todas
-            </button>
+            <button onClick={() => setFilter('pending')} className={`${styles.filterTab} ${filter === 'pending' ? styles.activeTab : ''}`}>Pendentes</button>
+            <button onClick={() => setFilter('paid')} className={`${styles.filterTab} ${filter === 'paid' ? styles.activeTab : ''}`}>Pagas</button>
+            <button onClick={() => setFilter('all')} className={`${styles.filterTab} ${filter === 'all' ? styles.activeTab : ''}`}>Todas</button>
         </div>
 
         <ul className={styles.debtList}>
@@ -208,7 +206,7 @@ function DebtManager({ expenseCategories, onDataChanged }) { // Recebe onDataCha
               <div className={styles.actionButtons}>
                 <button type="button" onClick={() => handleOpenEditModal(debt)} className={styles.editButton}>Editar</button>
                 {debt.status === 'pending' && (
-                    <button onClick={() => handleMarkAsPaid(debt)} className={styles.paidButton}>Pagar</button>
+                    <button onClick={() => handleOpenPayModal(debt)} className={styles.paidButton}>Paga</button>
                 )}
                 <button onClick={() => handleDeleteDebt(debt.id)} className={styles.deleteButton}>Excluir</button>
               </div>
@@ -226,7 +224,16 @@ function DebtManager({ expenseCategories, onDataChanged }) { // Recebe onDataCha
             expenseCategories={expenseCategories}
         />
       )}
+      {isSelectAccountModalOpen && (
+        <SelectAccountModal 
+            title={`Pagar '${debtToPay.description}' a partir de:`}
+            accounts={accounts}
+            onConfirm={handleMarkAsPaid}
+            onCancel={handleClosePayModal}
+        />
+      )}
     </>
   );
 }
+
 export default DebtManager;

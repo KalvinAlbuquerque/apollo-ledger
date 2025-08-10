@@ -354,6 +354,21 @@
   }
 }
 
+primaryActionButton {
+  background-color: var(--acento-azul);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.primaryActionButton:hover {
+  transform: scale(1.05);
+}
+
 .headerActions {
   display: flex;
   align-items: center;

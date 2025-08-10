@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { auth, db } from '../../firebaseClient';
 import { signOut } from 'firebase/auth';
-import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore'; 
+import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc, writeBatch, Timestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
-import { Link } from 'react-router-dom';
+
 // Componentes Filhos
 import SummaryChart from './SummaryChart';
 import LineChart from './LineChart';
@@ -14,48 +15,59 @@ import BudgetManager from './BudgetManager';
 import BudgetStatus from './BudgetStatus';
 import DebtManager from './DebtManager';
 import GoalManager from './GoalManager';
+import AccountManager from './AccountManager';
+import AddTransactionModal from './AddTransactionModal';
 import { showConfirmationToast } from '../utils/toastUtils.jsx';
 
 // Estilos
 import styles from './Dashboard.module.css';
 
+// --- FUNÇÕES AUXILIARES DE DATA ---
+const formatDate = (date) => date.toISOString().split('T')[0];
+const today = new Date();
+const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+// ------------------------------------
+
 function Dashboard({ user }) {
-  const formatDate = (date) => date.toISOString().split('T')[0];
-  const today = new Date();
-  const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  // --- 1. ESTADOS (TODOS JUNTOS NO TOPO) ---
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [budgets, setBudgets] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [dataVersion, setDataVersion] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
-  const [currentChartIndex, setCurrentChartIndex] = useState(0);
-  
-  // --- ESTADOS DO FILTRO CORRIGIDOS ---
+  const [isAddTransactionModalOpen, setIsAddTransactionModalOpen] = useState(false);
   const [filterStartDate, setFilterStartDate] = useState(formatDate(firstDayOfMonth));
   const [filterEndDate, setFilterEndDate] = useState(formatDate(lastDayOfMonth));
-  // ------------------------------------
-
   const [filterCategory, setFilterCategory] = useState('all');
   const [tooltipText, setTooltipText] = useState('Filtre por um período ou categoria');
+  const [currentChartIndex, setCurrentChartIndex] = useState(0);
   const [lineChartVisibility, setLineChartVisibility] = useState({ Saldo: true, Despesas: true });
-  const [dataVersion, setDataVersion] = useState(0);  
   const [currentPage, setCurrentPage] = useState(1);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectedTransactions, setSelectedTransactions] = useState(new Set())
+  const [selectedTransactions, setSelectedTransactions] = useState(new Set());
+
+  // --- 2. LÓGICA DE PAGINAÇÃO ---
   const itemsPerPage = 15;
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentTransactions = transactions.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(transactions.length / itemsPerPage);
-
-
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
-  
+
   const triggerRefresh = () => {
     setDataVersion(currentVersion => currentVersion + 1);
   };
+
+ const adjustEndDate = (dateStr) => {
+    const date = new Date(dateStr);
+    date.setUTCHours(23, 59, 59, 999);
+    return date;
+  };
+
 
   const toggleSelectionMode = () => {
     // Ao sair do modo de seleção, limpa a lista de selecionados
@@ -65,44 +77,13 @@ function Dashboard({ user }) {
     setIsSelectionMode(!isSelectionMode);
   };
 
-  const handleSelectAllOnPage = (e) => {
-    const isChecked = e.target.checked;
-    const newSelection = new Set(selectedTransactions);
-    
-    // Pega os IDs apenas dos itens na página atual
-    const idsOnCurrentPage = currentTransactions.map(tx => tx.id);
 
-    if (isChecked) {
-      // Adiciona todos os IDs da página atual à seleção
-      idsOnCurrentPage.forEach(id => newSelection.add(id));
-    } else {
-      // Remove todos os IDs da página atual da seleção
-      idsOnCurrentPage.forEach(id => newSelection.delete(id));
-    }
-    
-    setSelectedTransactions(newSelection);
-  };
-
-  const handleRowSelect = (transactionId) => {
-    // Cria uma cópia do Set para o React detectar a mudança
-    const newSelection = new Set(selectedTransactions);
-    if (newSelection.has(transactionId)) {
-      newSelection.delete(transactionId); // Se já estiver selecionado, desmarca
-    } else {
-      newSelection.add(transactionId); // Se não, marca
-    }
-    setSelectedTransactions(newSelection);
-  };
-  const adjustEndDate = (dateStr) => {
-    const date = new Date(dateStr);
-    date.setUTCHours(23, 59, 59, 999);
-    return date;
-  };
-
+ 
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
     try {
+      // --- BUSCA DE DADOS FILTRADOS (para a tabela principal) ---
       let baseQuery = collection(db, "transactions");
       const constraints = [where("userId", "==", user.uid)];
       if (filterCategory && filterCategory !== 'all') { constraints.push(where("category", "==", filterCategory)); }
@@ -115,6 +96,7 @@ function Dashboard({ user }) {
       const transData = transSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setTransactions(transData);
 
+      // --- BUSCAS ADICIONAIS (Categorias, Orçamentos) ---
       const catQuery = query(collection(db, "categories"), where("userId", "==", user.uid));
       const catSnapshot = await getDocs(catQuery);
       const catData = catSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -126,6 +108,34 @@ function Dashboard({ user }) {
       const budgetSnapshot = await getDocs(budgetQuery);
       const budgetData = budgetSnapshot.docs.map(doc => doc.data());
       setBudgets(budgetData);
+
+      // --- LÓGICA CORRIGIDA PARA BUSCAR CONTAS E CALCULAR SALDOS ---
+      const accQuery = query(collection(db, "accounts"), where("userId", "==", user.uid));
+      const accSnapshot = await getDocs(accQuery);
+      let accData = accSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // Busca TODAS as transações (sem filtros) para calcular os saldos corretamente
+      const allTransQuery = query(collection(db, "transactions"), where("userId", "==", user.uid));
+      const allTransSnapshot = await getDocs(allTransQuery);
+      const allTransactions = allTransSnapshot.docs.map(doc => doc.data());
+
+      // Zera o saldo de todas as contas antes de recalcular
+      accData.forEach(acc => acc.balance = 0);
+      
+      // Itera sobre as transações para somar/subtrair dos saldos
+      allTransactions.forEach(tx => {
+        const account = accData.find(acc => acc.id === tx.accountId);
+        if (account) {
+          if (tx.type === 'income') {
+            account.balance += tx.amount;
+          } else { // 'expense'
+            account.balance -= tx.amount;
+          }
+        }
+      });
+      
+      setAccounts(accData); // Salva as contas com os saldos calculados
+
     } catch (error) {
       console.error("Erro ao buscar dados:", error);
       toast.error("Erro ao buscar dados. Pode ser necessário criar um índice no Firestore.");
@@ -138,39 +148,8 @@ function Dashboard({ user }) {
     fetchData(); 
   }, [user, dataVersion, filterStartDate, filterEndDate, filterCategory]);
 
-  const handleSetMonthlyFilter = () => {
-    const today = new Date();
-    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    setFilterStartDate(formatDate(firstDay));
-    setFilterEndDate(formatDate(lastDay));
-  };
-  const handleSetWeeklyFilter = () => {
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const firstDayOfWeek = new Date(today);
-    firstDayOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-    const lastDayOfWeek = new Date(firstDayOfWeek);
-    lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
-    setFilterStartDate(formatDate(firstDayOfWeek));
-    setFilterEndDate(formatDate(lastDayOfWeek));
-  };
 
-  const handleSetTodayFilter = () => {
-    const today = new Date();
-    const formattedToday = formatDate(today); // Usamos a função que já existe!
-    setFilterStartDate(formattedToday);
-    setFilterEndDate(formattedToday);
-  };
-
-  const handleSetYearlyFilter = () => {
-    const year = new Date().getFullYear();
-    const firstDay = new Date(year, 0, 1);
-    const lastDay = new Date(year, 11, 31);
-    setFilterStartDate(formatDate(firstDay));
-    setFilterEndDate(formatDate(lastDay));
-  };
-
+  
   useEffect(() => {
     if (filterStartDate && filterEndDate) {
       const start = new Date(filterStartDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
@@ -304,7 +283,72 @@ function Dashboard({ user }) {
   const goToPrevChart = () => setCurrentChartIndex(prev => (prev - 1 + charts.length) % charts.length);
   
   const handleLogout = () => signOut(auth);
+    const handleOpenAddTransactionModal = () => setIsAddTransactionModalOpen(true);
+  const handleCloseAddTransactionModal = () => setIsAddTransactionModalOpen(false)
+
+    const handleSelectAllOnPage = (e) => {
+    const isChecked = e.target.checked;
+    const newSelection = new Set(selectedTransactions);
+    
+    // Pega os IDs apenas dos itens na página atual
+    const idsOnCurrentPage = currentTransactions.map(tx => tx.id);
+
+    if (isChecked) {
+      // Adiciona todos os IDs da página atual à seleção
+      idsOnCurrentPage.forEach(id => newSelection.add(id));
+    } else {
+      // Remove todos os IDs da página atual da seleção
+      idsOnCurrentPage.forEach(id => newSelection.delete(id));
+    }
+    
+    setSelectedTransactions(newSelection);
+  };
+
+  const handleRowSelect = (transactionId) => {
+    // Cria uma cópia do Set para o React detectar a mudança
+    const newSelection = new Set(selectedTransactions);
+    if (newSelection.has(transactionId)) {
+      newSelection.delete(transactionId); // Se já estiver selecionado, desmarca
+    } else {
+      newSelection.add(transactionId); // Se não, marca
+    }
+    setSelectedTransactions(newSelection);
+  };
   
+  const handleSetMonthlyFilter = () => {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    setFilterStartDate(formatDate(firstDay));
+    setFilterEndDate(formatDate(lastDay));
+  };
+  const handleSetWeeklyFilter = () => {
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const firstDayOfWeek = new Date(today);
+    firstDayOfWeek.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+    const lastDayOfWeek = new Date(firstDayOfWeek);
+    lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6);
+    setFilterStartDate(formatDate(firstDayOfWeek));
+    setFilterEndDate(formatDate(lastDayOfWeek));
+  };
+
+  const handleSetTodayFilter = () => {
+    const today = new Date();
+    const formattedToday = formatDate(today); // Usamos a função que já existe!
+    setFilterStartDate(formattedToday);
+    setFilterEndDate(formattedToday);
+  };
+
+  const handleSetYearlyFilter = () => {
+    const year = new Date().getFullYear();
+    const firstDay = new Date(year, 0, 1);
+    const lastDay = new Date(year, 11, 31);
+    setFilterStartDate(formatDate(firstDay));
+    setFilterEndDate(formatDate(lastDay));
+  };
+
+
   const handleDelete = (transactionId) => {
     const deleteAction = async () => {
       try {
@@ -373,12 +417,12 @@ function Dashboard({ user }) {
       <div className={styles.dashboard}>
         <header className={styles.header}>
           <div><h1>Dashboard Oikonomos</h1><p>Olá, {user.email}</p></div>
-          <div className={styles.headerActions}> {/* NOVO DIV PARA OS BOTÕES */}
-            <Link to="/reports" className={styles.headerButton}>
-              Ver Relatórios
-            </Link>
-            <button onClick={handleLogout} className={styles.logoutButton}>Sair</button>
-          </div>
+          <div className={styles.headerActions}>
+                {/* <<< 4. NOVO BOTÃO DE ADICIONAR TRANSAÇÃO */}
+                <button onClick={handleOpenAddTransactionModal} className={styles.primaryActionButton}>+ Adicionar Transação</button>
+                <Link to="/reports" className={styles.headerButton}>Ver Relatórios</Link>
+                <button onClick={handleLogout} className={styles.logoutButton}>Sair</button>
+            </div>
         </header>
 
         <section className={styles.filterSection}>
@@ -531,11 +575,20 @@ function Dashboard({ user }) {
   </div>
 </main>
         
+           <section className={styles.managerSection}>
+    <DebtManager 
+      expenseCategories={categories.filter(c => c.type === 'expense')} 
+      accounts={accounts} 
+      onDataChanged={triggerRefresh} 
+    />
+</section>
+
+
         <section className={styles.managerSection}>
-            <DebtManager expenseCategories={categories.filter(c => c.type === 'expense')} fetchData={fetchData} />
-        </section>
+        <GoalManager fetchData={fetchData} accounts={accounts} />        
+      </section>
         <section className={styles.managerSection}>
-           <GoalManager fetchData={fetchData} />        
+            <AccountManager onDataChanged={triggerRefresh} accounts={accounts} />
         </section>
         <section className={styles.managerSection}>
           <BudgetManager onDataChanged={triggerRefresh} totalMonthIncome={currentMonthIncome} />
@@ -545,6 +598,17 @@ function Dashboard({ user }) {
           </section>
       </div>
       {isModalOpen && (<EditModal transaction={editingTransaction} onSave={handleSaveTransaction} onCancel={handleCloseModal} categories={categories} />)}
+    {isAddTransactionModalOpen && (
+        <AddTransactionModal 
+            onCancel={handleCloseAddTransactionModal}
+            onSave={() => {
+                handleCloseAddTransactionModal();
+                triggerRefresh(); // Atualiza o dashboard
+            }}
+            categories={categories}
+            accounts={accounts}
+        />
+      )}
     </>
   );
 }
