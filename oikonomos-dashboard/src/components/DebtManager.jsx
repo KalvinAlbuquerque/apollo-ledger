@@ -1,38 +1,38 @@
-// src/components/DebtManager.jsx
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../../firebaseClient';
 import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
-import styles from './DebtManager.module.css';
-import { showConfirmationToast } from '../utils/toastUtils.jsx';
-import EditDebtModal from './EditDebtModal';
 import toast from 'react-hot-toast';
-function DebtManager({ expenseCategories }) {
+import { showConfirmationToast } from '../utils/toastUtils.jsx';
+import styles from './DebtManager.module.css';
+import EditDebtModal from './EditDebtModal';
+
+function DebtManager({ expenseCategories, onDataChanged }) { // Recebe onDataChanged
   const [debts, setDebts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('pending');
 
-  // Estados para o formulário de nova dívida
+  // Estados para o formulário
   const [newDesc, setNewDesc] = useState('');
   const [newAmount, setNewAmount] = useState('');
   const [newCategory, setNewCategory] = useState('');
   const [newDueDate, setNewDueDate] = useState('');
-const [isRecurring, setIsRecurring] = useState(false); 
- const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
+  
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState(null);
-  const user = auth.currentUser;
-   const [filter, setFilter] = useState('pending'); 
 
-    const fetchDebts = async () => {
+  const user = auth.currentUser;
+
+  const fetchDebts = async () => {
     if (!user) return;
     setLoading(true);
     
-    // <<< LÓGICA DE BUSCA ATUALIZADA
     let q = query(
       collection(db, "scheduled_transactions"),
       where("userId", "==", user.uid),
       orderBy("dueDate", "asc")
     );
 
-    // Adiciona o filtro de status apenas se não for 'all'
     if (filter !== 'all') {
         q = query(q, where("status", "==", filter));
     }
@@ -42,101 +42,116 @@ const [isRecurring, setIsRecurring] = useState(false);
     setLoading(false);
   };
 
-  // O useEffect agora re-busca os dados quando o filtro muda
   useEffect(() => {
     fetchDebts();
   }, [user, filter]);
 
+  useEffect(() => {
+    if (expenseCategories.length > 0 && !newCategory) {
+      setNewCategory(expenseCategories[0].name);
+    }
+  }, [expenseCategories]);
+
+  // --- FUNÇÃO handleAddDebt CORRIGIDA ---
   const handleAddDebt = async (e) => {
     e.preventDefault();
     if (!newDesc || !newAmount || !newCategory || !newDueDate || !user) return;
 
-    try {
-      await addDoc(collection(db, "scheduled_transactions"), {
-        userId: user.uid,
-        description: newDesc,
-        amount: parseFloat(newAmount),
-        categoryName: newCategory,
-        dueDate: Timestamp.fromDate(new Date(newDueDate)),
-        status: 'pending',
-        isRecurring: isRecurring, // Por enquanto, não vamos implementar a recorrência
-      });
-      // Limpa o formulário e busca os dados novamente
-      setNewDesc('');
-      setNewAmount('');
-      setNewDueDate('');
-      setIsRecurring(false); 
-      fetchDebts();
-    } catch (error) {
-      console.error("Erro ao adicionar dívida:", error);
-    }
+    const addPromise = new Promise(async (resolve, reject) => {
+      try {
+        await addDoc(collection(db, "scheduled_transactions"), {
+          userId: user.uid,
+          description: newDesc,
+          amount: parseFloat(newAmount),
+          categoryName: newCategory,
+          dueDate: Timestamp.fromDate(new Date(newDueDate)),
+          status: 'pending',
+          isRecurring: isRecurring,
+        });
+        
+        // Limpa o formulário
+        setNewDesc('');
+        setNewAmount('');
+        setNewDueDate('');
+        setIsRecurring(false);
+        
+        await fetchDebts(); // Re-busca as dívidas deste componente
+        
+        if (onDataChanged) {
+            onDataChanged(); // Notifica o Dashboard para atualizar tudo
+        }
+        resolve(); // Resolve a promessa com sucesso
+      } catch (error) {
+        console.error("Erro ao adicionar dívida:", error);
+        reject(error); // Rejeita a promessa em caso de erro
+      }
+    });
+
+    toast.promise(addPromise, {
+        loading: 'Adicionando conta...',
+        success: 'Nova conta agendada adicionada!',
+        error: 'Falha ao adicionar conta.',
+    });
   };
+  // ------------------------------------
 
   const handleMarkAsPaid = (debt) => {
     const payAction = async () => {
         try {
             await addDoc(collection(db, "transactions"), {
-                userId: user.uid,
-                amount: debt.amount,
-                category: debt.categoryName,
-                description: `Pagamento de: ${debt.description}`,
-                createdAt: Timestamp.now(),
-                type: 'expense',
+                userId: user.uid, amount: debt.amount, category: debt.categoryName,
+                description: `Pagamento de: ${debt.description}`, createdAt: Timestamp.now(), type: 'expense',
             });
-
             const debtDocRef = doc(db, "scheduled_transactions", debt.id);
             await updateDoc(debtDocRef, { status: 'paid' });
-
-            fetchDebts(); // Re-busca as dívidas pendentes
-            toast.success(`'${debt.description}' foi paga e registrada como despesa!`);
+            
+            await fetchDebts();
+            if (onDataChanged) { onDataChanged(); }
+            
+            toast.success(`'${debt.description}' foi paga e registrada!`);
         } catch (error) {
-            console.error("Erro ao marcar como paga:", error);
             toast.error("Ocorreu um erro ao registrar o pagamento.");
         }
     };
-    
     showConfirmationToast(payAction, `Confirmar pagamento de ${debt.description}?`);
-};
+  };
 
   const handleDeleteDebt = (debtId) => {
     const deleteAction = async () => {
         try {
             await deleteDoc(doc(db, "scheduled_transactions", debtId));
-            fetchDebts();
-            toast.success("Conta agendada excluída com sucesso!");
+            await fetchDebts();
+            if (onDataChanged) { onDataChanged(); }
+            toast.success("Conta agendada excluída!");
         } catch (error) {
-            console.error("Erro ao apagar dívida:", error);
-            toast.error("Falha ao excluir a conta agendada.");
+            toast.error("Falha ao excluir a conta.");
         }
     };
-
     showConfirmationToast(deleteAction, "Apagar esta conta agendada?");
-};
+  };
 
-const handleOpenEditModal = (debt) => {
+  const handleOpenEditModal = (debt) => {
     setEditingDebt(debt);
     setIsEditModalOpen(true);
   };
-
   const handleCloseEditModal = () => {
     setEditingDebt(null);
     setIsEditModalOpen(false);
   };
-
   const handleUpdateDebt = async (debtId, updatedData) => {
     try {
         const debtDocRef = doc(db, "scheduled_transactions", debtId);
         await updateDoc(debtDocRef, updatedData);
-        toast.success("Conta atualizada com sucesso!");
+        toast.success("Conta atualizada!");
         handleCloseEditModal();
-        fetchDebts(); // Re-busca as dívidas para atualizar a lista
+        await fetchDebts();
+        if (onDataChanged) { onDataChanged(); }
     } catch(error) {
         toast.error("Falha ao atualizar a conta.");
-        console.error("Erro ao atualizar conta:", error);
     }
   };
-  if (loading) return <p>Carregando contas a pagar...</p>;
 
+  if (loading) return <p>Carregando contas...</p>;
     return (
     <>
       <div className={styles.container}>
