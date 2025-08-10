@@ -1,58 +1,75 @@
-// src/pages/ReportsPage.jsx (Versão com Filtros)
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { db, auth } from '../../firebaseClient';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import MonthlyBarChart from '../components/MonthlyBarChart'; 
-import LineChart from '../components/LineChart'; 
-import styles from './ReportsPage.module.css';
+import MonthlyBarChart from '../components/MonthlyBarChart';
+import LineChart from '../components/LineChart';
 import CategoryLineChart from '../components/CategoryLineChart';
+import styles from './ReportsPage.module.css';
 
 function ReportsPage() {
   const [allTransactions, setAllTransactions] = useState([]);
-  const [filteredTransactions, setFilteredTransactions] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   
   // Estados para os filtros
+  const [accountView, setAccountView] = useState('geral');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
 
   const user = auth.currentUser;
 
-  // Busca todas as transações uma única vez
   useEffect(() => {
     if (!user) return;
-    const fetchAllTransactions = async () => {
+    const fetchInitialData = async () => {
       setLoading(true);
-      const q = query(collection(db, "transactions"), where("userId", "==", user.uid), orderBy("createdAt", "asc"));
-      const querySnapshot = await getDocs(q);
-      const data = querySnapshot.docs.map(doc => doc.data());
-      setAllTransactions(data);
-      setFilteredTransactions(data); // Inicialmente, mostra tudo
+      const transQuery = query(collection(db, "transactions"), where("userId", "==", user.uid), orderBy("createdAt", "asc"));
+      const transSnapshot = await getDocs(transQuery);
+      const transData = transSnapshot.docs.map(doc => doc.data());
+      setAllTransactions(transData);
+
+      const accQuery = query(collection(db, "accounts"), where("userId", "==", user.uid));
+      const accSnapshot = await getDocs(accQuery);
+      const accData = accSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAccounts(accData);
+      
       setLoading(false);
     };
-    fetchAllTransactions();
+    fetchInitialData();
   }, [user]);
 
-  // Filtra as transações localmente sempre que as datas mudam
-  useEffect(() => {
-    if (!filterStartDate || !filterEndDate) {
-      setFilteredTransactions(allTransactions);
-      return;
+  // Hook 'useMemo' para filtrar as transações com base em TODAS as seleções
+  const filteredTransactions = useMemo(() => {
+    // Primeiro, filtra por conta
+    let accountFiltered = [];
+    if (accountView === 'total') {
+        accountFiltered = allTransactions;
+    } else if (accountView === 'geral') {
+        const nonReserveAccountIds = new Set(accounts.filter(acc => !acc.isReserve).map(acc => acc.id));
+        accountFiltered = allTransactions.filter(tx => nonReserveAccountIds.has(tx.accountId));
+    } else {
+        accountFiltered = allTransactions.filter(tx => tx.accountId === accountView);
     }
-    const start = new Date(filterStartDate);
-    const end = new Date(filterEndDate);
-    end.setHours(23, 59, 59, 999); // Garante que o dia final seja incluído
 
-    const filtered = allTransactions.filter(tx => {
-      const txDate = tx.createdAt.toDate();
-      return txDate >= start && txDate <= end;
+    // Se não houver filtros de data, retorna a lista filtrada por conta
+    if (!filterStartDate && !filterEndDate) {
+      return accountFiltered;
+    }
+
+    // Se houver filtros de data, aplica-os à lista já filtrada por conta
+    const start = filterStartDate ? new Date(`${filterStartDate}T00:00:00`) : null;
+    const end = filterEndDate ? new Date(`${filterEndDate}T23:59:59`) : null;
+
+    return accountFiltered.filter(tx => {
+        const txDate = tx.createdAt.toDate();
+        if (start && txDate < start) return false;
+        if (end && txDate > end) return false;
+        return true;
     });
-    setFilteredTransactions(filtered);
-  }, [filterStartDate, filterEndDate, allTransactions]);
+  }, [accountView, allTransactions, accounts, filterStartDate, filterEndDate]);
 
 
-  // Processa os dados para o gráfico de fluxo de caixa
+  // Processa dados para o gráfico de Fluxo de Caixa Mensal
   const monthlyFlowData = useMemo(() => {
     const monthlyData = {};
     filteredTransactions.forEach(tx => {
@@ -67,7 +84,6 @@ function ReportsPage() {
         monthlyData[monthYear].expense += tx.amount;
       }
     });
-
     const labels = Object.keys(monthlyData).sort();
     return {
       labels,
@@ -78,120 +94,116 @@ function ReportsPage() {
     };
   }, [filteredTransactions]);
 
+  // Processa dados para o gráfico de Evolução do Saldo
   const balanceEvolutionData = useMemo(() => {
     const lineChartData = {
         labels: [],
         datasets: [{
-            label: 'Evolução do Saldo',
-            data: [],
-            borderColor: 'rgb(74, 144, 226)',
-            backgroundColor: 'rgba(74, 144, 226, 0.5)',
-            tension: 0.1 // Deixa a linha um pouco curva
+            label: 'Evolução do Saldo', data: [],
+            borderColor: 'rgb(74, 144, 226)', backgroundColor: 'rgba(74, 144, 226, 0.5)',
+            tension: 0.1
         }]
     };
-    
     if (filteredTransactions.length > 0) {
-        // A lista já vem ordenada da busca inicial
         const dailyNetChanges = new Map();
-        
         filteredTransactions.forEach(tx => {
             const dateKey = tx.createdAt.toDate().toLocaleDateString('pt-BR');
             const amount = tx.type === 'income' ? tx.amount : -tx.amount;
             dailyNetChanges.set(dateKey, (dailyNetChanges.get(dateKey) || 0) + amount);
         });
-
         let runningBalance = 0;
         const balanceOverTime = new Map();
-        
-        // Ordena as datas corretamente
         const sortedDates = Array.from(dailyNetChanges.keys()).sort((a, b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
-
         sortedDates.forEach(date => {
             runningBalance += dailyNetChanges.get(date);
             balanceOverTime.set(date, runningBalance);
         });
-
         lineChartData.labels = Array.from(balanceOverTime.keys());
         lineChartData.datasets[0].data = Array.from(balanceOverTime.values());
     }
-    
     return lineChartData;
   }, [filteredTransactions]);
 
+  // Processa dados para o gráfico de Despesas por Categoria
   const categoryExpenseData = useMemo(() => {
     const expenses = filteredTransactions.filter(tx => tx.type === 'expense' || !tx.type);
-    
-    if (expenses.length === 0) {
-      return { labels: [], datasets: [] };
-    }
-
+    if (expenses.length === 0) return { labels: [], datasets: [] };
     const dailyCategoryTotals = new Map();
     const allCategories = new Set();
-    
     expenses.forEach(tx => {
       const dateKey = tx.createdAt.toDate().toLocaleDateString('pt-BR');
       const category = tx.category;
       allCategories.add(category);
-
       if (!dailyCategoryTotals.has(dateKey)) {
         dailyCategoryTotals.set(dateKey, {});
       }
       const dayData = dailyCategoryTotals.get(dateKey);
       dayData[category] = (dayData[category] || 0) + tx.amount;
     });
-    
     const sortedDates = Array.from(dailyCategoryTotals.keys()).sort((a, b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
-    
     const categoryColors = ['#4A90E2', '#50E3C2', '#B8E986', '#9013FE', '#F5A623', '#BD10E0', '#7ED321', '#FF1D58'];
-
     const datasets = Array.from(allCategories).map((category, index) => {
       return {
         label: category,
         data: sortedDates.map(date => dailyCategoryTotals.get(date)[category] || 0),
         borderColor: categoryColors[index % categoryColors.length],
-        backgroundColor: `${categoryColors[index % categoryColors.length]}80`, // Adiciona transparência
+        backgroundColor: `${categoryColors[index % categoryColors.length]}80`,
         tension: 0.1
       }
     });
-
-    return {
-      labels: sortedDates,
-      datasets: datasets,
-    };
+    return { labels: sortedDates, datasets: datasets };
   }, [filteredTransactions]);
 
   if (loading) {
-    return <div className={styles.loading}>Carregando dados...</div>;
+    return <div className={styles.loading}>A carregar dados dos relatórios...</div>;
   }
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1>Relatórios Financeiros</h1>
+        <div>
+            <h1>Relatórios Financeiros</h1>
+            <div className={styles.accountSelector}>
+              <select value={accountView} onChange={(e) => setAccountView(e.target.value)}>
+                <option value="geral">Visão Geral (sem Reservas)</option>
+                <option value="total">Patrimônio Total</option>
+                <option disabled>--- Contas ---</option>
+                {accounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.accountName}</option>
+                ))}
+              </select>
+            </div>
+        </div>
         <Link to="/dashboard" className={styles.backButton}>Voltar ao Dashboard</Link>
       </header>
-
+      
       <section className={styles.filterSection}>
-        {/* ... (seção de filtros sem alterações) ... */}
+        <div className={styles.filterGroup}>
+          <label>De:</label>
+          <input type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} />
+        </div>
+        <div className={styles.filterGroup}>
+          <label>Até:</label>
+          <input type="date" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} />
+        </div>
+        <button onClick={() => { setFilterStartDate(''); setFilterEndDate(''); }} className={styles.clearButton}>Limpar Datas</button>
       </section>
 
       <div className={styles.reportsGrid}>
+        {/* Os gráficos agora são renderizados com os dados duplamente filtrados */}
         <div className={styles.reportCard}>
           <h2>Fluxo de Caixa Mensal</h2>
           <div className={styles.chartContainer}>
             <MonthlyBarChart chartData={monthlyFlowData} />
           </div>
         </div>
-
-        {/* <<< 3. NOVO CARD COM O GRÁFICO DE LINHA */}
         <div className={styles.reportCard}>
           <h2>Evolução do Saldo no Período</h2>
           <div className={styles.chartContainer}>
             <LineChart chartData={balanceEvolutionData} />
           </div>
         </div>
-
-         <div className={`${styles.reportCard} ${styles.fullWidth}`}>
+        <div className={`${styles.reportCard} ${styles.fullWidth}`}>
           <h2>Evolução de Despesas por Categoria</h2>
           <div className={styles.chartContainer}>
             <CategoryLineChart chartData={categoryExpenseData} />
@@ -201,6 +213,5 @@ function ReportsPage() {
     </div>
   );
 }
-
 
 export default ReportsPage;
