@@ -342,7 +342,7 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
 
     try:
         # Usa 'firestore' para aceder às funções Increment, etc.
-        batch = firestore.write_batch(db)
+        batch = db.batch()
 
         new_transaction_ref = firestore.document(f'transactions/{db.collection("transactions").document().id}')
         pending_transaction['userId'] = firebase_uid
