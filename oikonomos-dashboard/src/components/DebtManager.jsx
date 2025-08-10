@@ -208,7 +208,7 @@ function DebtManager({ expenseCategories, onDataChanged }) { // Recebe onDataCha
               <div className={styles.actionButtons}>
                 <button type="button" onClick={() => handleOpenEditModal(debt)} className={styles.editButton}>Editar</button>
                 {debt.status === 'pending' && (
-                    <button onClick={() => handleMarkAsPaid(debt)} className={styles.paidButton}>Paga</button>
+                    <button onClick={() => handleMarkAsPaid(debt)} className={styles.paidButton}>Pagar</button>
                 )}
                 <button onClick={() => handleDeleteDebt(debt.id)} className={styles.deleteButton}>Excluir</button>
               </div>
