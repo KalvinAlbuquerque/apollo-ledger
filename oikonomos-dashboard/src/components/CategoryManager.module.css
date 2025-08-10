@@ -81,16 +81,17 @@
   align-items: center;
   gap: 10px;
   background-color: transparent;
-  padding: 12px 5px;
-  border-radius: 6px;
+  padding: 12px 15px; /* Aumenta o padding para melhor espaçamento */
+  border-radius: 8px; /* Bordas um pouco mais arredondadas */
   margin-bottom: 2px;
-  transition: background-color 0.2s;
+  border: 1px solid transparent; /* Borda inicial invisível */
+  transition: background-color 0.2s, border-color 0.2s; /* Transição para ambos */
 }
 
 .categoryItem:hover {
   background-color: var(--fundo-secundario);
+  border-color: var(--borda-sutil); /* Borda fica visível no hover */
 }
-
 .typeLabel {
   font-size: 0.75rem;
   padding: 2px 8px;

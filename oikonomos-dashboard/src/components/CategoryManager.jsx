@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../../firebaseClient';
 import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
-import { showConfirmationToast } from '../utils/toastUtils.jsx'; 
+import { showConfirmationToast } from '../utils/toastUtils.jsx';
 import styles from './CategoryManager.module.css';
 
-function CategoryManager() {
+function CategoryManager({ onDataChanged }) { // <<< 1. RECEBE A NOVA PROP
   const [categories, setCategories] = useState([]);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryType, setNewCategoryType] = useState('expense');
@@ -16,6 +16,7 @@ function CategoryManager() {
 
   const fetchCategories = async () => {
     if (!user) return;
+    setLoading(true);
     const q = query(collection(db, "categories"), where("userId", "==", user.uid), orderBy("name"));
     const querySnapshot = await getDocs(q);
     const userCategories = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -38,7 +39,8 @@ function CategoryManager() {
       });
       setNewCategoryName('');
       toast.success("Categoria adicionada!");
-      fetchCategories();
+      fetchCategories(); // Atualiza a lista local
+      if (onDataChanged) onDataChanged(); // <<< 2. ATUALIZA O DASHBOARD
     } catch (error) {
       toast.error("Erro ao adicionar categoria.");
       console.error("Erro ao adicionar categoria:", error);
@@ -49,8 +51,9 @@ function CategoryManager() {
     const deleteAction = async () => {
       try {
         await deleteDoc(doc(db, "categories", categoryId));
-        fetchCategories();
         toast.success("Categoria excluída!");
+        fetchCategories(); // Atualiza a lista local
+        if (onDataChanged) onDataChanged(); // <<< 3. ATUALIZA O DASHBOARD
       } catch (error) {
         console.error("Erro ao deletar categoria:", error);
         toast.error("Falha ao excluir categoria.");
@@ -63,7 +66,6 @@ function CategoryManager() {
     if (filterType === 'all') return categories;
     return categories.filter(cat => cat.type === filterType);
   }, [categories, filterType]);
-
   if (loading) return <p>Carregando categorias...</p>;
 
   return (

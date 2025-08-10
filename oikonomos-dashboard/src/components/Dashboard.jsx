@@ -403,8 +403,8 @@ function Dashboard({ user }) {
             <BudgetManager fetchData={fetchData} />
         </section>        
         <section className={styles.managerSection}>
-            <CategoryManager />
-        </section>
+            <CategoryManager onDataChanged={triggerRefresh} />        
+          </section>
       </div>
       {isModalOpen && (<EditModal transaction={editingTransaction} onSave={handleSaveTransaction} onCancel={handleCloseModal} categories={categories} />)}
     </>
