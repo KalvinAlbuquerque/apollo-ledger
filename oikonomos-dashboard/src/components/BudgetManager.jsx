@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import styles from './BudgetManager.module.css';
 
 // <<< 1. RECEBE 'onDataChanged' EM VEZ DE 'fetchData'
-function BudgetManager({ onDataChanged }) { 
+function BudgetManager({ onDataChanged, totalMonthIncome }) { 
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [budgets, setBudgets] = useState({});
   const [loading, setLoading] = useState(true);
@@ -47,6 +47,16 @@ function BudgetManager({ onDataChanged }) {
 
   const handleSaveBudgets = async () => {
     if (!user) return;
+    
+    const totalBudgetedAmount = Object.values(budgets).reduce((acc, amount) => acc + (amount || 0), 0);
+
+    if (totalBudgetedAmount > totalMonthIncome) {
+      toast.error(
+        `Atenção: A soma dos seus orçamentos (R$ ${totalBudgetedAmount.toFixed(2)}) é maior que a sua renda total do mês (R$ ${totalMonthIncome.toFixed(2)}).`,
+        { duration: 6000 } // Mostra o toast por mais tempo
+      );
+      return; // Impede o salvamento
+    }
     const savePromise = new Promise(async (resolve, reject) => {
         const savePromises = expenseCategories.map(categoryName => {
             const budgetAmount = budgets[categoryName] || 0;

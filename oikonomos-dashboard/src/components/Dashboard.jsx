@@ -260,6 +260,20 @@ function Dashboard({ user }) {
     { title: "Rendas vs. Despesas", data: summaryData.balanceChartData }
   ];
 
+   const currentMonthIncome = useMemo(() => {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    return transactions
+      .filter(tx => {
+        const txDate = tx.createdAt.toDate();
+        return tx.type === 'income' &&
+               txDate.getMonth() === currentMonth &&
+               txDate.getFullYear() === currentYear;
+      })
+      .reduce((acc, tx) => acc + tx.amount, 0);
+  }, [transactions]);
   const goToNextChart = () => setCurrentChartIndex(prev => (prev + 1) % charts.length);
   const goToPrevChart = () => setCurrentChartIndex(prev => (prev - 1 + charts.length) % charts.length);
   
@@ -477,7 +491,7 @@ function Dashboard({ user }) {
            <GoalManager fetchData={fetchData} />        
         </section>
         <section className={styles.managerSection}>
-            <BudgetManager onDataChanged={triggerRefresh} />
+          <BudgetManager onDataChanged={triggerRefresh} totalMonthIncome={currentMonthIncome} />
           </section>        
         <section className={styles.managerSection}>
             <CategoryManager onDataChanged={triggerRefresh} />        
