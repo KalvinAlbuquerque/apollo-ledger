@@ -593,7 +593,7 @@ async def list_budgets(update: Update, context: ContextTypes.DEFAULT_TYPE, fireb
             category_name = budget['categoryName']
             budget_amount = budget['amount']
 
-            start_of_month = datetime(current_year, current_month, 1)
+            start_of_month = datetime(current_year, current_month, 1, tzinfo=timezone.utc)
             expenses_query = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).where(filter=FieldFilter('category', '==', category_name)).where(filter=FieldFilter('createdAt', '>=', start_of_month)).stream()
             total_spent = sum(doc.to_dict().get('amount', 0) for doc in expenses_query)
             
@@ -732,12 +732,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if command in ['?', 'ajuda']:
             await send_manual(update, context, firebase_uid)
         
-        # Comandos de Consulta (ver...)
         elif command == 'ver':
-            sub_command = parts[1].lower() if len(parts) > 1 else ''
+            if len(parts) < 2:
+                await update.message.reply_text("Comando 'ver' incompleto. Use '?' para ver as opções.")
+                return
+            
+            sub_command = parts[1].lower()
             args = parts[2:]
             
-            if sub_command == 'orçamentos' or sub_command == 'orçamento':
+            if sub_command in ['orçamento', 'orçamentos']:
                 await list_budgets(update, context, firebase_uid, args)
             elif sub_command == 'categorias':
                 await list_categories(update, context, firebase_uid, args)
@@ -748,11 +751,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif sub_command == 'hoje':
                 await report_daily_allowance(update, context, firebase_uid, args)
             else:
-                await update.message.reply_text("Comando 'ver' não reconhecido. Use '?' para ver as opções.")
+                await update.message.reply_text(f"Não reconheci o comando 'ver {sub_command}'. Use '?' para ver as opções.")
 
-        # Comandos de Ação
-        elif command.startswith('+'): # Para rendas
-            # Remonta a mensagem para a função antiga entender
+        elif command.startswith('+'):
             new_parts = [command.lstrip('+')] + parts[1:]
             await process_income(update, context, new_parts, firebase_uid)
         elif command == 'guardar':
@@ -761,7 +762,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await process_withdrawal(update, context, parts[1:], firebase_uid)
         elif command == 'pagar':
             await process_payment(update, context, parts[1:], firebase_uid)
-        elif command == 'renda': # Mantém compatibilidade com o comando antigo
+        elif command == 'renda': # Mantém compatibilidade
              await process_income(update, context, parts[1:], firebase_uid)
         else:
             # Assume que é um gasto (o mais comum)
