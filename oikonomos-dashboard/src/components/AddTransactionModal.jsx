@@ -16,8 +16,17 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
   // Estados para transferência
   const [fromAccountId, setFromAccountId] = useState(accounts[0]?.id || '');
   const [toAccountId, setToAccountId] = useState(accounts[1]?.id || '');
+  const [createPaybackDebt, setCreatePaybackDebt] = useState(false);
 
   const user = auth.currentUser;
+
+  // --- LÓGICA QUE FALTAVA ---
+  const isSourceAccountReserve = useMemo(() => {
+    if (type !== 'transfer') return false;
+    const sourceAccount = accounts.find(acc => acc.id === fromAccountId);
+    return sourceAccount?.isReserve || false;
+  }, [fromAccountId, accounts, type]);
+  // -------------------------
 
   const availableCategories = useMemo(() => {
     return categories.filter(cat => cat.type === type);
@@ -33,12 +42,11 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
 
   const handleSave = async () => {
     if (!user) return;
-    
     let savePromise;
     const transferAmount = parseFloat(amount);
 
     if (type === 'transfer') {
-      // --- LÓGICA DE TRANSFERÊNCIA CORRIGIDA ---
+      // --- LÓGICA DE TRANSFERÊNCIA ---
       if (fromAccountId === toAccountId) {
         toast.error("A conta de origem e destino não podem ser a mesma.");
         return;
@@ -56,36 +64,51 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
             const fromAccountData = accounts.find(acc => acc.id === fromAccountId);
             const toAccountData = accounts.find(acc => acc.id === toAccountId);
 
-            // 1. Cria a transação de SAÍDA (despesa)
+            // 1. Cria as transações de entrada e saída
             const expenseTransRef = doc(collection(db, "transactions"));
             batch.set(expenseTransRef, {
                 userId: user.uid, type: 'expense', amount: transferAmount,
-                category: 'transferência', description: `Para: ${toAccountData.accountName}`,
+                category: 'transferência', 
+                description: `Transferência para: ${toAccountData.accountName}`, // <<< CORRIGIDO
                 createdAt: Timestamp.now(), accountId: fromAccountId,
             });
-            // 2. Cria a transação de ENTRADA (renda)
+            // 2. Cria a transação de ENTRADA (renda) na conta de destino
             const incomeTransRef = doc(collection(db, "transactions"));
             batch.set(incomeTransRef, {
                 userId: user.uid, type: 'income', amount: transferAmount,
-                category: 'transferência', description: `De: ${fromAccountData.accountName}`,
+                category: 'transferência', 
+                description: `Transferência de: ${fromAccountData.accountName}`, // <<< CORRIGIDO
                 createdAt: Timestamp.now(), accountId: toAccountId,
             });
-            
-            // 3. Atualiza os saldos das contas
+            // 2. Atualiza os saldos das contas
             batch.update(fromAccountRef, { balance: increment(-transferAmount) });
             batch.update(toAccountRef, { balance: increment(transferAmount) });
+
+            // 3. Cria a conta a pagar, se necessário
+            if (isSourceAccountReserve && createPaybackDebt) {
+                const paybackDebtRef = doc(collection(db, "scheduled_transactions"));
+                batch.set(paybackDebtRef, {
+                    userId: user.uid,
+                    description: `Reposição para: ${fromAccountData.accountName}`,
+                    amount: transferAmount,
+                    categoryName: 'reservas', // Sugestão, pode criar esta categoria
+                    dueDate: Timestamp.fromDate(new Date(new Date().setMonth(new Date().getMonth() + 2, 0))),
+                    status: 'pending',
+                    isRecurring: false,
+                });
+            }
 
             await batch.commit();
             resolve();
         } catch(error) { reject(error); }
       });
       toast.promise(savePromise, {
-          loading: 'A transferir...',
+          loading: 'Transferindo...',
           success: 'Transferência realizada com sucesso!',
           error: 'Falha ao realizar a transferência.',
       });
     } else {
-      // --- LÓGICA DE RENDA/DESPESA (sem alterações) ---
+      // --- LÓGICA DE RENDA/DESPESA ---
       savePromise = new Promise(async (resolve, reject) => {
         try {
             const batch = writeBatch(db);
@@ -103,9 +126,9 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
         } catch (error) { reject(error); }
       });
       toast.promise(savePromise, {
-          loading: 'A registar transação...',
-          success: 'Transação registada com sucesso!',
-          error: 'Falha ao registar.',
+          loading: 'Registrando transação...',
+          success: 'Transação registrada com sucesso!',
+          error: 'Falha ao registrar.',
       });
     }
     onSave();
@@ -115,6 +138,7 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
     e.preventDefault();
     handleSave();
   };
+
   return (
     <div className={styles.modalOverlay}>
       <div className={styles.modalContent}>
@@ -139,6 +163,12 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
               <select value={toAccountId} onChange={e => setToAccountId(e.target.value)} required>
                 {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.accountName}</option>)}
               </select>
+              {isSourceAccountReserve && (
+                <div className={styles.checkboxGroup}>
+                  <input type="checkbox" id="createPayback" checked={createPaybackDebt} onChange={(e) => setCreatePaybackDebt(e.target.checked)} />
+                  <label htmlFor="createPayback">Criar conta a pagar para repor este valor</label>
+                </div>
+              )}
             </>
           ) : (
             // --- FORMULÁRIO DE RENDA/DESPESA ---

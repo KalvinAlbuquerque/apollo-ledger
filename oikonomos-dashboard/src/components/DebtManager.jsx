@@ -95,29 +95,47 @@ function DebtManager({ expenseCategories, accounts, onDataChanged }) {
     });
   };
   
-  const handleMarkAsPaid = (selectedAccountId) => {
+  const handleMarkAsPaid = (selectedAccountId, form, createPayback) => {
     if (!debtToPay || !user) return;
     
-    const sourceAccount = accounts.find(acc => acc.id === selectedAccountId);
-    if (sourceAccount && sourceAccount.balance < debtToPay.amount) {
-        toast.error(`Saldo insuficiente na conta '${sourceAccount.accountName}'.`);
-        handleClosePayModal();
-        return;
-    }
-
     const payAction = async () => {
         const batch = writeBatch(db);
+        const sourceAccount = accounts.find(acc => acc.id === selectedAccountId);
+
+        // Ação A: Cria a transação de despesa com a descrição aprimorada
         const newTransactionRef = doc(collection(db, "transactions"));
+        let description = `Pagamento de: ${debtToPay.description}`;
+        if (sourceAccount?.isReserve) {
+            description += ` (c/ ${sourceAccount.accountName})`; // Adiciona a nota da reserva
+        }
+
         batch.set(newTransactionRef, {
             userId: user.uid, amount: debtToPay.amount, category: debtToPay.categoryName,
-            description: `Pagamento de: ${debtToPay.description}`, createdAt: Timestamp.now(), type: 'expense',
+            description: description, createdAt: Timestamp.now(), type: 'expense',
             accountId: selectedAccountId,
         });
+
+        // Ação B: Atualiza o status da dívida para 'paid'
         const debtDocRef = doc(db, "scheduled_transactions", debtToPay.id);
         batch.update(debtDocRef, { status: 'paid' });
         
+        // Ação C: Atualiza o saldo da conta
         const accountDocRef = doc(db, "accounts", selectedAccountId);
         batch.update(accountDocRef, { balance: increment(-debtToPay.amount) });
+
+        // Ação D (Condicional): Cria a conta a pagar para repor a reserva
+        if (sourceAccount?.isReserve && createPayback) {
+            const paybackDebtRef = doc(collection(db, "scheduled_transactions"));
+            batch.set(paybackDebtRef, {
+                userId: user.uid,
+                description: `Reposição para: ${sourceAccount.accountName}`,
+                amount: debtToPay.amount,
+                categoryName: 'reservas', // Sugestão, pode criar esta categoria de despesa
+                dueDate: Timestamp.fromDate(new Date(new Date().setMonth(new Date().getMonth() + 2, 0))),
+                status: 'pending',
+                isRecurring: false,
+            });
+        }
 
         await batch.commit();
         if (onDataChanged) onDataChanged();
@@ -127,6 +145,7 @@ function DebtManager({ expenseCategories, accounts, onDataChanged }) {
     showConfirmationToast(payAction, `Confirmar pagamento de ${debtToPay.description}?`);
     handleClosePayModal();
   };
+
 
   const handleDeleteDebt = (debtId) => {
     const deleteAction = async () => {

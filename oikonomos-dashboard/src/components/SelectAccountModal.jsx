@@ -1,9 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import toast from 'react-hot-toast';
 import styles from './EditModal.module.css';
 
-// <<< 1. A FUNÇÃO AGORA ACEITA 'children' COMO PROP
 function SelectAccountModal({ accounts, onConfirm, onCancel, title, children }) {
   const [selectedAccountId, setSelectedAccountId] = useState(accounts?.[0]?.id || '');
+  
+  // Novo estado para o checkbox de reposição
+  const [createPayback, setCreatePayback] = useState(false);
+
+  // Verifica se a conta de origem selecionada é uma reserva
+  const isSourceAccountReserve = useMemo(() => {
+    const sourceAccount = accounts.find(acc => acc.id === selectedAccountId);
+    return sourceAccount?.isReserve || false;
+  }, [selectedAccountId, accounts]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -11,8 +20,8 @@ function SelectAccountModal({ accounts, onConfirm, onCancel, title, children }) 
       toast.error("Por favor, selecione uma conta.");
       return;
     }
-    // Passa o ID da conta e o formulário inteiro para a função onConfirm
-    onConfirm(selectedAccountId, e.target);
+    // Agora passa o formulário E o estado do checkbox
+    onConfirm(selectedAccountId, e.target, createPayback);
   };
 
   return (
@@ -23,7 +32,7 @@ function SelectAccountModal({ accounts, onConfirm, onCancel, title, children }) 
           <label htmlFor="account">Conta de Origem:</label>
           <select
             id="account"
-            name="accountId" // Damos um nome para o formulário
+            name="accountId"
             value={selectedAccountId}
             onChange={(e) => setSelectedAccountId(e.target.value)}
             required
@@ -35,8 +44,20 @@ function SelectAccountModal({ accounts, onConfirm, onCancel, title, children }) 
             ))}
           </select>
 
-          {/* <<< 2. RENDERIZA QUALQUER CAMPO EXTRA QUE FOR ENVIADO */}
           {children}
+
+          {/* Checkbox condicional que aparece quando a origem é uma reserva */}
+          {isSourceAccountReserve && (
+            <div className={styles.checkboxGroup}>
+              <input 
+                type="checkbox" 
+                id="createPayback"
+                checked={createPayback}
+                onChange={(e) => setCreatePayback(e.target.checked)}
+              />
+              <label htmlFor="createPayback">Criar conta a pagar para repor este valor</label>
+            </div>
+          )}
 
           <div className={styles.buttonGroup}>
             <button type="button" onClick={onCancel} className={styles.cancelButton}>Cancelar</button>
