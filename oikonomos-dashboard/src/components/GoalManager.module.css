@@ -87,3 +87,48 @@
     opacity: 1; /* Garante que os botões estejam sempre visíveis no mobile */
   }
 }
+
+.form {
+  /* Adapta o grid para 4 colunas */
+  grid-template-columns: 2fr 1fr 1fr auto;
+}
+
+/* NOVOS ESTILOS */
+.goalNameAndDate {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.targetDate {
+  font-size: 0.8rem;
+  color: var(--texto-secundario);
+}
+
+.savingsRate {
+  font-size: 0.9rem;
+  font-style: italic;
+  color: var(--acento-azul);
+  background-color: rgba(74, 144, 226, 0.1);
+  padding: 8px;
+  border-radius: 6px;
+  text-align: center;
+  margin-top: 10px;
+}
+
+
+/* Adicione em: src/components/GoalManager.module.css */
+
+.completeButton {
+  background-color: var(--acento-azul);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.completeButton:hover {
+  opacity: 0.8;
+}

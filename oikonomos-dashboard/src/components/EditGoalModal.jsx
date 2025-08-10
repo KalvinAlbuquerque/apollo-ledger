@@ -1,17 +1,36 @@
 // src/components/EditGoalModal.jsx
-import React from 'react';
-import styles from './EditModal.module.css'; // Reutilizamos o estilo do outro modal
+import React, { useState, useEffect } from 'react';
+import { Timestamp } from 'firebase/firestore';
+import styles from './EditModal.module.css';
 
 function EditGoalModal({ goal, onSave, onCancel }) {
-  // Usaremos um formulário não controlado para simplicidade,
-  // mas você pode usar 'useState' como fizemos no outro modal se preferir.
-  
+  const [goalName, setGoalName] = useState('');
+  const [targetAmount, setTargetAmount] = useState('');
+  const [targetDate, setTargetDate] = useState(''); // Estado para a data
+
+  // Função para formatar a data do Firestore para o input (AAAA-MM-DD)
+  const formatDateForInput = (timestamp) => {
+    if (!timestamp) return '';
+    return timestamp.toDate().toISOString().split('T')[0];
+  };
+
+  useEffect(() => {
+    if (goal) {
+      setGoalName(goal.goalName || '');
+      setTargetAmount(goal.targetAmount || '');
+      setTargetDate(formatDateForInput(goal.targetDate)); // Preenche a data
+    }
+  }, [goal]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    const formData = new FormData(e.target);
+    // Cria a data em UTC para evitar problemas de fuso horário
+    const correctedDate = new Date(`${targetDate}T12:00:00Z`);
+    
     const updatedData = {
-      goalName: formData.get('goalName'),
-      targetAmount: parseFloat(formData.get('targetAmount')),
+      goalName: goalName,
+      targetAmount: parseFloat(targetAmount),
+      targetDate: Timestamp.fromDate(correctedDate), // Converte de volta para o formato do Firestore
     };
     onSave(goal.id, updatedData);
   };
@@ -26,16 +45,25 @@ function EditGoalModal({ goal, onSave, onCancel }) {
           <label>Nome da Meta:</label>
           <input
             type="text"
-            name="goalName"
-            defaultValue={goal.goalName} // Preenche com o valor atual
+            value={goalName}
+            onChange={(e) => setGoalName(e.target.value)}
             required
           />
 
           <label>Valor Alvo (R$):</label>
           <input
             type="number"
-            name="targetAmount"
-            defaultValue={goal.targetAmount} // Preenche com o valor atual
+            value={targetAmount}
+            onChange={(e) => setTargetAmount(e.target.value)}
+            required
+          />
+
+          {/* NOVO CAMPO DE DATA ALVO */}
+          <label>Data Alvo:</label>
+          <input
+            type="date"
+            value={targetDate}
+            onChange={(e) => setTargetDate(e.target.value)}
             required
           />
           
