@@ -20,7 +20,7 @@ const [isRecurring, setIsRecurring] = useState(false);
   const [editingDebt, setEditingDebt] = useState(null);
   const user = auth.currentUser;
    const [filter, setFilter] = useState('pending'); 
-   
+
     const fetchDebts = async () => {
     if (!user) return;
     setLoading(true);
@@ -141,11 +141,28 @@ const handleOpenEditModal = (debt) => {
     <>
       <div className={styles.container}>
         <h2>Contas a Pagar & Dívidas</h2>
-        <form onSubmit={handleAddDebt} className={styles.form}>
-            {/* ... (formulário para adicionar dívida igual ao anterior) ... */}
-        </form>
 
-        {/* <<< NOVAS ABAS DE FILTRO */}
+        {/* --- FORMULÁRIO QUE ESTAVA FALTANDO --- */}
+        <form onSubmit={handleAddDebt} className={styles.form}>
+          <input type="text" value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Descrição (ex: Aluguel)" required />
+          <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} placeholder="Valor" required />
+          <select value={newCategory} onChange={e => setNewCategory(e.target.value)} required>
+            {expenseCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
+          </select>
+          <input type="date" value={newDueDate} onChange={e => setNewDueDate(e.target.value)} required />
+          <div className={styles.recurringCheckbox}>
+            <input 
+              type="checkbox" 
+              id="recurring" 
+              checked={isRecurring} 
+              onChange={e => setIsRecurring(e.target.checked)} 
+            />
+            <label htmlFor="recurring">Repetir mensalmente</label>
+          </div>
+          <button type="submit" className={styles.addButton}>Adicionar</button>
+        </form>
+        {/* --- FIM DO FORMULÁRIO --- */}
+
         <div className={styles.filterTabs}>
             <button 
                 onClick={() => setFilter('pending')} 
@@ -175,7 +192,6 @@ const handleOpenEditModal = (debt) => {
               <span className={styles.debtAmount}>R$ {debt.amount.toFixed(2)}</span>
               <div className={styles.actionButtons}>
                 <button type="button" onClick={() => handleOpenEditModal(debt)} className={styles.editButton}>Editar</button>
-                {/* Mostra o botão "Paga" apenas se o status for pendente */}
                 {debt.status === 'pending' && (
                     <button onClick={() => handleMarkAsPaid(debt)} className={styles.paidButton}>Paga</button>
                 )}
@@ -198,5 +214,4 @@ const handleOpenEditModal = (debt) => {
     </>
   );
 }
-
 export default DebtManager;
