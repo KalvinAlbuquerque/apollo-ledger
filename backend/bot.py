@@ -151,13 +151,15 @@ async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE, te
 
         # 3. Se encontrou, executa as ações
         debt_data = found_debt.to_dict()
+        debt_description = debt_data.get('description')
+        final_description = f"Pagamento de: {debt_description}" if debt_description else f"Pagamento da conta '{debt_data.get('categoryName')}'"
 
         # Ação A: Cria a transação de despesa
         payment_expense_data = {
             'type': 'expense',
             'amount': debt_data.get('amount'),
             'category': debt_data.get('categoryName'),
-            'description': f"Pagamento de: {debt_data.get('descripti    sent_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="⏳ Registrando gasto...")on')}",
+            'description': final_description,
             'createdAt': firestore.SERVER_TIMESTAMP,
             'userId': firebase_uid
         }
