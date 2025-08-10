@@ -6,9 +6,23 @@
 
 .container h2 {
   margin-top: 0;
-  margin-bottom: 20px;
+  margin-bottom: 0;
   color: var(--texto-principal);
 }
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+/* Adicione esta nova classe para a barra de busca */
+.searchInput {
+  padding: 8px;
+  width: 250px; /* Largura fixa para a busca */
+}
+
 
 .budgetList {
   display: flex;
