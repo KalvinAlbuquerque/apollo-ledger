@@ -72,41 +72,41 @@ async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Em: backend/bot.py
 
 async def send_manual(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str):
-    """Envia uma mensagem de ajuda com todos os comandos disponíveis."""
     manual_text = """
 📖 *Manual de Comandos Oikonomos*
 
-A seguir, todos os comandos que eu entendo. Lembre-se que as categorias, origens e metas devem ser cadastradas primeiro no seu dashboard web!
+A seguir, todos os comandos que eu entendo.
 
 ---
 *✍️ REGISTRAR TRANSAÇÕES*
 ---
-> *Para registrar um GASTO:*
-> `gasto <valor> <categoria> [descrição]`
-> _ou simplesmente:_
-> `<valor> <categoria> [descrição]`
-
-> *Para registrar uma RENDA:*
-> `renda <valor> <origem>`
-
-> *Para GUARDAR dinheiro em uma META:*
-> `guardar <valor> <nome da meta>`
-
-> *Para SACAR dinheiro de uma META:*
-> `sacar <valor> <meta> para <categoria de renda>`
-
-> *Para PAGAR uma CONTA agendada:*
-> `pagar <descrição da conta>`
+> `gasto <valor> <categoria>` - Registra uma despesa.
+> `renda <valor> <categoria>` - Registra uma renda.
+> `guardar <valor> <meta>` - Adiciona dinheiro a uma meta.
+> `sacar <valor> <meta> para <categoria>` - Retira dinheiro de uma meta.
+> `pagar <conta>` - Marca uma conta agendada como paga.
 
 ---
 *📊 CONSULTAR INFORMAÇÕES*
 ---
-> *Para listar suas CATEGORIAS:*
+> *Gastos de Hoje:*
+> `quanto gastei hoje ?`
+> `quanto gastei hoje categorizado ?`
+
+> *Orçamento de Hoje:*
+> `quanto posso gastar hoje ?`
+> `quanto posso gastar hoje <categoria> ?`
+
+> *Visão Geral de Orçamentos:*
+> `orçamentos ?`
+> `orçamento <categoria> ?`
+
+> *Suas Categorias:*
 > `categorias ?`
 > `categorias renda ?`
 > `categorias despesa ?`
 
-> *Para listar suas CONTAS do mês:*
+> *Suas Contas Agendadas:*
 > `contas ?`
 > `contas pagas ?`
 > `contas pendentes ?`
@@ -114,9 +114,7 @@ A seguir, todos os comandos que eu entendo. Lembre-se que as categorias, origens
 ---
 > *Para ver este manual novamente:*
 > `?`
-    """
-    await update.message.reply_text(manual_text.strip(), parse_mode='Markdown')
-
+ """
 
 async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Marca uma conta agendada como 'paga' e cria a transação de despesa correspondente."""
@@ -564,6 +562,155 @@ async def list_scheduled_transactions(update: Update, context: ContextTypes.DEFA
         print(f"Erro ao listar contas: {e}")
         await update.message.reply_text("❌ Ocorreu um erro ao buscar as contas. Pode ser necessário criar um índice no Firestore (verifique os logs).")
                
+
+async def list_budgets(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str, parts: list):
+    """Lista os orçamentos do mês, de forma geral ou para uma categoria específica."""
+    try:
+        today = datetime.now()
+        current_month = today.month
+        current_year = today.year
+
+        q_budget = db.collection('budgets').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('month', '==', current_month)).where(filter=FieldFilter('year', '==', current_year)).where(filter=FieldFilter('amount', '>', 0))
+        
+        category_filter = " ".join(parts).strip().lower()
+        if category_filter:
+            q_budget = q_budget.where(filter=FieldFilter('categoryName', '==', category_filter))
+
+        budgets_docs = list(q_budget.stream())
+
+        if not budgets_docs:
+            reply = f"Nenhum orçamento encontrado para '{category_filter}' este mês." if category_filter else "Nenhum orçamento definido para este mês."
+            await update.message.reply_text(reply)
+            return
+
+        reply_message = "*Resumo dos Orçamentos do Mês:*\n\n"
+        
+        for budget_doc in budgets_docs:
+            budget = budget_doc.to_dict()
+            category_name = budget['categoryName']
+            budget_amount = budget['amount']
+
+            start_of_month = datetime(current_year, current_month, 1)
+            expenses_query = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).where(filter=FieldFilter('category', '==', category_name)).where(filter=FieldFilter('createdAt', '>=', start_of_month)).stream()
+            total_spent = sum(doc.to_dict().get('amount', 0) for doc in expenses_query)
+            
+            remaining_budget = budget_amount - total_spent
+            total_days_in_month = calendar.monthrange(current_year, current_month)[1]
+            days_remaining = total_days_in_month - today.day + 1
+            daily_avg = remaining_budget / days_remaining if days_remaining > 0 else 0
+            weekly_avg = daily_avg * 7
+
+            reply_message += f"*{category_name.capitalize()}:*\n"
+            reply_message += f"  - Saldo: R$ {remaining_budget:.2f} / R$ {budget_amount:.2f}\n"
+            reply_message += f"  - Média Diária Segura: R$ {daily_avg:.2f}\n"
+            reply_message += f"  - Média Semanal Segura: R$ {weekly_avg:.2f}\n\n"
+
+        await update.message.reply_text(reply_message, parse_mode='Markdown')
+
+    except Exception as e:
+        print(f"Erro ao listar orçamentos: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro ao buscar seus orçamentos.")
+
+async def report_today_spending(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str, parts: list):
+    """Informa o total gasto hoje, de forma geral ou por categoria."""
+    try:
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        q = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).where(filter=FieldFilter('createdAt', '>=', today_start))
+        
+        docs = q.stream()
+        
+        total_spent_today = 0
+        by_category = {}
+        
+        for doc in docs:
+            transaction = doc.to_dict()
+            amount = transaction.get('amount', 0)
+            category = transaction.get('category', 'Outros')
+            total_spent_today += amount
+            by_category[category] = by_category.get(category, 0) + amount
+
+        if total_spent_today == 0:
+            await update.message.reply_text("🎉 Nenhum gasto registrado hoje!")
+            return
+
+        categorized = 'categorizado' in parts or 'categoria' in parts
+        
+        reply_message = f"*Total gasto hoje: R$ {total_spent_today:.2f}*\n"
+        if categorized:
+            reply_message += "\n*Detalhes por categoria:*\n"
+            for category, amount in sorted(by_category.items()):
+                reply_message += f"- {category.capitalize()}: R$ {amount:.2f}\n"
+
+        await update.message.reply_text(reply_message, parse_mode='Markdown')
+        
+    except Exception as e:
+        print(f"Erro ao reportar gastos: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro ao buscar os gastos de hoje.")
+
+async def report_daily_allowance(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str, parts: list):
+    """Informa quanto ainda pode ser gasto hoje com base nos orçamentos."""
+    try:
+        # Reutiliza a lógica de 'list_budgets' para os cálculos
+        # (Em um projeto maior, essa lógica seria movida para uma função auxiliar separada)
+        today = datetime.now()
+        current_month = today.month
+        current_year = today.year
+
+        q_budget = db.collection('budgets').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('month', '==', current_month)).where(filter=FieldFilter('year', '==', current_year)).where(filter=FieldFilter('amount', '>', 0))
+        
+        category_filter = " ".join(parts).strip().lower()
+        if category_filter:
+            q_budget = q_budget.where(filter=FieldFilter('categoryName', '==', category_filter))
+
+        budgets_docs = list(q_budget.stream())
+
+        if not budgets_docs:
+            await update.message.reply_text("Nenhum orçamento ativo encontrado para hoje.")
+            return
+
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        q_expenses = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).where(filter=FieldFilter('createdAt', '>=', today_start))
+        today_expenses_docs = list(q_expenses.stream())
+        
+        spent_today_by_cat = {}
+        for doc in today_expenses_docs:
+            transaction = doc.to_dict()
+            cat = transaction.get('category')
+            spent_today_by_cat[cat] = spent_today_by_cat.get(cat, 0) + transaction.get('amount', 0)
+
+        reply_message = "*Balanço de Hoje com Base nos Orçamentos:*\n\n"
+        
+        for budget_doc in budgets_docs:
+            budget = budget_doc.to_dict()
+            category_name = budget['categoryName']
+            budget_amount = budget['amount']
+
+            start_of_month = datetime(current_year, current_month, 1)
+            expenses_query = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).where(filter=FieldFilter('category', '==', category_name)).where(filter=FieldFilter('createdAt', '>=', start_of_month)).stream()
+            total_spent_month = sum(doc.to_dict().get('amount', 0) for doc in expenses_query)
+            
+            remaining_budget_month = budget_amount - total_spent_month
+            total_days_in_month = calendar.monthrange(current_year, current_month)[1]
+            days_remaining = total_days_in_month - today.day + 1
+            daily_allowance = remaining_budget_month / days_remaining if days_remaining > 0 else 0
+            
+            spent_today = spent_today_by_cat.get(category_name, 0)
+            remaining_for_today = daily_allowance - spent_today
+
+            reply_message += f"*{category_name.capitalize()}:*\n"
+            reply_message += f"  - Meta Diária: R$ {daily_allowance:.2f}\n"
+            reply_message += f"  - Gasto Hoje: R$ {spent_today:.2f}\n"
+            if remaining_for_today >= 0:
+                reply_message += f"  - *Disponível Hoje: R$ {remaining_for_today:.2f}*\n\n"
+            else:
+                reply_message += f"  - *Excedido em: R$ {abs(remaining_for_today):.2f}*\n\n"
+
+        await update.message.reply_text(reply_message, parse_mode='Markdown')
+
+    except Exception as e:
+        print(f"Erro ao reportar allowance: {e}")
+        await update.message.reply_text("❌ Ocorreu um erro ao calcular o saldo de hoje.")
+
 # --- 5. ORQUESTRADOR PRINCIPAL ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Função principal que recebe todas as mensagens e decide o que fazer."""
@@ -576,17 +723,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     firebase_uid = await get_firebase_user_id(chat_id)
     
     if firebase_uid:
-        text = update.message.text.strip()
+        text = update.message.text.strip().lower()
         parts = text.split()
-        command = parts[0].lower()
-        sub_command_parts = parts[1:]
+        command = parts[0]
         
-        if command == '?':
+        # Lógica para comandos de múltiplas palavras
+        if text.startswith("quanto gastei hoje"):
+            await report_today_spending(update, context, firebase_uid, parts[3:])
+        elif text.startswith("quanto posso gastar hoje"):
+            await report_daily_allowance(update, context, firebase_uid, parts[4:])
+        elif command == '?':
             await send_manual(update, context, firebase_uid)
+        elif command in ['orçamento', 'orçamentos']:
+            await list_budgets(update, context, firebase_uid, parts[1:])
         elif command == 'categorias':
-            await list_categories(update, context, firebase_uid, sub_command_parts)
+            await list_categories(update, context, firebase_uid, parts[1:])
         elif command == 'contas':
-            await list_scheduled_transactions(update, context, firebase_uid, sub_command_parts)
+            await list_scheduled_transactions(update, context, firebase_uid, parts[1:])
         elif command in ['saldo', 'renda', 'ganhei']:
             await process_income(update, context, parts[1:], firebase_uid)
         elif command == 'gasto':
@@ -598,6 +751,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif command == 'pagar':
             await process_payment(update, context, parts[1:], firebase_uid)
         else:
+            # Assume que é um gasto sem a palavra-chave
             await process_expense(update, context, parts, firebase_uid)
     else:
         context.user_data['state'] = 'awaiting_email'
