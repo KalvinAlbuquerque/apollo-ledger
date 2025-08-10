@@ -1,12 +1,11 @@
-// src/components/BudgetManager.jsx
-
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../../firebaseClient';
 import { collection, query, where, getDocs, setDoc, doc } from 'firebase/firestore';
-import toast from 'react-hot-toast'; // Importamos o toast
+import toast from 'react-hot-toast';
 import styles from './BudgetManager.module.css';
 
-function BudgetManager({ fetchData }) { // <<< 1. RECEBE A FUNÇÃO fetchData
+// <<< 1. RECEBE 'onDataChanged' EM VEZ DE 'fetchData'
+function BudgetManager({ onDataChanged }) { 
   const [expenseCategories, setExpenseCategories] = useState([]);
   const [budgets, setBudgets] = useState({});
   const [loading, setLoading] = useState(true);
@@ -17,7 +16,6 @@ function BudgetManager({ fetchData }) { // <<< 1. RECEBE A FUNÇÃO fetchData
 
   useEffect(() => {
     if (!user) return;
-
     const fetchInitialData = async () => {
       setLoading(true);
       const catQuery = query(collection(db, "categories"), where("userId", "==", user.uid), where("type", "==", "expense"));
@@ -35,7 +33,6 @@ function BudgetManager({ fetchData }) { // <<< 1. RECEBE A FUNÇÃO fetchData
       setBudgets(budgetData);
       setLoading(false);
     };
-
     fetchInitialData();
   }, [user]);
 
@@ -44,12 +41,12 @@ function BudgetManager({ fetchData }) { // <<< 1. RECEBE A FUNÇÃO fetchData
     setBudgets(prev => ({ ...prev, [categoryName]: newAmount }));
   };
 
-    const handleClearBudget = (categoryName) => {
+  const handleClearBudget = (categoryName) => {
     setBudgets(prev => ({ ...prev, [categoryName]: 0 }));
   };
+
   const handleSaveBudgets = async () => {
     if (!user) return;
-    
     const savePromise = new Promise(async (resolve, reject) => {
         const savePromises = expenseCategories.map(categoryName => {
             const budgetAmount = budgets[categoryName] || 0;
@@ -63,7 +60,6 @@ function BudgetManager({ fetchData }) { // <<< 1. RECEBE A FUNÇÃO fetchData
                 year: currentYear,
             });
         });
-
         try {
             await Promise.all(savePromises);
             resolve();
@@ -77,11 +73,15 @@ function BudgetManager({ fetchData }) { // <<< 1. RECEBE A FUNÇÃO fetchData
         success: 'Orçamentos salvos com sucesso!',
         error: 'Falha ao salvar orçamentos.',
     }).then(() => {
-        fetchData(); // <<< 2. CHAMA A FUNÇÃO PARA ATUALIZAR O DASHBOARD
+        // <<< 2. CHAMA 'onDataChanged' PARA ATIVAR O GATILHO
+        if (onDataChanged) {
+          onDataChanged();
+        }
     });
   };
   
   if (loading) return <p>Carregando orçamentos...</p>;
+
 
  return (
     <div className={styles.container}>

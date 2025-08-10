@@ -195,11 +195,16 @@ function Dashboard({ user }) {
     expenses.forEach(tx => {
       expenseByCategory[tx.category] = (expenseByCategory[tx.category] || 0) + tx.amount;
     });
-    const budgetProgress = budgets.map(budget => ({
-      category: budget.categoryName,
-      spent: expenseByCategory[budget.categoryName] || 0,
-      budget: budget.amount,
-    })).filter(b => b.budget > 0);
+
+    const existingExpenseCategoryNames = new Set(categories.filter(c => c.type === 'expense').map(c => c.name));
+    const budgetProgress = budgets
+      .filter(budget => existingExpenseCategoryNames.has(budget.categoryName)) // Filtra os "fantasmas"
+      .map(budget => ({
+        category: budget.categoryName,
+        spent: expenseByCategory[budget.categoryName] || 0,
+        budget: budget.amount,
+      }))
+      .filter(b => b.budget > 0); 
     
     // --- LÓGICA DO GRÁFICO INTELIGENTE (LINHA/BARRAS) REVISADA ---
     let isSingleDayView = filterStartDate && filterEndDate && filterStartDate === filterEndDate;
@@ -472,8 +477,8 @@ function Dashboard({ user }) {
            <GoalManager fetchData={fetchData} />        
         </section>
         <section className={styles.managerSection}>
-            <BudgetManager fetchData={fetchData} />
-        </section>        
+            <BudgetManager onDataChanged={triggerRefresh} />
+          </section>        
         <section className={styles.managerSection}>
             <CategoryManager onDataChanged={triggerRefresh} />        
           </section>
