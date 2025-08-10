@@ -1,0 +1,51 @@
+/* src/pages/ReportsPage.module.css */
+.page {
+  max-width: 1200px;
+  margin: 40px auto;
+  padding: 20px;
+  color: var(--texto-principal);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+  border-bottom: 1px solid var(--borda-sutil);
+  padding-bottom: 20px;
+}
+
+.backButton {
+  background-color: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.backButton:hover {
+  background-color: var(--fundo-secundario);
+  color: var(--texto-principal);
+}
+
+.reportsGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.reportCard {
+  background-color: var(--cinza-elemento);
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--borda-sutil);
+}
+
+.chartContainer {
+  height: 400px; /* Define uma altura para o gráfico */
+  margin-top: 20px;
+}

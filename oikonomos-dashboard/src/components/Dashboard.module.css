@@ -354,6 +354,30 @@
   }
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.headerButton {
+  background-color: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.headerButton:hover {
+  background-color: var(--fundo-secundario);
+  color: var(--texto-principal);
+  border-color: var(--texto-secundario);
+}
+
 .transactionsHeader {
   display: flex;
   justify-content: space-between;

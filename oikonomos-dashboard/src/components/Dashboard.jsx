@@ -3,7 +3,7 @@ import { auth, db } from '../../firebaseClient';
 import { signOut } from 'firebase/auth';
 import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore'; 
 import toast from 'react-hot-toast';
-
+import { Link } from 'react-router-dom';
 // Componentes Filhos
 import SummaryChart from './SummaryChart';
 import LineChart from './LineChart';
@@ -373,7 +373,12 @@ function Dashboard({ user }) {
       <div className={styles.dashboard}>
         <header className={styles.header}>
           <div><h1>Dashboard Oikonomos</h1><p>Olá, {user.email}</p></div>
-          <button onClick={handleLogout} className={styles.logoutButton}>Sair</button>
+          <div className={styles.headerActions}> {/* NOVO DIV PARA OS BOTÕES */}
+            <Link to="/reports" className={styles.headerButton}>
+              Ver Relatórios
+            </Link>
+            <button onClick={handleLogout} className={styles.logoutButton}>Sair</button>
+          </div>
         </header>
 
         <section className={styles.filterSection}>

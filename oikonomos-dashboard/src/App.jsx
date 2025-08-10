@@ -1,11 +1,13 @@
-// src/App.jsx
+// src/App.jsx (Versão com Rotas)
 import React, { useState, useEffect } from 'react';
-import { auth } from '../firebaseClient'; // Ajuste o caminho se necessário
+import { auth } from '../firebaseClient';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Toaster } from 'react-hot-toast';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 import Login from './components/Login';
-import Dashboard from './components/Dashboard'; // Importe o novo componente
+import Dashboard from './components/Dashboard';
+import ReportsPage from './pages/ReportsPage'
 
 function App() {
   const [user, setUser] = useState(null);
@@ -20,22 +22,22 @@ function App() {
   }, []);
 
   if (loading) {
-    return <div>Carregando Oikonomos...</div>;
+    return <div style={{ color: 'white', textAlign: 'center', paddingTop: '50px' }}>Carregando Oikonomos...</div>;
   }
 
   return (
-    <div className="App">
+    <Router>
       <Toaster
         position="top-right"
-        toastOptions={{
-          style: {
-            background: '#333',
-            color: '#fff',
-          },
-        }}
+        toastOptions={{ style: { background: '#333', color: '#fff' } }}
       />
-      {user ? <Dashboard user={user} /> : <Login />}
-    </div>
+      <Routes>
+        <Route path="/" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
+        <Route path="/dashboard" element={user ? <Dashboard user={user} /> : <Navigate to="/" />} />
+        <Route path="/reports" element={user ? <ReportsPage /> : <Navigate to="/" />} />
+        {/* Adicione outras rotas aqui no futuro */}
+      </Routes>
+    </Router>
   );
 }
 
