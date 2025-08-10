@@ -275,12 +275,12 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
             
             base_reply += budget_feedback
 
-            await context.bot.edit_message_text(
-                        chat_id=update.effective_chat.id,
-                        message_id=sent_message.message_id,
-                        text=base_reply,
-                        parse_mode='Markdown'
-                    )
+        await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=sent_message.message_id,
+                    text=base_reply,
+                    parse_mode='Markdown'
+                )
     except Exception as e:
         print(f"Erro ao processar despesa: {e}")
         await context.bot.edit_message_text(
