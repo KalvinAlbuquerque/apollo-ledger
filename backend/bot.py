@@ -790,6 +790,78 @@ def favicon():
     # "Eu recebi seu pedido, mas não tenho um ícone para te dar."
     return '', 204
 
+@app.route("/api/monthly-closing", methods=['GET'])
+def run_monthly_closing():
+    # 1. Proteção: Verifica a senha secreta
+    auth_header = request.headers.get('Authorization')
+    cron_secret = os.getenv("CRON_SECRET")
+    if auth_header != f'Bearer {cron_secret}':
+        return "Unauthorized", 401
+
+    print("Iniciando processo de fecho de mês para todos os usuários...")
+    try:
+        # 2. Busca todos os usuários cadastrados
+        all_users = db.collection('telegram_users').stream()
+        
+        today = datetime.now(timezone.utc)
+        # Calcula o primeiro e o último dia do MÊS PASSADO
+        first_day_of_current_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        last_day_of_previous_month = first_day_of_current_month - relativedelta(seconds=1)
+        first_day_of_previous_month = last_day_of_previous_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        processed_users = 0
+        # 3. Itera sobre cada usuário para fazer o fecho individual
+        for user_doc in all_users:
+            firebase_uid = user_doc.to_dict().get('firebase_uid')
+            if not firebase_uid:
+                continue
+
+            print(f"Processando fecho para o usuário: {firebase_uid}")
+            
+            # Busca todas as transações do usuário no mês anterior
+            q = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('createdAt', '>=', first_day_of_previous_month)).where(filter=FieldFilter('createdAt', '<=', last_day_of_previous_month))
+            transactions_prev_month = list(q.stream())
+
+            # Se não houver transações, pula para o próximo usuário
+            if not transactions_prev_month:
+                print(f"Nenhuma transação encontrada para o usuário {firebase_uid} no mês anterior. Pulando.")
+                continue
+
+            # Calcula o balanço do mês anterior
+            total_income = sum(doc.to_dict().get('amount', 0) for doc in transactions_prev_month if doc.to_dict().get('type') == 'income')
+            total_expense = sum(doc.to_dict().get('amount', 0) for doc in transactions_prev_month if doc.to_dict().get('type') == 'expense')
+            balance = total_income - total_expense
+            
+            # 4. Cria a nova transação de balanço para o início do mês atual
+            closing_transaction_data = {
+                "userId": firebase_uid,
+                "createdAt": first_day_of_current_month, # Data de 1º do mês atual
+            }
+            if balance >= 0:
+                closing_transaction_data['type'] = 'income'
+                closing_transaction_data['amount'] = balance
+                closing_transaction_data['category'] = 'saldo anterior'
+                closing_transaction_data['description'] = f"Saldo positivo de {last_day_of_previous_month.strftime('%B de %Y')}"
+            else: # Saldo negativo
+                closing_transaction_data['type'] = 'expense'
+                closing_transaction_data['amount'] = abs(balance)
+                closing_transaction_data['category'] = 'dívida anterior'
+                closing_transaction_data['description'] = f"Saldo negativo de {last_day_of_previous_month.strftime('%B de %Y')}"
+
+            # Adiciona a transação ao banco de dados
+            db.collection('transactions').add(closing_transaction_data)
+            print(f"Transação de fecho de R$ {balance:.2f} criada para o usuário {firebase_uid}.")
+            processed_users += 1
+
+        final_message = f"OK. Fecho de mês processado para {processed_users} usuário(s)."
+        print(final_message)
+        return final_message, 200
+
+    except Exception as e:
+        print(f"Erro no Cron Job de fecho de mês: {e}")
+        return f"Erro: {e}", 500
+
+
 # --- 7. FUNÇÃO AGENDADA (CRON JOB) ATUALIZADA ---
 @app.route("/api/cron", methods=['GET'])
 def run_recurrence_check():

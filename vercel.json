@@ -20,6 +20,10 @@
     {
       "path": "/api/cron",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/monthly-closing",
+      "schedule": "1 0 1 * *"
     }
   ]
 }
