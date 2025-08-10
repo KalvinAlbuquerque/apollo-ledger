@@ -497,11 +497,15 @@ async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE, fi
             filter_type = parts[0].lower()
 
         q = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid))
-        if filter_type:
-            q = q.where(filter=FieldFilter('type', '==', filter_type))
+        # O filtro de tipo é aplicado depois, na lógica do Python, para evitar um índice extra
         
-        docs = q.stream()
+        docs = list(q.stream())
         
+        # <<< CORREÇÃO AQUI: Verifica se há alguma categoria ANTES de continuar
+        if not docs:
+            await update.message.reply_text("Você ainda não cadastrou nenhuma categoria no dashboard.")
+            return
+
         income_cats = []
         expense_cats = []
         for doc in docs:
@@ -512,18 +516,23 @@ async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE, fi
                 expense_cats.append(cat.get('name'))
 
         reply_message = ""
+        # Monta a mensagem apenas para os tipos relevantes
         if not filter_type or filter_type == 'income':
             reply_message += "*Categorias de Renda:*\n"
             reply_message += "- " + "\n- ".join(sorted(income_cats)) if income_cats else "_Nenhuma cadastrada._\n"
         
         if not filter_type:
-            reply_message += "\n" # Adiciona um espaço entre as listas
+            reply_message += "\n"
 
         if not filter_type or filter_type == 'expense':
             reply_message += "*Categorias de Despesa:*\n"
             reply_message += "- " + "\n- ".join(sorted(expense_cats)) if expense_cats else "_Nenhuma cadastrada._\n"
             
-        await update.message.reply_text(reply_message, parse_mode='Markdown')
+        # Garante que a mensagem não seja enviada vazia
+        if reply_message.strip():
+            await update.message.reply_text(reply_message, parse_mode='Markdown')
+        else: # Caso raro onde um filtro por tipo não encontra nada
+            await update.message.reply_text(f"Nenhuma categoria do tipo '{filter_type}' encontrada.")
         
     except Exception as e:
         print(f"Erro ao listar categorias: {e}")
