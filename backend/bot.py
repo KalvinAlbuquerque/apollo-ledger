@@ -72,49 +72,51 @@ async def register_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Em: backend/bot.py
 
 async def send_manual(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str):
+    """Envia uma mensagem de ajuda com todos os comandos disponíveis."""
     manual_text = """
 📖 *Manual de Comandos Oikonomos*
 
-A seguir, todos os comandos que eu entendo.
+A seguir, a lista de comandos simplificados.
 
 ---
 *✍️ REGISTRAR TRANSAÇÕES*
 ---
-> `gasto <valor> <categoria>` - Registra uma despesa.
-> `renda <valor> <categoria>` - Registra uma renda.
-> `guardar <valor> <meta>` - Adiciona dinheiro a uma meta.
-> `sacar <valor> <meta> para <categoria>` - Retira dinheiro de uma meta.
-> `pagar <conta>` - Marca uma conta agendada como paga.
+> *Gasto:* `<valor> <categoria> [descrição]`
+> `ex: 25,50 alimentação almoço`
+
+> *Renda:* `+ <valor> <origem> [descrição]`
+> `ex: + 1500 salário`
+
+> *Guardar:* `guardar <valor> <meta>`
+> `ex: guardar 100 viagem`
+
+> *Sacar:* `sacar <valor> <meta> para <categoria de renda>`
+> `ex: sacar 50 viagem para outras rendas`
+
+> *Pagar Conta:* `pagar <descrição da conta>`
+> `ex: pagar conta de luz`
 
 ---
 *📊 CONSULTAR INFORMAÇÕES*
 ---
-> *Gastos de Hoje:*
-> `quanto gastei hoje ?`
-> `quanto gastei hoje categorizado ?`
+> *Visão Geral:*
+> `ver orçamentos`
+> `ver categorias`
+> `ver contas`
 
-> *Orçamento de Hoje:*
-> `quanto posso gastar hoje ?`
-> `quanto posso gastar hoje <categoria> ?`
+> *Consultas Específicas:*
+> `ver orçamento alimentação`
+> `ver categorias renda`
+> `ver contas pagas`
 
-> *Visão Geral de Orçamentos:*
-> `orçamentos ?`
-> `orçamento <categoria> ?`
-
-> *Suas Categorias:*
-> `categorias ?`
-> `categorias renda ?`
-> `categorias despesa ?`
-
-> *Suas Contas Agendadas:*
-> `contas ?`
-> `contas pagas ?`
-> `contas pendentes ?`
+> *Resumo do Dia:*
+> `ver gastos hoje`
+> `ver hoje` (mostra o que ainda pode gastar)
 
 ---
 > *Para ver este manual novamente:*
-> `?`
- """
+> `?` ou `ajuda`
+    """
     await update.message.reply_text(manual_text.strip(), parse_mode='Markdown')
 
 async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
@@ -714,6 +716,7 @@ async def report_daily_allowance(update: Update, context: ContextTypes.DEFAULT_T
 
 # --- 5. ORQUESTRADOR PRINCIPAL ---
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Função principal que recebe todas as mensagens e decide o que fazer."""
     chat_id = update.effective_chat.id
     if context.user_data.get('state') == 'awaiting_email':
         await register_user(update, context)
@@ -721,36 +724,50 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     firebase_uid = await get_firebase_user_id(chat_id)
     if firebase_uid:
-        text = update.message.text.strip().lower()
+        text = update.message.text.strip()
         parts = text.split()
-        command = parts[0]
-        sub_command_parts = parts[1:]
+        command = parts[0].lower()
 
-        if text.startswith("quanto gastei hoje"):
-            await report_today_spending(update, context, firebase_uid, parts[3:])
-        elif text.startswith("quanto posso gastar hoje"):
-            await report_daily_allowance(update, context, firebase_uid, parts[4:])
-        elif command == '?':
+        # --- NOVA LÓGICA DE ROTEAMENTO ---
+        if command in ['?', 'ajuda']:
             await send_manual(update, context, firebase_uid)
-        elif command in ['orçamento', 'orçamentos']:
-            await list_budgets(update, context, firebase_uid, sub_command_parts)
-        elif command == 'categorias':
-            await list_categories(update, context, firebase_uid, sub_command_parts)
-        elif command == 'contas':
-            await list_scheduled_transactions(update, context, firebase_uid, sub_command_parts)
-        elif command in ['saldo', 'renda', 'ganhei']:
-            await process_income(update, context, sub_command_parts, firebase_uid)
-        elif command == 'gasto':
-            await process_expense(update, context, sub_command_parts, firebase_uid)
+        
+        # Comandos de Consulta (ver...)
+        elif command == 'ver':
+            sub_command = parts[1].lower() if len(parts) > 1 else ''
+            args = parts[2:]
+            
+            if sub_command == 'orçamentos' or sub_command == 'orçamento':
+                await list_budgets(update, context, firebase_uid, args)
+            elif sub_command == 'categorias':
+                await list_categories(update, context, firebase_uid, args)
+            elif sub_command == 'contas':
+                await list_scheduled_transactions(update, context, firebase_uid, args)
+            elif sub_command == 'gastos' and len(parts) > 2 and parts[2].lower() == 'hoje':
+                await report_today_spending(update, context, firebase_uid, parts[3:])
+            elif sub_command == 'hoje':
+                await report_daily_allowance(update, context, firebase_uid, args)
+            else:
+                await update.message.reply_text("Comando 'ver' não reconhecido. Use '?' para ver as opções.")
+
+        # Comandos de Ação
+        elif command.startswith('+'): # Para rendas
+            # Remonta a mensagem para a função antiga entender
+            new_parts = [command.lstrip('+')] + parts[1:]
+            await process_income(update, context, new_parts, firebase_uid)
         elif command == 'guardar':
-            await process_saving(update, context, sub_command_parts, firebase_uid)
+            await process_saving(update, context, parts[1:], firebase_uid)
         elif command == 'sacar':
-            await process_withdrawal(update, context, sub_command_parts, firebase_uid)
+            await process_withdrawal(update, context, parts[1:], firebase_uid)
         elif command == 'pagar':
-            await process_payment(update, context, sub_command_parts, firebase_uid)
+            await process_payment(update, context, parts[1:], firebase_uid)
+        elif command == 'renda': # Mantém compatibilidade com o comando antigo
+             await process_income(update, context, parts[1:], firebase_uid)
         else:
+            # Assume que é um gasto (o mais comum)
             await process_expense(update, context, parts, firebase_uid)
     else:
+        # Lógica de novo usuário
         context.user_data['state'] = 'awaiting_email'
         await update.message.reply_text(
             "👋 Olá! Bem-vindo(a) ao Oikonomos.\n\n"
