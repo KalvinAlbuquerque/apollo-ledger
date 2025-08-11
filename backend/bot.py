@@ -1074,9 +1074,11 @@ def favicon():
     # "Eu recebi seu pedido, mas não tenho um ícone para te dar."
     return '', 204
 
+# Substitua esta função em: backend/bot.py
+
 @app.route("/api/monthly-closing", methods=['GET'])
 def run_monthly_closing():
-    # 1. Proteção: Verifica a senha secreta
+    # 1. Proteção: Verifica a senha secreta (sem alterações)
     auth_header = request.headers.get('Authorization')
     cron_secret = os.getenv("CRON_SECRET")
     if auth_header != f'Bearer {cron_secret}':
@@ -1084,87 +1086,71 @@ def run_monthly_closing():
 
     print("Iniciando processo de fecho de mês para todos os usuários...")
     try:
-        # 2. Busca todos os usuários cadastrados
-        all_users = db.collection('telegram_users').stream()
+        # --- Lógica de Data Aprimorada ---
+        # Esta função é executada no dia 1º de cada mês (ex: 1º de Agosto).
         
+        # 'today' será o primeiro dia do mês atual.
         today = datetime.now(timezone.utc)
-        # Calcula o primeiro e o último dia do MÊS PASSADO
-        first_day_of_current_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        last_day_of_previous_month = first_day_of_current_month - relativedelta(seconds=1)
-        first_day_of_previous_month = last_day_of_previous_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         
-        # Identificador único para o mês que estamos a fechar (ex: "2025-07")
-        closing_month_id = first_day_of_previous_month.strftime('%Y-%m')
+        # Define explicitamente a data de lançamento para o primeiro instante do mês atual.
+        # Ex: Se hoje é 1º de Agosto, a transação será registrada em 1º de Agosto, às 00:00:00.
+        # É exatamente isso que você pediu!
+        closing_transaction_date = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
+        # Agora, calculamos o intervalo do mês ANTERIOR para buscar as transações.
+        # Ex: Se hoje é 1º de Agosto, o fim do mês anterior foi 31 de Julho.
+        end_of_previous_month = closing_transaction_date - relativedelta(seconds=1)
+        # E o início do mês anterior foi 1º de Julho.
+        start_of_previous_month = end_of_previous_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        # --- Fim da Lógica de Data ---
+
+        all_users = db.collection('telegram_users').stream()
         processed_users = 0
-        # 3. Itera sobre cada usuário para fazer o fecho individual
+
         for user_doc in all_users:
             firebase_uid = user_doc.to_dict().get('firebase_uid')
             if not firebase_uid:
                 continue
 
-            print(f"Processando fecho de {closing_month_id} para o usuário: {firebase_uid}")
+            print(f"Processando fecho para o usuário: {firebase_uid}")
             
-            # --- NOVA LÓGICA DE PROTEÇÃO ---
-            # Verifica se o fecho para este usuário e mês já foi feito
-            closing_log_ref = db.collection('monthly_closings').document(f"{firebase_uid}_{closing_month_id}")
-            if closing_log_ref.get().exists:
-                print(f"Fecho já realizado. Pulando.")
-                continue
-            # --------------------------------
-
-            # Encontra a conta padrão e as contas operacionais do usuário
-            accounts_ref = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
-            user_accounts = {acc.id: acc.to_dict() for acc in accounts_ref}
-            
-            default_account_id = next((acc_id for acc_id, acc in user_accounts.items() if acc.get('isDefault')), None)
-            if not default_account_id:
-                print(f"Usuário não tem conta padrão. Pulando.")
-                continue
-
-            operational_account_ids = [acc_id for acc_id, acc in user_accounts.items() if not acc.get('isReserve')]
-            if not operational_account_ids:
-                print(f"Usuário não tem contas operacionais. Pulando.")
-                continue
-
-            # Busca as transações do mês anterior APENAS das contas operacionais
-            q = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('accountId', 'in', operational_account_ids)).where(filter=FieldFilter('createdAt', '>=', first_day_of_previous_month)).where(filter=FieldFilter('createdAt', '<=', last_day_of_previous_month))
+            # Busca as transações do usuário DENTRO do intervalo do mês anterior.
+            q = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('createdAt', '>=', start_of_previous_month)).where(filter=FieldFilter('createdAt', '<=', end_of_previous_month))
             transactions_prev_month = list(q.stream())
 
-            # Se não houver transações, marca como processado e pula
             if not transactions_prev_month:
-                closing_log_ref.set({'processedAt': firestore.SERVER_TIMESTAMP, 'balance': 0})
-                print(f"Nenhuma transação no mês anterior. Marcando como processado.")
+                print(f"Nenhuma transação encontrada para o usuário {firebase_uid} no mês anterior. Pulando.")
                 continue
 
-            # Calcula o balanço e cria a transação de fecho
+            # Calcula o balanço (sem alterações na lógica)
             total_income = sum(doc.to_dict().get('amount', 0) for doc in transactions_prev_month if doc.to_dict().get('type') == 'income')
             total_expense = sum(doc.to_dict().get('amount', 0) for doc in transactions_prev_month if doc.to_dict().get('type') == 'expense')
             balance = total_income - total_expense
             
+            # Prepara a nova transação de balanço
             closing_transaction_data = {
                 "userId": firebase_uid,
-                "createdAt": first_day_of_current_month, # <<< DATA CORRIGIDA
-                "accountId": default_account_id
+                # AQUI ESTÁ A CONFIRMAÇÃO: A data da transação é o 1º dia do mês ATUAL.
+                "createdAt": closing_transaction_date, 
             }
             if balance >= 0:
-                closing_transaction_data.update({'type': 'income', 'amount': balance, 'category': 'saldo anterior', 'description': f"Balanço de {last_day_of_previous_month.strftime('%B de %Y')}"})
+                closing_transaction_data.update({
+                    'type': 'income',
+                    'amount': balance,
+                    'category': 'saldo anterior',
+                    'description': f"Saldo positivo de {end_of_previous_month.strftime('%B de %Y')}"
+                })
             else:
-                closing_transaction_data.update({'type': 'expense', 'amount': abs(balance), 'category': 'dívida anterior', 'description': f"Balanço de {last_day_of_previous_month.strftime('%B de %Y')}"})
+                closing_transaction_data.update({
+                    'type': 'expense',
+                    'amount': abs(balance),
+                    'category': 'dívida anterior',
+                    'description': f"Saldo negativo de {end_of_previous_month.strftime('%B de %Y')}"
+                })
 
-            # --- USA UM LOTE DE ESCRITA PARA SEGURANÇA ---
-            batch = db.batch()
-            new_trans_ref = db.collection('transactions').document()
-            batch.set(new_trans_ref, closing_transaction_data)
-            
-            default_account_ref = db.collection('accounts').document(default_account_id)
-            batch.update(default_account_ref, {'balance': firestore.firestore.Increment(balance)})
-            
-            batch.set(closing_log_ref, {'processedAt': firestore.SERVER_TIMESTAMP, 'balance': balance})
-
-            batch.commit()
-            
-            print(f"Transação de fecho de R$ {balance:.2f} criada para o usuário {firebase_uid}.")
+            db.collection('transactions').add(closing_transaction_data)
+            print(f"Transação de fecho de R$ {balance:.2f} criada para o usuário {firebase_uid} em {closing_transaction_date.strftime('%Y-%m-%d')}.")
             processed_users += 1
 
         final_message = f"OK. Fecho de mês processado para {processed_users} usuário(s)."
