@@ -405,56 +405,55 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
 
     pending_doc_ref = None
     try:
-        # 1. Extrai IDs do callback_data (ex: "account_contaId_transacaoId")
         callback_parts = query.data.split('_')
         action_prefix = callback_parts[0]
         selected_account_id = callback_parts[1]
         pending_transaction_id = callback_parts[2]
 
-        # 2. Busca a transação pendente no Firestore
         pending_doc_ref = db.collection('pending_transactions').document(pending_transaction_id)
         pending_transaction_doc = pending_doc_ref.get()
 
         if not pending_transaction_doc.exists:
-            await message_to_edit.edit_text(text="🤔 Esta operação já foi concluída ou expirou. Por favor, tente o comando novamente.")
+            await message_to_edit.edit_text(text="🤔 Esta operação já foi concluída ou expirou.")
             return
 
         pending_transaction = pending_transaction_doc.to_dict()
 
-        # Validação de segurança: o usuário que clica é o que iniciou?
         if pending_transaction.get('userId') != firebase_uid:
-            # Responde de forma efêmera para não poluir o chat
             await query.answer("Este comando não foi iniciado por você.", show_alert=True)
             return
 
-        # 3. Executa a lógica da transação
         transaction_type = pending_transaction.get('type')
         batch = db.batch()
         
         accounts_query = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
         accounts = {acc.id: acc.to_dict() for acc in accounts_query}
 
-        # --- LÓGICA PARA RENDA/DESPESA ---
-        if transaction_type in ['income', 'expense']:
+        if transaction_type == 'expense':
             account_doc_ref = db.collection('accounts').document(selected_account_id)
             new_trans_ref = db.collection("transactions").document()
 
             final_transaction = {
-                'userId': firebase_uid,
-                'createdAt': firestore.SERVER_TIMESTAMP,
-                'accountId': selected_account_id,
-                'type': pending_transaction['type'],
-                'amount': pending_transaction['amount'],
-                'category': pending_transaction['category'],
+                'userId': firebase_uid, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': selected_account_id,
+                'type': 'expense', 'amount': pending_transaction['amount'], 'category': pending_transaction['category'],
                 'description': pending_transaction.get('description')
             }
             batch.set(new_trans_ref, final_transaction)
             
-            amount_to_update = pending_transaction['amount'] if transaction_type == 'income' else -pending_transaction['amount']
-            batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(amount_to_update)})
+            batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(-pending_transaction['amount'])})
             
-            account_name = accounts.get(selected_account_id, {}).get('accountName', 'desconhecida')
-            await message_to_edit.edit_text(text=f"✅ Transação registada com sucesso na conta '{account_name}'!")
+            batch.commit()
+            pending_doc_ref.delete()
+            
+            # --- CHAMADA DA NOVA FUNÇÃO DE FEEDBACK ---
+            await send_budget_feedback(
+                message_to_edit=message_to_edit,
+                firebase_uid=firebase_uid,
+                category_name=pending_transaction['category'],
+                spent_amount=pending_transaction['amount']
+            )
+            # -----------------------------------------
+
 
         # --- LÓGICA PARA PAGAMENTOS ---
         elif transaction_type == 'payment':
@@ -486,6 +485,8 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
 
 # Substitua esta função em: backend/bot.py
 
+# Substitua esta função em: backend/bot.py
+
 async def process_default_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, firebase_uid: str):
     """
     Processa uma transação rápida (iniciada com '*') usando a conta padrão do usuário.
@@ -493,7 +494,6 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
     sent_message = await update.message.reply_text("⏳ Processando transação rápida...")
 
     try:
-        # 1. Encontrar a conta padrão do usuário
         accounts_ref = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('isDefault', '==', True)).limit(1).stream()
         default_account_doc = next(accounts_ref, None)
 
@@ -504,27 +504,22 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
         default_account = default_account_doc.to_dict()
         default_account_id = default_account_doc.id
 
-        # --- 2. NOVA LÓGICA DE DETECÇÃO DE RENDA/DESPESA ---
-        text_after_star = text[1:].lstrip() # Remove o '*' inicial e espaços à esquerda
-        
+        text_after_star = text[1:].lstrip()
         is_income = text_after_star.startswith('+') or text_after_star.lower().startswith('renda')
-        
-        value_str = '' # Inicializa para o bloco de exceção
+        value_str = ''
         
         if is_income:
+            # --- Lógica de Renda (sem alterações) ---
             transaction_type = 'income'
-            # Remove o prefixo ('+' ou 'renda') para obter o texto limpo
-            if text_after_star.startswith('+'):
-                clean_text = text_after_star[1:].strip()
-            else: # Começa com 'renda'
-                clean_text = text_after_star[len('renda'):].strip()
+            if text_after_star.startswith('+'): clean_text = text_after_star[1:].strip()
+            else: clean_text = text_after_star[len('renda'):].strip()
             
             parts = clean_text.split()
             error_format_msg = "Formato inválido. Use: `*+ <valor> <origem>` ou `*renda <valor> <origem>`"
             if len(parts) < 2:
                 await sent_message.edit_text(error_format_msg, parse_mode='Markdown')
                 return
-                
+            
             value_str = parts[0]
             amount = float(value_str.replace(',', '.'))
             potential_source_and_desc = parts[1:]
@@ -546,6 +541,16 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
                 return
             correct_category_name = found_category_original
             description = " ".join(potential_source_and_desc[category_word_count:]).strip() or None
+
+            # Salva a transação de renda
+            batch = db.batch()
+            new_trans_ref = db.collection("transactions").document()
+            batch.set(new_trans_ref, {'userId': firebase_uid, 'type': 'income', 'amount': amount, 'category': correct_category_name, 'description': description, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id})
+            account_doc_ref = db.collection('accounts').document(default_account_id)
+            batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(amount)})
+            batch.commit()
+            
+            await sent_message.edit_text(f"✅ Renda rápida registrada na sua conta padrão '{default_account.get('accountName')}'!")
 
         else: # É despesa
             transaction_type = 'expense'
@@ -570,24 +575,22 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
                 return
             correct_category_name = original_categories[category_name_normalized]
 
-        # 3. Criar a transação e atualizar o saldo da conta (em um batch)
-        batch = db.batch()
-        
-        new_trans_ref = db.collection("transactions").document()
-        trans_data = {
-            'userId': firebase_uid, 'type': transaction_type, 'amount': amount,
-            'category': correct_category_name, 'description': description,
-            'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id
-        }
-        batch.set(new_trans_ref, trans_data)
-
-        account_doc_ref = db.collection('accounts').document(default_account_id)
-        amount_to_update = amount if is_income else -amount
-        batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(amount_to_update)})
-
-        batch.commit()
-
-        await sent_message.edit_text(f"✅ Transação rápida registrada na sua conta padrão '{default_account.get('accountName')}'!")
+            # Salva a transação de despesa
+            batch = db.batch()
+            new_trans_ref = db.collection("transactions").document()
+            batch.set(new_trans_ref, {'userId': firebase_uid, 'type': 'expense', 'amount': amount, 'category': correct_category_name, 'description': description, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id})
+            account_doc_ref = db.collection('accounts').document(default_account_id)
+            batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(-amount)})
+            batch.commit()
+            
+            # --- CHAMADA DA NOVA FUNÇÃO DE FEEDBACK ---
+            await send_budget_feedback(
+                message_to_edit=sent_message,
+                firebase_uid=firebase_uid,
+                category_name=correct_category_name,
+                spent_amount=amount
+            )
+            # -----------------------------------------
 
     except ValueError:
         await sent_message.edit_text(f"O valor '{value_str}' é inválido.")
@@ -902,7 +905,88 @@ async def report_today_spending(update: Update, context: ContextTypes.DEFAULT_TY
     except Exception as e:
         print(f"Erro ao reportar gastos: {e}")
         await update.message.reply_text("❌ Ocorreu um erro ao buscar os gastos de hoje.")
+# Adicione esta nova função em: backend/bot.py
 
+async def send_budget_feedback(message_to_edit, firebase_uid: str, category_name: str, spent_amount: float):
+    """
+    Calcula o status do orçamento para uma categoria e envia uma mensagem de feedback detalhada,
+    editando uma mensagem anterior.
+    """
+    try:
+        # --- 1. Obter o Orçamento da Categoria ---
+        today = datetime.now(timezone.utc)
+        current_month = today.month
+        current_year = today.year
+
+        # Busca o orçamento para a categoria específica no mês/ano corrente
+        budget_query = db.collection('budgets').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('month', '==', current_month)).where(filter=FieldFilter('year', '==', current_year)).where(filter=FieldFilter('categoryName', '==', category_name)).limit(1).stream()
+        budget_doc = next(budget_query, None)
+
+        # Se não houver orçamento > 0, envia mensagem simples e encerra.
+        if not budget_doc or budget_doc.to_dict().get('amount', 0) == 0:
+            await message_to_edit.edit_text(f"💸 Gasto de R$ {spent_amount:.2f} na categoria '{category_name}' registrado com sucesso!")
+            return
+
+        budget_amount = budget_doc.to_dict().get('amount', 0)
+
+        # --- 2. Calcular o Total Gasto no Mês (INCLUINDO o gasto atual) ---
+        start_of_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        expenses_query = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).where(filter=FieldFilter('category', '==', category_name)).where(filter=FieldFilter('createdAt', '>=', start_of_month)).stream()
+        total_spent_month = sum(doc.to_dict().get('amount', 0) for doc in expenses_query)
+
+        # --- 3. Calcular a Meta Diária (ANTES do gasto atual) ---
+        remaining_budget_before_this_expense = budget_amount - (total_spent_month - spent_amount)
+        total_days_in_month = calendar.monthrange(current_year, current_month)[1]
+        days_remaining_including_today = total_days_in_month - today.day + 1
+        daily_allowance = remaining_budget_before_this_expense / days_remaining_including_today if days_remaining_including_today > 0 else 0
+
+        # --- 4. Calcular o Total Gasto HOJE (INCLUINDO o gasto atual) ---
+        today_start = today.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_expenses_query = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).where(filter=FieldFilter('category', '==', category_name)).where(filter=FieldFilter('createdAt', '>=', today_start)).stream()
+        total_spent_today = sum(doc.to_dict().get('amount', 0) for doc in today_expenses_query)
+
+        # --- 5. Montar a Mensagem de Feedback ---
+        base_message = f"💸 Gasto de R$ {spent_amount:.2f} na categoria '{category_name}' registrado!\n"
+        
+        if total_spent_today > daily_allowance:
+            # FLUXO 1: Ultrapassou a meta do dia
+            overspent_amount = total_spent_today - daily_allowance
+            new_remaining_budget = budget_amount - total_spent_month
+            new_daily_avg = new_remaining_budget / days_remaining_including_today if days_remaining_including_today > 0 else 0
+            new_weekly_avg = new_daily_avg * 7
+
+            feedback_message = (
+                f"\n*Resumo de Hoje ({category_name}):*\n"
+                f"- Gasto de Hoje: R$ {total_spent_today:.2f}\n"
+                f"- Meta do Dia: R$ {daily_allowance:.2f}\n"
+                f"- Você ultrapassou a meta em R$ {overspent_amount:.2f}\n\n"
+                f"🔴 *Orçamento Recalculado:*\n"
+                f"- Saldo Mensal Restante: R$ {new_remaining_budget:.2f}\n"
+                f"- Nova Média Diária: R$ {new_daily_avg:.2f}\n"
+                f"- Nova Média Semanal: R$ {new_weekly_avg:.2f}"
+            )
+        else:
+            # FLUXO 2: Ainda dentro da meta do dia
+            remaining_for_today = daily_allowance - total_spent_today
+            remaining_budget_month = budget_amount - total_spent_month
+            weekly_avg = (remaining_budget_month / days_remaining_including_today * 7) if days_remaining_including_today > 0 else 0
+            
+            feedback_message = (
+                f"\n*Resumo de Hoje ({category_name}):*\n"
+                f"- Gasto de Hoje: R$ {total_spent_today:.2f}\n"
+                f"- Meta do Dia: R$ {daily_allowance:.2f}\n"
+                f"- Disponível para Hoje: R$ {remaining_for_today:.2f}\n\n"
+                f"✅ *Orçamento Atualizado:*\n"
+                f"- Saldo Mensal Restante: R$ {remaining_budget_month:.2f}\n"
+                f"- Média Semanal Segura: R$ {weekly_avg:.2f}"
+            )
+            
+        await message_to_edit.edit_text(base_message + feedback_message, parse_mode='Markdown')
+
+    except Exception as e:
+        print(f"Erro ao enviar feedback de orçamento: {e}")
+        # Mensagem de fallback em caso de qualquer erro inesperado nos cálculos
+        await message_to_edit.edit_text(f"💸 Gasto de R$ {spent_amount:.2f} na categoria '{category_name}' registrado com sucesso!")
 async def report_daily_allowance(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str, parts: list):
     """Informa quanto ainda pode ser gasto hoje com base nos orçamentos."""
     try:
