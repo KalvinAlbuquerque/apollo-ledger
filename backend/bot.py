@@ -1076,64 +1076,68 @@ def favicon():
 
 @app.route("/api/monthly-closing", methods=['GET'])
 def run_monthly_closing():
-    # 1. Proteção: Verifica a senha secreta
     auth_header = request.headers.get('Authorization')
     cron_secret = os.getenv("CRON_SECRET")
     if auth_header != f'Bearer {cron_secret}':
         return "Unauthorized", 401
 
-    print("Iniciando processo de fecho de mês para todos os usuários...")
+    print("Iniciando processo de fecho de mês...")
     try:
-        # 2. Busca todos os usuários cadastrados
         all_users = db.collection('telegram_users').stream()
         
         today = datetime.now(timezone.utc)
-        # Calcula o primeiro e o último dia do MÊS PASSADO
         first_day_of_current_month = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         last_day_of_previous_month = first_day_of_current_month - relativedelta(seconds=1)
         first_day_of_previous_month = last_day_of_previous_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         
         processed_users = 0
-        # 3. Itera sobre cada usuário para fazer o fecho individual
         for user_doc in all_users:
             firebase_uid = user_doc.to_dict().get('firebase_uid')
-            if not firebase_uid:
+            if not firebase_uid: continue
+
+            # --- LÓGICA ATUALIZADA ---
+            # 1. Encontra a conta padrão do usuário
+            accounts_ref = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
+            user_accounts = {acc.id: acc.to_dict() for acc in accounts_ref}
+            
+            default_account_id = next((acc_id for acc_id, acc in user_accounts.items() if acc.get('isDefault')), None)
+            if not default_account_id:
+                print(f"Usuário {firebase_uid} não tem conta padrão. Pulando.")
                 continue
 
-            print(f"Processando fecho para o usuário: {firebase_uid}")
-            
-            # Busca todas as transações do usuário no mês anterior
-            q = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('createdAt', '>=', first_day_of_previous_month)).where(filter=FieldFilter('createdAt', '<=', last_day_of_previous_month))
+            # 2. Pega os IDs de todas as contas que NÃO SÃO reservas
+            operational_account_ids = [acc_id for acc_id, acc in user_accounts.items() if not acc.get('isReserve')]
+            if not operational_account_ids:
+                print(f"Usuário {firebase_uid} não tem contas operacionais. Pulando.")
+                continue
+
+            # 3. Busca as transações do mês anterior APENAS das contas operacionais
+            q = db.collection('transactions').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('accountId', 'in', operational_account_ids)).where(filter=FieldFilter('createdAt', '>=', first_day_of_previous_month)).where(filter=FieldFilter('createdAt', '<=', last_day_of_previous_month))
             transactions_prev_month = list(q.stream())
 
-            # Se não houver transações, pula para o próximo usuário
             if not transactions_prev_month:
-                print(f"Nenhuma transação encontrada para o usuário {firebase_uid} no mês anterior. Pulando.")
                 continue
 
-            # Calcula o balanço do mês anterior
+            # 4. Calcula o balanço e cria a transação de fecho NA CONTA PADRÃO
             total_income = sum(doc.to_dict().get('amount', 0) for doc in transactions_prev_month if doc.to_dict().get('type') == 'income')
             total_expense = sum(doc.to_dict().get('amount', 0) for doc in transactions_prev_month if doc.to_dict().get('type') == 'expense')
             balance = total_income - total_expense
             
-            # 4. Cria a nova transação de balanço para o início do mês atual
             closing_transaction_data = {
-                "userId": firebase_uid,
-                "createdAt": first_day_of_current_month, # Data de 1º do mês atual
+                "userId": firebase_uid, "createdAt": first_day_of_current_month,
+                "accountId": default_account_id # <<< Transação é associada à conta padrão
             }
             if balance >= 0:
-                closing_transaction_data['type'] = 'income'
-                closing_transaction_data['amount'] = balance
-                closing_transaction_data['category'] = 'saldo anterior'
-                closing_transaction_data['description'] = f"Saldo positivo de {last_day_of_previous_month.strftime('%B de %Y')}"
-            else: # Saldo negativo
-                closing_transaction_data['type'] = 'expense'
-                closing_transaction_data['amount'] = abs(balance)
-                closing_transaction_data['category'] = 'dívida anterior'
-                closing_transaction_data['description'] = f"Saldo negativo de {last_day_of_previous_month.strftime('%B de %Y')}"
+                closing_transaction_data.update({'type': 'income', 'amount': balance, 'category': 'saldo anterior', 'description': f"Saldo de {last_day_of_previous_month.strftime('%B')}"})
+            else:
+                closing_transaction_data.update({'type': 'expense', 'amount': abs(balance), 'category': 'dívida anterior', 'description': f"Dívida de {last_day_of_previous_month.strftime('%B')}"})
 
-            # Adiciona a transação ao banco de dados
             db.collection('transactions').add(closing_transaction_data)
+            
+            # ATUALIZA O SALDO DA CONTA PADRÃO
+            default_account_ref = db.collection('accounts').document(default_account_id)
+            default_account_ref.update({'balance': firestore.firestore.Increment(balance)})
+
             print(f"Transação de fecho de R$ {balance:.2f} criada para o usuário {firebase_uid}.")
             processed_users += 1
 
