@@ -127,7 +127,7 @@ async def process_transfer(update: Update, context: ContextTypes.DEFAULT_TYPE, t
 
     try:
         if 'da' not in text_parts or 'para' not in text_parts:
-            await sent_message.edit_message_text("Formato inválido. Use: `transferir <valor> da <conta origem> para <conta destino>`", parse_mode='Markdown')
+            await sent_message.edit_text("Formato inválido. Use: `transferir <valor> da <conta origem> para <conta destino>`", parse_mode='Markdown')
             return
 
         valor_str = text_parts[0]
@@ -139,7 +139,7 @@ async def process_transfer(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         amount = float(valor_str.replace(',', '.'))
 
         if not all([origem_str, destino_str, amount > 0]):
-            await sent_message.edit_message_text("Formato inválido. Faltam informações.")
+            await sent_message.edit_text("Formato inválido. Faltam informações.")
             return
 
         # Busca todas as contas do usuário de uma vez
@@ -150,14 +150,14 @@ async def process_transfer(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         to_account_tuple = next(((acc_id, acc) for acc_id, acc in accounts.items() if normalize_text(acc.get('accountName')) == normalize_text(destino_str)), None)
 
         if not from_account_tuple or not to_account_tuple:
-            await sent_message.edit_message_text("❌ Uma ou ambas as contas não foram encontradas. Verifique os nomes e tente novamente.")
+            await sent_message.edit_text("❌ Uma ou ambas as contas não foram encontradas. Verifique os nomes e tente novamente.")
             return
         
         from_account_id, from_account = from_account_tuple
         to_account_id, to_account = to_account_tuple
 
         if from_account.get('balance', 0) < amount:
-            await sent_message.edit_message_text(f"❌ Saldo insuficiente na conta de origem '{from_account.get('accountName')}'.")
+            await sent_message.edit_text(f"❌ Saldo insuficiente na conta de origem '{from_account.get('accountName')}'.")
             return
         
         # Inicia um lote para garantir que todas as operações funcionem ou falhem juntas
@@ -176,13 +176,13 @@ async def process_transfer(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         # Executa todas as operações no banco de dados
         batch.commit()
         
-        await sent_message.edit_message_text(text=f"✅ Transferência de R$ {amount:.2f} de '{from_account.get('accountName')}' para '{to_account.get('accountName')}' realizada com sucesso!")
+        await sent_message.edit_text(text=f"✅ Transferência de R$ {amount:.2f} de '{from_account.get('accountName')}' para '{to_account.get('accountName')}' realizada com sucesso!")
 
     except ValueError:
-        await sent_message.edit_message_text(f"O valor '{valor_str}' é inválido.")
+        await sent_message.edit_text(f"O valor '{valor_str}' é inválido.")
     except Exception as e:
         print(f"Erro ao processar transferência: {e}")
-        await sent_message.edit_message_text("❌ Ocorreu um erro inesperado ao processar a transferência.")
+        await sent_message.edit_text("❌ Ocorreu um erro inesperado ao processar a transferência.")
         
 async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Valida uma conta a pagar e inicia a conversa para seleção de conta."""
