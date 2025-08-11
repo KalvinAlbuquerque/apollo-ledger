@@ -1093,10 +1093,10 @@ def run_monthly_closing():
         today = datetime.now(timezone.utc)
         
         # Define explicitamente a data de lançamento para o primeiro instante do mês atual.
-        # Ex: Se hoje é 1º de Agosto, a transação será registrada em 1º de Agosto, às 00:00:00.
+        # Ex: Se hoje é 1º de Agosto, a transação será registrada em 1º de Agosto, às 12:00:00.
         # É exatamente isso que você pediu!
-        closing_transaction_date = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
+        closing_transaction_date = today.replace(day=1, hour=12, minute=0, second=0, microsecond=0)
+        
         # Agora, calculamos o intervalo do mês ANTERIOR para buscar as transações.
         # Ex: Se hoje é 1º de Agosto, o fim do mês anterior foi 31 de Julho.
         end_of_previous_month = closing_transaction_date - relativedelta(seconds=1)
