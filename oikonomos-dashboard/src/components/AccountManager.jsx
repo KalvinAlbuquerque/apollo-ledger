@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { db, auth } from '../../firebaseClient';
-import { collection, query, where, getDocs, addDoc, doc, writeBatch, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, doc, updateDoc, deleteDoc, Timestamp, writeBatch } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { showConfirmationToast } from '../utils/toastUtils.jsx';
 import styles from './AccountManager.module.css';
