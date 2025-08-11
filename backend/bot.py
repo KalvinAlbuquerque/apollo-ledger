@@ -478,6 +478,116 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
         if pending_doc_ref:
             pending_doc_ref.delete()
 
+# Adicione esta nova função em: backend/bot.py
+
+async def process_default_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, firebase_uid: str):
+    """
+    Processa uma transação rápida (iniciada com '*') usando a conta padrão do usuário.
+    """
+    sent_message = await update.message.reply_text("⏳ Processando transação rápida...")
+
+    try:
+        # 1. Encontrar a conta padrão do usuário
+        accounts_ref = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('isDefault', '==', True)).limit(1).stream()
+        default_account_doc = next(accounts_ref, None)
+
+        if not default_account_doc:
+            await sent_message.edit_text("❌ Nenhuma conta padrão definida. Por favor, defina uma no seu dashboard web.")
+            return
+
+        default_account = default_account_doc.to_dict()
+        default_account_id = default_account_doc.id
+        
+        # 2. Identificar se é renda ou despesa e remover o '*'
+        is_income = text.startswith('*+')
+        if is_income:
+            clean_text = text[2:].strip()
+            parts = clean_text.split()
+            transaction_type = 'income'
+            cat_type_for_query = 'income'
+            error_format_msg = "Formato de renda inválido. Use: *+ <valor> <origem> [descrição]"
+        else:
+            clean_text = text[1:].strip()
+            parts = clean_text.split()
+            transaction_type = 'expense'
+            cat_type_for_query = 'expense'
+            error_format_msg = "Formato de gasto inválido. Use: *<valor> <categoria> [descrição]"
+
+        # --- Validação da Categoria e Valor (lógica similar às outras funções) ---
+
+        # Para despesa
+        if not is_income:
+            match = re.match(r"^\s*(\d+[\.,]?\d*)\s+([\w\sáàâãéèêíïóôõöúçñ]+?)(?:\s+(.+))?$", clean_text)
+            if not match:
+                await sent_message.edit_text(error_format_msg)
+                return
+            value_str, category_name_input, description = match.groups()
+            amount = float(value_str.replace(',', '.'))
+            description = description.strip() if description else None
+            
+            categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).stream()
+            original_categories = {normalize_text(cat.to_dict()['name']): cat.to_dict()['name'] for cat in categories_ref}
+            
+            category_name_normalized = normalize_text(category_name_input.strip())
+            if category_name_normalized not in original_categories:
+                await sent_message.edit_text(f"❌ Categoria de DESPESA '{category_name_input}' não encontrada.")
+                return
+            correct_category_name = original_categories[category_name_normalized]
+
+        # Para renda
+        else:
+            if len(parts) < 2:
+                await sent_message.edit_text(error_format_msg)
+                return
+            value_str = parts[0]
+            amount = float(value_str.replace(',', '.'))
+            potential_source_and_desc = parts[1:]
+            
+            categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'income')).stream()
+            original_categories = {normalize_text(cat.to_dict()['name']): cat.to_dict()['name'] for cat in categories_ref}
+            
+            found_category_original = None
+            category_word_count = 0
+            for i in range(len(potential_source_and_desc), 0, -1):
+                potential_category_input = " ".join(potential_source_and_desc[:i])
+                if normalize_text(potential_category_input) in original_categories:
+                    found_category_original = original_categories[normalize_text(potential_category_input)]
+                    category_word_count = i
+                    break
+            
+            if not found_category_original:
+                await sent_message.edit_text(f"❌ Origem de RENDA '{' '.join(potential_source_and_desc)}' não encontrada.")
+                return
+            correct_category_name = found_category_original
+            description = " ".join(potential_source_and_desc[category_word_count:]).strip() or None
+
+        # 3. Criar a transação e atualizar o saldo da conta (em um batch)
+        batch = db.batch()
+        
+        # Cria a nova transação
+        new_trans_ref = db.collection("transactions").document()
+        trans_data = {
+            'userId': firebase_uid, 'type': transaction_type, 'amount': amount,
+            'category': correct_category_name, 'description': description,
+            'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id
+        }
+        batch.set(new_trans_ref, trans_data)
+
+        # Atualiza o saldo da conta padrão
+        account_doc_ref = db.collection('accounts').document(default_account_id)
+        amount_to_update = amount if is_income else -amount
+        batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(amount_to_update)})
+
+        batch.commit()
+
+        await sent_message.edit_text(f"✅ Transação rápida registrada na sua conta padrão '{default_account.get('accountName')}'!")
+
+    except ValueError:
+        await sent_message.edit_text(f"O valor '{value_str}' é inválido.")
+    except Exception as e:
+        print(f"Erro na transação rápida: {e}")
+        await sent_message.edit_text("❌ Ocorreu um erro ao processar sua transação rápida.")
+
 async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list,firebase_uid: str):
     """Processa uma contribuição para uma meta de poupança."""
     sent_message = await context.bot.send_message(chat_id=update.effective_chat.id, text="⏳ Guardando dinheiro na meta...")
@@ -856,16 +966,36 @@ async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text("Ok, cancelado.")
     
 # --- 5. ORQUESTRADOR PRINCIPAL ---
+# Substitua esta função em: backend/bot.py
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Função principal que recebe todas as mensagens e decide o que fazer."""
     chat_id = update.effective_chat.id
     firebase_uid = await get_firebase_user_id(chat_id)
 
+    # Lógica de registro para novo usuário (sem alterações)
     if not firebase_uid:
-        # ... (lógica de novo usuário sem alterações)
+        # Se o bot já estiver esperando um e-mail para registro
+        if context.user_data.get('state') == 'awaiting_email':
+            await register_user(update, context)
+            return
+
+        # Mensagem inicial para novos usuários
+        await update.message.reply_text(
+            "Olá! Bem-vindo ao Oikonomos Bot. Para começar, preciso vincular seu chat do Telegram à sua conta. "
+            "Por favor, envie o mesmo e-mail que você usa para acessar o dashboard web."
+        )
+        context.user_data['state'] = 'awaiting_email'
         return
 
     text = update.message.text.strip()
+    
+    # --- NOVA LÓGICA DE ROTEAMENTO ---
+    if text.startswith('*'):
+        await process_default_transaction(update, context, text, firebase_uid)
+        return
+    # --------------------------------
+
     parts = text.split()
     command = parts[0].lower()
 
@@ -883,7 +1013,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if sub_command in ['orçamento', 'orçamentos']:
             await list_budgets(update, context, firebase_uid, args)
         elif sub_command == 'categorias':
-            await list_categories(update, context, firebase_uid) # Não passa mais 'args'
+            await list_categories(update, context, firebase_uid)
         elif sub_command == 'contas':
             await list_scheduled_transactions(update, context, firebase_uid, args)
         elif sub_command == 'gastos' and len(parts) > 2 and parts[2].lower() == 'hoje':
@@ -893,7 +1023,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text(f"Não reconheci o comando 'ver {sub_command}'. Use '?' para ver as opções.")
 
-
     elif command.startswith('+'):
         await process_income(update, context, [command.lstrip('+')] + parts[1:], firebase_uid)
     elif command == 'guardar':
@@ -902,11 +1031,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await process_withdrawal(update, context, parts[1:], firebase_uid)
     elif command == 'pagar':
         await process_payment(update, context, parts[1:], firebase_uid)
-    elif command == 'renda':
-        await process_income(update, context, parts[1:], firebase_uid)
     elif command == 'transferir':
         await process_transfer(update, context, parts[1:], firebase_uid)
     else:
+        # Assume que é uma despesa como último recurso
         await process_expense(update, context, parts, firebase_uid)
 
 # --- 6. SERVIDOR WEB E WEBHOOK ---

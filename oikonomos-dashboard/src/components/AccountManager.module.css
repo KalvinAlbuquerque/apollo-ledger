@@ -82,3 +82,22 @@
 .accountList::-webkit-scrollbar-track { background: var(--fundo-secundario); border-radius: 4px; }
 .accountList::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
 .accountList::-webkit-scrollbar-thumb:hover { background: #777; }
+
+.defaultStar {
+  margin-right: 8px;
+  cursor: default; /* Impede o cursor de texto sobre a estrela */
+}
+
+.defaultButton {
+  background-color: #555;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem; /* Aumenta um pouco o tamanho da estrela */
+}
+
+.defaultButton:hover {
+  background-color: #f5a623; /* Cor de ouro/amarelo no hover */
+}
