@@ -90,6 +90,14 @@ A seguir, a lista de comandos simplificados.
 > *Transferir:* `transferir <valor> da <conta> para <conta>`
 
 ---
+*⚡ TRANSAÇÕES RÁPIDAS (com conta padrão)*
+---
+> Use um `*` no início para usar sua conta padrão e pular a etapa de seleção de conta.
+
+> *Gasto Rápido:* `* <valor> <categoria> [descrição]`
+> *Renda Rápida:* `*+ <valor> <origem>` ou `*renda <valor> <origem>`
+
+---
 *📊 CONSULTAR INFORMAÇÕES*
 ---
 > *Use o comando `ver` seguido do que deseja consultar.*
@@ -117,8 +125,6 @@ A seguir, a lista de comandos simplificados.
 > `?` ou `ajuda`
     """
     await update.message.reply_text(manual_text.strip(), parse_mode='Markdown')
-
-# Em: backend/bot.py
 
 async def process_transfer(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Processa uma transferência entre contas de forma completa."""
@@ -478,7 +484,7 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
         if pending_doc_ref:
             pending_doc_ref.delete()
 
-# Adicione esta nova função em: backend/bot.py
+# Substitua esta função em: backend/bot.py
 
 async def process_default_transaction(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, firebase_uid: str):
     """
@@ -497,48 +503,28 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
 
         default_account = default_account_doc.to_dict()
         default_account_id = default_account_doc.id
+
+        # --- 2. NOVA LÓGICA DE DETECÇÃO DE RENDA/DESPESA ---
+        text_after_star = text[1:].lstrip() # Remove o '*' inicial e espaços à esquerda
         
-        # 2. Identificar se é renda ou despesa e remover o '*'
-        is_income = text.startswith('*+')
+        is_income = text_after_star.startswith('+') or text_after_star.lower().startswith('renda')
+        
+        value_str = '' # Inicializa para o bloco de exceção
+        
         if is_income:
-            clean_text = text[2:].strip()
-            parts = clean_text.split()
             transaction_type = 'income'
-            cat_type_for_query = 'income'
-            error_format_msg = "Formato de renda inválido. Use: *+ <valor> <origem> [descrição]"
-        else:
-            clean_text = text[1:].strip()
+            # Remove o prefixo ('+' ou 'renda') para obter o texto limpo
+            if text_after_star.startswith('+'):
+                clean_text = text_after_star[1:].strip()
+            else: # Começa com 'renda'
+                clean_text = text_after_star[len('renda'):].strip()
+            
             parts = clean_text.split()
-            transaction_type = 'expense'
-            cat_type_for_query = 'expense'
-            error_format_msg = "Formato de gasto inválido. Use: *<valor> <categoria> [descrição]"
-
-        # --- Validação da Categoria e Valor (lógica similar às outras funções) ---
-
-        # Para despesa
-        if not is_income:
-            match = re.match(r"^\s*(\d+[\.,]?\d*)\s+([\w\sáàâãéèêíïóôõöúçñ]+?)(?:\s+(.+))?$", clean_text)
-            if not match:
-                await sent_message.edit_text(error_format_msg)
-                return
-            value_str, category_name_input, description = match.groups()
-            amount = float(value_str.replace(',', '.'))
-            description = description.strip() if description else None
-            
-            categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).stream()
-            original_categories = {normalize_text(cat.to_dict()['name']): cat.to_dict()['name'] for cat in categories_ref}
-            
-            category_name_normalized = normalize_text(category_name_input.strip())
-            if category_name_normalized not in original_categories:
-                await sent_message.edit_text(f"❌ Categoria de DESPESA '{category_name_input}' não encontrada.")
-                return
-            correct_category_name = original_categories[category_name_normalized]
-
-        # Para renda
-        else:
+            error_format_msg = "Formato inválido. Use: `*+ <valor> <origem>` ou `*renda <valor> <origem>`"
             if len(parts) < 2:
-                await sent_message.edit_text(error_format_msg)
+                await sent_message.edit_text(error_format_msg, parse_mode='Markdown')
                 return
+                
             value_str = parts[0]
             amount = float(value_str.replace(',', '.'))
             potential_source_and_desc = parts[1:]
@@ -561,10 +547,32 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
             correct_category_name = found_category_original
             description = " ".join(potential_source_and_desc[category_word_count:]).strip() or None
 
+        else: # É despesa
+            transaction_type = 'expense'
+            clean_text = text_after_star
+            error_format_msg = "Formato de gasto inválido. Use: `*<valor> <categoria> [descrição]`"
+
+            match = re.match(r"^\s*(\d+[\.,]?\d*)\s+([\w\sáàâãéèêíïóôõöúçñ]+?)(?:\s+(.+))?$", clean_text)
+            if not match:
+                await sent_message.edit_text(error_format_msg, parse_mode='Markdown')
+                return
+                
+            value_str, category_name_input, description = match.groups()
+            amount = float(value_str.replace(',', '.'))
+            description = description.strip() if description else None
+            
+            categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).stream()
+            original_categories = {normalize_text(cat.to_dict()['name']): cat.to_dict()['name'] for cat in categories_ref}
+            
+            category_name_normalized = normalize_text(category_name_input.strip())
+            if category_name_normalized not in original_categories:
+                await sent_message.edit_text(f"❌ Categoria de DESPESA '{category_name_input}' não encontrada.")
+                return
+            correct_category_name = original_categories[category_name_normalized]
+
         # 3. Criar a transação e atualizar o saldo da conta (em um batch)
         batch = db.batch()
         
-        # Cria a nova transação
         new_trans_ref = db.collection("transactions").document()
         trans_data = {
             'userId': firebase_uid, 'type': transaction_type, 'amount': amount,
@@ -573,7 +581,6 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
         }
         batch.set(new_trans_ref, trans_data)
 
-        # Atualiza o saldo da conta padrão
         account_doc_ref = db.collection('accounts').document(default_account_id)
         amount_to_update = amount if is_income else -amount
         batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(amount_to_update)})
