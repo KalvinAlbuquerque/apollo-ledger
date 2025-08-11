@@ -184,6 +184,8 @@ async def process_transfer(update: Update, context: ContextTypes.DEFAULT_TYPE, t
         print(f"Erro ao processar transferência: {e}")
         await sent_message.edit_text("❌ Ocorreu um erro inesperado ao processar a transferência.")
         
+# Em: backend/bot.py
+
 async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Valida uma conta a pagar e inicia a conversa para seleção de conta."""
     try:
@@ -208,15 +210,23 @@ async def process_payment(update: Update, context: ContextTypes.DEFAULT_TYPE, te
             await update.message.reply_text("Você precisa de criar uma conta no dashboard primeiro.")
             return
 
-        # Guarda a intenção na memória
-        context.user_data['pending_transaction'] = {
+        # 1. Salva a intenção de pagamento no Firestore
+        pending_data = {
             'type': 'payment',
             'debt_doc': found_debt.to_dict(),
-            'debt_id': found_debt.id
+            'debt_id': found_debt.id,
+            'userId': firebase_uid,
+            'createdAt': firestore.SERVER_TIMESTAMP
         }
+        pending_ref = db.collection('pending_transactions').document()
+        pending_ref.set(pending_data)
         
-        # Cria e envia o teclado com as contas
-        keyboard = [[InlineKeyboardButton(acc.to_dict()['accountName'], callback_data=f"pay_{acc.id}")] for acc in accounts]
+        # 2. Cria e envia o teclado com as contas e o ID pendente
+        keyboard = []
+        for acc in accounts:
+            callback_data = f"pay_{acc.id}_{pending_ref.id}"
+            keyboard.append([InlineKeyboardButton(acc.to_dict()['accountName'], callback_data=callback_data)])
+            
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.message.reply_text(f"Pagar '{found_debt.to_dict()['description']}' a partir de qual conta?", reply_markup=reply_markup)
 
@@ -257,8 +267,7 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         amount = float(value_str.replace(',', '.'))
         description = description.strip() if description else None
         
-        # --- Lógica de Conversa ---
-        # 1. Busca as contas do usuário
+        # --- Lógica de Conversa (NOVA) ---
         accounts_query = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
         accounts = list(accounts_query)
 
@@ -266,20 +275,25 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
             await update.message.reply_text("Você precisa criar uma conta no dashboard primeiro antes de registrar uma transação.")
             return
 
-        # 2. Guarda os detalhes da transação na "memória" do usuário
-        context.user_data['pending_transaction'] = {
+        # 1. Salva a transação pendente no Firestore
+        pending_data = {
             'type': 'expense',
             'amount': amount,
             'category': correct_category_name,
-            'description': description
+            'description': description,
+            'userId': firebase_uid,
+            'createdAt': firestore.SERVER_TIMESTAMP 
         }
+        pending_ref = db.collection('pending_transactions').document()
+        pending_ref.set(pending_data)
         
-        # 3. Cria os botões para cada conta
+        # 2. Cria os botões com o ID da transação pendente no callback_data
         keyboard = []
         for acc_doc in accounts:
             acc = acc_doc.to_dict()
             button_text = f"{acc.get('accountName')} (R$ {acc.get('balance', 0):.2f})"
-            button = InlineKeyboardButton(button_text, callback_data=f"account_{acc_doc.id}")
+            callback_data = f"account_{acc_doc.id}_{pending_ref.id}"
+            button = InlineKeyboardButton(button_text, callback_data=callback_data)
             keyboard.append([button])
 
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -288,7 +302,10 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
     except Exception as e:
         print(f"Erro ao iniciar processamento de despesa: {e}")
         await update.message.reply_text("❌ Ocorreu um erro ao processar sua despesa.")
+
         
+# Em: backend/bot.py
+
 async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list, firebase_uid: str):
     """Valida uma renda e inicia a conversa para seleção de conta."""
     try:
@@ -307,14 +324,12 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
             
         value_str = text_parts[0]
         potential_source_and_desc = text_parts[1:]
-
         found_category_original = None
         category_word_count = 0
 
         for i in range(len(potential_source_and_desc), 0, -1):
             potential_category_input = " ".join(potential_source_and_desc[:i])
             potential_category_normalized = normalize_text(potential_category_input)
-            
             if potential_category_normalized in valid_categories_normalized:
                 match_index = valid_categories_normalized.index(potential_category_normalized)
                 found_category_original = original_categories[match_index]
@@ -331,7 +346,7 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
         description = " ".join(potential_source_and_desc[category_word_count:]).strip() or None
         amount = float(value_str.replace(',', '.'))
         
-        # --- Lógica de Conversa ---
+        # --- Lógica de Conversa (NOVA) ---
         accounts_query = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
         accounts = list(accounts_query)
 
@@ -339,18 +354,25 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
             await update.message.reply_text("Você precisa criar uma conta no dashboard primeiro antes de registrar uma transação.")
             return
 
-        context.user_data['pending_transaction'] = {
+        # 1. Salva a transação pendente no Firestore
+        pending_data = {
             'type': 'income',
             'amount': amount,
             'category': found_category_original,
-            'description': description
+            'description': description,
+            'userId': firebase_uid,
+            'createdAt': firestore.SERVER_TIMESTAMP
         }
+        pending_ref = db.collection('pending_transactions').document()
+        pending_ref.set(pending_data)
         
+        # 2. Cria os botões com o ID da transação pendente no callback_data
         keyboard = []
         for acc_doc in accounts:
             acc = acc_doc.to_dict()
             button_text = f"{acc.get('accountName')} (R$ {acc.get('balance', 0):.2f})"
-            button = InlineKeyboardButton(button_text, callback_data=f"account_{acc_doc.id}")
+            callback_data = f"account_{acc_doc.id}_{pending_ref.id}"
+            button = InlineKeyboardButton(button_text, callback_data=callback_data)
             keyboard.append([button])
 
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -364,7 +386,8 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
 
 async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Finaliza uma transação pendente (despesa, renda ou pagamento) após um clique de botão.
+    Finaliza uma transação pendente (despesa, renda ou pagamento) a partir de um clique de botão,
+    lendo o estado do Firestore.
     """
     chat_id = update.effective_chat.id
     firebase_uid = await get_firebase_user_id(chat_id)
@@ -374,69 +397,86 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
     await query.answer()
     message_to_edit = query.message
 
+    pending_doc_ref = None
     try:
-        pending_transaction = context.user_data.get('pending_transaction')
-        if not pending_transaction:
-            await message_to_edit.edit_message_text(text="Parece que a operação expirou. Por favor, tente novamente.")
+        # 1. Extrai IDs do callback_data (ex: "account_contaId_transacaoId")
+        callback_parts = query.data.split('_')
+        action_prefix = callback_parts[0]
+        selected_account_id = callback_parts[1]
+        pending_transaction_id = callback_parts[2]
+
+        # 2. Busca a transação pendente no Firestore
+        pending_doc_ref = db.collection('pending_transactions').document(pending_transaction_id)
+        pending_transaction_doc = pending_doc_ref.get()
+
+        if not pending_transaction_doc.exists:
+            await message_to_edit.edit_text(text="🤔 Esta operação já foi concluída ou expirou. Por favor, tente o comando novamente.")
             return
-            
+
+        pending_transaction = pending_transaction_doc.to_dict()
+
+        # Validação de segurança: o usuário que clica é o que iniciou?
+        if pending_transaction.get('userId') != firebase_uid:
+            # Responde de forma efêmera para não poluir o chat
+            await query.answer("Este comando não foi iniciado por você.", show_alert=True)
+            return
+
+        # 3. Executa a lógica da transação
         transaction_type = pending_transaction.get('type')
         batch = db.batch()
         
         accounts_query = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
         accounts = {acc.id: acc.to_dict() for acc in accounts_query}
 
-        # --- LÓGICA PARA TRANSAÇÕES DE RENDA OU DESPESA ---
+        # --- LÓGICA PARA RENDA/DESPESA ---
         if transaction_type in ['income', 'expense']:
-            selected_account_id = query.data.split('_')[1]
             account_doc_ref = db.collection('accounts').document(selected_account_id)
             new_trans_ref = db.collection("transactions").document()
+
+            final_transaction = {
+                'userId': firebase_uid,
+                'createdAt': firestore.SERVER_TIMESTAMP,
+                'accountId': selected_account_id,
+                'type': pending_transaction['type'],
+                'amount': pending_transaction['amount'],
+                'category': pending_transaction['category'],
+                'description': pending_transaction.get('description')
+            }
+            batch.set(new_trans_ref, final_transaction)
             
-            # Remove o 'type' que já está no objeto antes de salvar
-            transaction_data = pending_transaction.copy()
-            transaction_data.update({'accountId': selected_account_id, 'userId': firebase_uid, 'createdAt': firestore.SERVER_TIMESTAMP})
-            batch.set(new_trans_ref, transaction_data)
-            
-            amount_to_update = transaction_data['amount'] if transaction_type == 'income' else -transaction_data['amount']
+            amount_to_update = pending_transaction['amount'] if transaction_type == 'income' else -pending_transaction['amount']
             batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(amount_to_update)})
             
             account_name = accounts.get(selected_account_id, {}).get('accountName', 'desconhecida')
-            await message_to_edit.edit_message_text(text=f"✅ Transação registada com sucesso na conta '{account_name}'!")
+            await message_to_edit.edit_text(text=f"✅ Transação registada com sucesso na conta '{account_name}'!")
 
         # --- LÓGICA PARA PAGAMENTOS ---
         elif transaction_type == 'payment':
-            selected_account_id = query.data.split('_')[1]
             debt = pending_transaction['debt_doc']
             debt_id = pending_transaction['debt_id']
             source_account = accounts.get(selected_account_id)
 
             if not source_account or source_account.get('balance', 0) < debt.get('amount', 0):
-                await message_to_edit.edit_message_text(text=f"❌ Saldo insuficiente na conta '{source_account.get('accountName')}'.")
+                await message_to_edit.edit_text(text=f"❌ Saldo insuficiente na conta '{source_account.get('accountName')}'.")
                 return
 
             desc = f"Pagamento de: {debt.get('description')}"
-            if source_account.get('isReserve'):
-                desc += f" (c/ {source_account.get('accountName')})"
-            
             batch.set(db.collection("transactions").document(), {'userId': firebase_uid, 'amount': debt.get('amount'), 'category': debt.get('categoryName'), 'description': desc, 'createdAt': firestore.SERVER_TIMESTAMP, 'type': 'expense', 'accountId': selected_account_id})
             batch.update(db.collection('scheduled_transactions').document(debt_id), {'status': 'paid'})
             batch.update(db.collection('accounts').document(selected_account_id), {'balance': firestore.firestore.Increment(-debt.get('amount', 0))})
 
-            if source_account.get('isReserve'):
-                payback_ref = db.collection("scheduled_transactions").document()
-                batch.set(payback_ref, {'userId': firebase_uid, 'description': f"Reposição para: {source_account.get('accountName')}", 'amount': debt.get('amount'), 'categoryName': 'reservas', 'dueDate': datetime.now(timezone.utc) + relativedelta(months=1), 'status': 'pending', 'isRecurring': False})
+            await message_to_edit.edit_text(text=f"✅ Pagamento de '{debt.get('description')}' registado a partir de '{source_account.get('accountName')}'!")
 
-            await message_to_edit.edit_message_text(text=f"✅ Pagamento de '{debt.get('description')}' registado a partir de '{source_account.get('accountName')}'!")
-        
-        # O commit é síncrono, não precisa de await
+        # 4. Efetiva as mudanças e limpa a transação pendente
         batch.commit()
+        pending_doc_ref.delete()
     
     except Exception as e:
         print(f"Erro ao finalizar transação: {e}")
-        await message_to_edit.edit_message_text(text="❌ Ocorreu um erro ao salvar sua transação.")
-    finally:
-        # Limpa a memória para a próxima operação
-        context.user_data.pop('pending_transaction', None)
+        await message_to_edit.edit_text(text="❌ Ocorreu um erro ao salvar sua transação.")
+        # Se deu erro, mas o documento pendente foi lido, tenta apagá-lo para não deixar lixo
+        if pending_doc_ref:
+            pending_doc_ref.delete()
 
 async def process_saving(update: Update, context: ContextTypes.DEFAULT_TYPE, text_parts: list,firebase_uid: str):
     """Processa uma contribuição para uma meta de poupança."""
