@@ -10,23 +10,44 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
   // Estados para transação normal
   const [amount, setAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedAccount, setSelectedAccount] = useState(accounts[0]?.id || '');
+  const [selectedAccount, setSelectedAccount] = useState(''); // Inicia vazio
   const [description, setDescription] = useState('');
   
   // Estados para transferência
-  const [fromAccountId, setFromAccountId] = useState(accounts[0]?.id || '');
-  const [toAccountId, setToAccountId] = useState(accounts[1]?.id || '');
+  const [fromAccountId, setFromAccountId] = useState(''); // Inicia vazio
+  const [toAccountId, setToAccountId] = useState(''); // Inicia vazio
   const [createPaybackDebt, setCreatePaybackDebt] = useState(false);
 
   const user = auth.currentUser;
 
-  // --- LÓGICA QUE FALTAVA ---
+  // --- LÓGICA CORRIGIDA COM useEffect ---
+  // Primeiro, calculamos qual é a conta padrão sempre que a lista de contas mudar.
+  const defaultAccount = useMemo(() => {
+    return accounts.find(acc => acc.isDefault) || accounts[0];
+  }, [accounts]);
+
+  // Depois, usamos um Effect para ATUALIZAR o estado quando a conta padrão for encontrada.
+  useEffect(() => {
+    if (defaultAccount) {
+      setSelectedAccount(defaultAccount.id);
+      setFromAccountId(defaultAccount.id);
+      
+      // Define uma conta de destino padrão para transferências
+      const firstOtherAccount = accounts.find(acc => acc.id !== defaultAccount.id);
+      if (firstOtherAccount) {
+        setToAccountId(firstOtherAccount.id);
+      } else if (accounts.length > 1) {
+        setToAccountId(accounts[1].id);
+      }
+    }
+  }, [defaultAccount, accounts]);
+  // ------------------------------------
+
   const isSourceAccountReserve = useMemo(() => {
     if (type !== 'transfer') return false;
     const sourceAccount = accounts.find(acc => acc.id === fromAccountId);
     return sourceAccount?.isReserve || false;
   }, [fromAccountId, accounts, type]);
-  // -------------------------
 
   const availableCategories = useMemo(() => {
     return categories.filter(cat => cat.type === type);
@@ -69,15 +90,14 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
             batch.set(expenseTransRef, {
                 userId: user.uid, type: 'expense', amount: transferAmount,
                 category: 'transferência', 
-                description: `Transferência para: ${toAccountData.accountName}`, // <<< CORRIGIDO
+                description: `Transferência para: ${toAccountData.accountName}`,
                 createdAt: Timestamp.now(), accountId: fromAccountId,
             });
-            // 2. Cria a transação de ENTRADA (renda) na conta de destino
             const incomeTransRef = doc(collection(db, "transactions"));
             batch.set(incomeTransRef, {
                 userId: user.uid, type: 'income', amount: transferAmount,
                 category: 'transferência', 
-                description: `Transferência de: ${fromAccountData.accountName}`, // <<< CORRIGIDO
+                description: `Transferência de: ${fromAccountData.accountName}`,
                 createdAt: Timestamp.now(), accountId: toAccountId,
             });
             // 2. Atualiza os saldos das contas
@@ -91,7 +111,7 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
                     userId: user.uid,
                     description: `Reposição para: ${fromAccountData.accountName}`,
                     amount: transferAmount,
-                    categoryName: 'reservas', // Sugestão, pode criar esta categoria
+                    categoryName: 'reservas',
                     dueDate: Timestamp.fromDate(new Date(new Date().setMonth(new Date().getMonth() + 2, 0))),
                     status: 'pending',
                     isRecurring: false,

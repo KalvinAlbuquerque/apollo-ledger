@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react'; // Importa o useLayoutEffect
 import { Link } from 'react-router-dom';
 import { auth, db } from '../../firebaseClient';
-import { signOut } from 'firebase/auth';
 import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc, writeBatch, Timestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
@@ -49,6 +48,7 @@ function Dashboard({ user }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedTransactions, setSelectedTransactions] = useState(new Set());
+  const scrollPositionRef = useRef(0);
 
   // --- 2. LÓGICA DE PAGINAÇÃO ---
   const itemsPerPage = 15;
@@ -59,6 +59,7 @@ function Dashboard({ user }) {
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const triggerRefresh = () => {
+    scrollPositionRef.current = window.scrollY;
     setDataVersion(currentVersion => currentVersion + 1);
   };
 
@@ -78,7 +79,7 @@ function Dashboard({ user }) {
   };
 
 
- 
+
   const fetchData = async () => {
     if (!user) return;
     setLoading(true);
@@ -90,7 +91,7 @@ function Dashboard({ user }) {
       if (filterStartDate) { constraints.push(where("createdAt", ">=", new Date(filterStartDate))); }
       if (filterEndDate) { constraints.push(where("createdAt", "<=", adjustEndDate(filterEndDate))); }
       constraints.push(orderBy("createdAt", "desc"));
-      
+
       const finalQuery = query(baseQuery, ...constraints);
       const transSnapshot = await getDocs(finalQuery);
       const transData = transSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -101,7 +102,7 @@ function Dashboard({ user }) {
       const catSnapshot = await getDocs(catQuery);
       const catData = catSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setCategories(catData);
-      
+
       const currentMonth = new Date().getMonth() + 1;
       const currentYear = new Date().getFullYear();
       const budgetQuery = query(collection(db, "budgets"), where("userId", "==", user.uid), where("month", "==", currentMonth), where("year", "==", currentYear));
@@ -121,7 +122,7 @@ function Dashboard({ user }) {
 
       // Zera o saldo de todas as contas antes de recalcular
       accData.forEach(acc => acc.balance = 0);
-      
+
       // Itera sobre as transações para somar/subtrair dos saldos
       allTransactions.forEach(tx => {
         const account = accData.find(acc => acc.id === tx.accountId);
@@ -133,7 +134,7 @@ function Dashboard({ user }) {
           }
         }
       });
-      
+
       setAccounts(accData); // Salva as contas com os saldos calculados
 
     } catch (error) {
@@ -144,12 +145,12 @@ function Dashboard({ user }) {
     }
   };
 
-  useEffect(() => { 
-    fetchData(); 
+  useEffect(() => {
+    fetchData();
   }, [user, dataVersion, filterStartDate, filterEndDate, filterCategory]);
 
 
-  
+
   useEffect(() => {
     if (filterStartDate && filterEndDate) {
       const start = new Date(filterStartDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
@@ -220,8 +221,8 @@ function Dashboard({ user }) {
         spent: expenseByCategory[budget.categoryName] || 0,
         budget: budget.amount,
       }))
-      .filter(b => b.budget > 0); 
-    
+      .filter(b => b.budget > 0);
+
     // --- LÓGICA DO GRÁFICO INTELIGENTE (LINHA/BARRAS) REVISADA ---
     let isSingleDayView = filterStartDate && filterEndDate && filterStartDate === filterEndDate;
     let lineChartData = { labels: [], datasets: [] };
@@ -266,7 +267,7 @@ function Dashboard({ user }) {
             ];
         }
     }
-    
+
     return { totalIncome, totalExpense, balance, expenseChartData, incomeChartData, balanceChartData, budgetProgress, lineChartData, singleDayChartData, isSingleDayView };
   }, [transactions, budgets, filterStartDate, filterEndDate, accounts, accountView]);
 
@@ -292,7 +293,7 @@ function Dashboard({ user }) {
   }, [transactions]);
   const goToNextChart = () => setCurrentChartIndex(prev => (prev + 1) % charts.length);
   const goToPrevChart = () => setCurrentChartIndex(prev => (prev - 1 + charts.length) % charts.length);
-  
+
   const handleLogout = () => signOut(auth);
  const handleOpenAddTransactionModal = () => {
     setIsAddTransactionModalOpen(true);
@@ -303,7 +304,7 @@ function Dashboard({ user }) {
     const handleSelectAllOnPage = (e) => {
     const isChecked = e.target.checked;
     const newSelection = new Set(selectedTransactions);
-    
+
     // Pega os IDs apenas dos itens na página atual
     const idsOnCurrentPage = currentTransactions.map(tx => tx.id);
 
@@ -314,7 +315,7 @@ function Dashboard({ user }) {
       // Remove todos os IDs da página atual da seleção
       idsOnCurrentPage.forEach(id => newSelection.delete(id));
     }
-    
+
     setSelectedTransactions(newSelection);
   };
 
@@ -328,7 +329,7 @@ function Dashboard({ user }) {
     }
     setSelectedTransactions(newSelection);
   };
-  
+
   const handleSetMonthlyFilter = () => {
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -381,7 +382,7 @@ function Dashboard({ user }) {
     const deleteAction = async () => {
       // Cria um "lote" de escrita no Firebase
       const batch = writeBatch(db);
-      
+
       // Adiciona cada ordem de exclusão ao lote
       selectedTransactions.forEach(transactionId => {
         const docRef = doc(db, "transactions", transactionId);
@@ -423,6 +424,13 @@ function Dashboard({ user }) {
       toast.error("Falha ao salvar.");
     }
   };
+  
+  // --- SUBSTITUIÇÃO DO useEffect PELO useLayoutEffect ---
+  useLayoutEffect(() => {
+    if (scrollPositionRef.current > 0) {
+      window.scrollTo(0, scrollPositionRef.current);
+    }
+  }, [transactions]); // A dependência continua a mesma
 
   if (loading) return <div>Carregando suas finanças...</div>;
 
@@ -484,9 +492,9 @@ function Dashboard({ user }) {
   <div className={styles.chartsContainer}>
     <div className={styles.chartWrapper}>
       {summaryData.isSingleDayView ? (
-        <DailyBarChart 
+        <DailyBarChart
           title={`Resumo do Dia: ${new Date(filterStartDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}`}
-          chartData={summaryData.singleDayChartData} 
+          chartData={summaryData.singleDayChartData}
         />
       ) : (
         <>
@@ -498,11 +506,11 @@ function Dashboard({ user }) {
             </div>
           </div>
           <div className={styles.chartCanvasContainer}>
-            <LineChart 
+            <LineChart
               chartData={{
                 ...summaryData.lineChartData,
                 datasets: summaryData.lineChartData.datasets.map(ds => ({...ds, hidden: !lineChartVisibility[ds.label]}))
-              }} 
+              }}
             />
           </div>
         </>
@@ -524,7 +532,7 @@ function Dashboard({ user }) {
       {isSelectionMode ? (
         <div className={styles.selectionActions}>
           <span>{selectedTransactions.size} selecionada(s)</span>
-            <button onClick={handleDeleteSelected} className={styles.deleteSelectedButton}>Excluir Selecionados</button>          
+            <button onClick={handleDeleteSelected} className={styles.deleteSelectedButton}>Excluir Selecionados</button>
             <button onClick={toggleSelectionMode} className={styles.cancelSelectionButton}>Cancelar</button>        </div>
       ) : (
         <button onClick={toggleSelectionMode} className={styles.selectButton}>
@@ -537,8 +545,8 @@ function Dashboard({ user }) {
                 <tr>
                   {isSelectionMode && (
                     <th className={styles.checkboxCell}>
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         onChange={handleSelectAllOnPage}
                         // O checkbox principal estará marcado se todos os itens visíveis na página estiverem selecionados
                         checked={currentTransactions.length > 0 && currentTransactions.every(tx => selectedTransactions.has(tx.id))}
@@ -548,6 +556,7 @@ function Dashboard({ user }) {
                   <th>Data</th>
                   <th>Categoria</th>
                   <th>Descrição</th>
+                  <th>Conta</th>
                   <th>Valor (R$)</th>
                   <th>Ações</th>
                 </tr>
@@ -556,13 +565,14 @@ function Dashboard({ user }) {
                 {currentTransactions.length > 0 ? (
                   currentTransactions.map(tx => {
                     const isSelected = selectedTransactions.has(tx.id);
+                    const accountName = accounts.find(acc => acc.id === tx.accountId)?.accountName || 'N/A';
                     return (
                       <tr key={tx.id} className={isSelected ? styles.selectedRow : ''}>
                         {isSelectionMode && (
                           // A célula inteira se torna clicável para selecionar/deselecionar a linha
                           <td className={styles.checkboxCell} onClick={() => handleRowSelect(tx.id)}>
-                            <input 
-                              type="checkbox" 
+                            <input
+                              type="checkbox"
                               checked={isSelected}
                               readOnly // O clique é gerenciado pela <td>, então o checkbox é apenas visual
                             />
@@ -571,6 +581,7 @@ function Dashboard({ user }) {
                         <td data-label="Data">{tx.createdAt ? tx.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</td>
                         <td data-label="Categoria">{tx.category}</td>
                         <td data-label="Descrição">{tx.description || '-'}</td>
+                        <td data-label="Conta">{accountName}</td>
                         <td data-label="Valor (R$)" className={tx.type === 'income' ? styles.incomeAmount : styles.expenseAmount}>{tx.type === 'income' ? '+ ' : '- '}R$ {tx.amount.toFixed(2)}</td>
                         <td data-label="Ações">
                             <button onClick={() => handleOpenEditModal(tx)} className={styles.editButton}>Editar</button>
@@ -579,9 +590,9 @@ function Dashboard({ user }) {
                       </tr>
                     )
                   })
-                ) : ( 
+                ) : (
                   // O colSpan se ajusta se o modo de seleção está ativo ou não
-                  <tr><td colSpan={isSelectionMode ? 6 : 5}>Nenhuma transação encontrada.</td></tr> 
+                  <tr><td colSpan={isSelectionMode ? 7 : 6}>Nenhuma transação encontrada.</td></tr>
                 )}
               </tbody>
             </table>
@@ -600,32 +611,32 @@ function Dashboard({ user }) {
     )}
   </div>
 </main>
-        
+
            <section className={styles.managerSection}>
-    <DebtManager 
-      expenseCategories={categories.filter(c => c.type === 'expense')} 
-      accounts={accounts} 
-      onDataChanged={triggerRefresh} 
+    <DebtManager
+      expenseCategories={categories.filter(c => c.type === 'expense')}
+      accounts={accounts}
+      onDataChanged={triggerRefresh}
     />
 </section>
 
 
         <section className={styles.managerSection}>
-        <GoalManager fetchData={fetchData} accounts={accounts} />        
+        <GoalManager onDataChanged={triggerRefresh} accounts={accounts} />
       </section>
         <section className={styles.managerSection}>
             <AccountManager onDataChanged={triggerRefresh} accounts={accounts} />
         </section>
         <section className={styles.managerSection}>
           <BudgetManager onDataChanged={triggerRefresh} totalMonthIncome={currentMonthIncome} />
-          </section>        
+          </section>
         <section className={styles.managerSection}>
-            <CategoryManager onDataChanged={triggerRefresh} />        
+            <CategoryManager onDataChanged={triggerRefresh} />
           </section>
       </div>
       {isModalOpen && (<EditModal transaction={editingTransaction} onSave={handleSaveTransaction} onCancel={handleCloseModal} categories={categories} />)}
       {isAddTransactionModalOpen && (
-        <AddTransactionModal 
+        <AddTransactionModal
             onCancel={handleCloseAddTransactionModal}
             onSave={() => {
                 handleCloseAddTransactionModal();

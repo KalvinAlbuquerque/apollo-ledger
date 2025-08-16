@@ -80,18 +80,16 @@ input[type="date"],
 input[type="email"],
 input[type="password"],
 select {
-  /* --- MUDANÇA PRINCIPAL ABAIXO --- */
-  background-color: var(--fundo-secundario); /* Fundo um pouco mais claro para destacar */
-  border: 1px solid var(--borda-sutil);       /* Borda sutil para definir a forma */
-  /* ---------------------------------- */
-  
-  color: var(--texto-principal);
+  background-color: var(--cinza-elemento); /* Fundo preto/cinza escuro */
+  color: var(--texto-principal); /* Texto branco/claro */
+  border: 1px solid var(--cinza-borda);
   border-radius: 6px;
-  padding: 10px 12px; /* Padronizando o preenchimento */
-  font-size: 0.95rem; /* Padronizando o tamanho da fonte */
-  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  padding: 10px 12px;
 }
-
+select option {
+  background-color: var(--cinza-elemento);
+  color: var(--texto-principal);
+}
 /* Regra para quando um campo está em FOCO (continua a mesma) */
 input:focus,
 select:focus {
