@@ -245,8 +245,12 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
     try:
         # --- Validação da Categoria (lógica que já tínhamos) ---
         categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).stream()
-        original_categories = [doc.to_dict()['name'] for doc in categories_ref]
+        
+        # LINHA CORRIGIDA ABAIXO
+        original_categories = [doc.to_dict()['name'].strip() for doc in categories_ref]
+        
         valid_categories_normalized = [normalize_text(name) for name in original_categories]
+
 
         if not original_categories:
             await update.message.reply_text("Você não tem nenhuma categoria de DESPESA cadastrada.")
@@ -317,9 +321,11 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
     try:
         # --- Validação da Categoria de Renda (lógica que já tínhamos) ---
         categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'income')).stream()
-        original_categories = [doc.to_dict()['name'] for doc in categories_ref]
+        
+        # LINHA CORRIGIDA ABAIXO
+        original_categories = [doc.to_dict()['name'].strip() for doc in categories_ref]
+        
         valid_categories_normalized = [normalize_text(name) for name in original_categories]
-
         if not original_categories:
             await update.message.reply_text("Você não tem nenhuma categoria de RENDA cadastrada.")
             return
@@ -525,8 +531,8 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
             potential_source_and_desc = parts[1:]
             
             categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'income')).stream()
-            original_categories = {normalize_text(cat.to_dict()['name']): cat.to_dict()['name'] for cat in categories_ref}
-            
+            original_categories = {normalize_text(cat.to_dict()['name'].strip()): cat.to_dict()['name'].strip() for cat in categories_ref}
+                        
             found_category_original = None
             category_word_count = 0
             for i in range(len(potential_source_and_desc), 0, -1):
@@ -567,7 +573,9 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
             description = description.strip() if description else None
             
             categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).stream()
-            original_categories = {normalize_text(cat.to_dict()['name']): cat.to_dict()['name'] for cat in categories_ref}
+            
+            # LINHA CORRIGIDA ABAIXO
+            original_categories = {normalize_text(cat.to_dict()['name'].strip()): cat.to_dict()['name'].strip() for cat in categories_ref}
             
             category_name_normalized = normalize_text(category_name_input.strip())
             if category_name_normalized not in original_categories:

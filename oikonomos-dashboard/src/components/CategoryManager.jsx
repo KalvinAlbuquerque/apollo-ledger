@@ -40,7 +40,7 @@ function CategoryManager({ onDataChanged }) {
     if (newCategoryName.trim() === '') return;
     try {
       await addDoc(collection(db, "categories"), {
-        name: newCategoryName.toLowerCase(),
+        name: newCategoryName.trim().toLowerCase(),
         type: newCategoryType,
         userId: user.uid,
       });

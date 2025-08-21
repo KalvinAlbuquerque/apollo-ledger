@@ -16,7 +16,7 @@ function EditCategoryModal({ category, onSave, onCancel }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     const updatedData = {
-      name: name.toLowerCase(),
+      name: name.trim().toLowerCase(),
       type: type,
     };
     onSave(category.id, updatedData);
