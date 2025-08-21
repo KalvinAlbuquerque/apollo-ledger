@@ -22,6 +22,8 @@ ChartJS.register(
   Legend
 );
 
+// Em oikonomos-dashboard/src/components/LineChart.jsx
+
 function LineChart({ chartData, title }) {
   const options = {
     responsive: true,
@@ -38,19 +40,21 @@ function LineChart({ chartData, title }) {
         font: { size: 16 }
       },
     },
+    // A MUDANÇA ESTÁ AQUI
     scales: {
-        x: {
-            ticks: { color: '#A0A0A0' },
-            grid: { color: 'rgba(255, 255, 255, 0.1)' }
-        },
-        y: {
-            ticks: { color: '#A0A0A0' },
-            grid: { color: 'rgba(255, 255, 255, 0.1)' }
-        }
+      x: {
+        ticks: { color: '#A0A0A0' },
+        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+      },
+      // VERSÃO SIMPLIFICADA COM UM ÚNICO EIXO Y
+      y: {
+        ticks: { color: '#A0A0A0' },
+        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+      }
     }
-  };
+};
 
-  return <Line options={options} data={chartData} />;
+return <Line options={options} data={chartData} />;
 }
 
 export default LineChart;

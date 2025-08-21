@@ -132,10 +132,10 @@
   gap: 40px;
 }
 
-/* Layout dos Gráficos Lado a Lado (Desktop) */
+/* Em Dashboard.module.css */
 .chartsContainer {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr; /* Garante uma única coluna */
   gap: 40px;
   align-items: stretch; 
 }
@@ -152,6 +152,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  position: relative;
 }
 .chartTitle {
   margin: 0;
@@ -262,9 +263,9 @@
 }
 
 .doughnutChartWrapper {
-  aspect-ratio: 1 / 1; /* Força o container a ser um quadrado */
-  max-height: 450px;   /* Define uma altura máxima para não ficar gigante */
-  justify-self: center; /* Centraliza o card na sua coluna do grid */
+  /* RESTAURE esta linha para o gráfico voltar a ser quadrado */
+  aspect-ratio: 1 / 1;
+  max-height: 550px;
 }
 
 
@@ -527,4 +528,66 @@ cancelSelectionButton {
 .chartWrapper > .chartCanvasContainer {
     flex-grow: 1;
     position: relative;
+}
+
+/* Adicione ao final de Dashboard.module.css */
+
+.chartToggleButton {
+  background-color: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s ease;
+}
+
+.chartToggleButton:hover {
+  background-color: var(--fundo-secundario);
+  color: var(--texto-principal);
+}
+
+
+/* Adicione ao final de Dashboard.module.css */
+
+.chartViewSelector {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.chartViewSelector button {
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 8px 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chartViewSelector button:hover {
+  background-color: var(--fundo-secundario);
+  color: var(--texto-principal);
+}
+
+.chartViewSelector button.active {
+  background-color: var(--acento-azul);
+  border-color: var(--acento-azul);
+  color: white;
+}
+
+.chartActions {
+  position: relative; /* Contêiner para o botão e o dropdown */
+}
+
+.filterButton {
+  background-color: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
 }

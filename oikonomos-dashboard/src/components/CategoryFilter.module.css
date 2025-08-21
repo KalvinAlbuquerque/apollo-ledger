@@ -1,0 +1,93 @@
+/* oikonomos-dashboard/src/components/CategoryFilter.module.css */
+.filterDropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--borda-sutil);
+  border-radius: 8px;
+  padding: 10px;
+  z-index: 100;
+  width: 280px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.buttonGroup {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--borda-sutil);
+}
+
+.buttonGroup button {
+  background: none;
+  border: none;
+  color: var(--acento-azul);
+  cursor: pointer;
+  font-size: 0.8rem;
+  padding: 4px;
+}
+
+.categoryList {
+  max-height: 250px;
+  overflow-y: auto;
+  padding-right: 5px; /* Espaço para a barra de rolagem */
+}
+
+.group {
+  margin-bottom: 10px;
+}
+
+.groupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 8px;
+  background-color: var(--fundo-secundario);
+  border-radius: 6px;
+}
+
+.arrow {
+  transition: transform 0.2s ease-in-out;
+}
+
+.arrow.collapsed {
+  transform: rotate(-90deg);
+}
+
+.groupContent {
+  padding: 8px 0 0 8px;
+}
+
+.groupActions {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 8px;
+}
+
+.groupActions button {
+    background: none;
+    border: none;
+    color: var(--texto-secundario);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 0;
+}
+.groupActions button:hover {
+    color: var(--texto-principal);
+}
+
+.categoryItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.categoryItem:hover {
+  background-color: var(--fundo-secundario);
+}

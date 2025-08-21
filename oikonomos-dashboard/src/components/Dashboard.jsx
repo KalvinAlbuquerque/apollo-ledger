@@ -17,6 +17,8 @@ import GoalManager from './GoalManager';
 import AccountManager from './AccountManager';
 import AddTransactionModal from './AddTransactionModal';
 import { showConfirmationToast } from '../utils/toastUtils.jsx';
+
+import CategoryFilter from './CategoryFilter';
 // Estilos
 import styles from './Dashboard.module.css';
 
@@ -48,8 +50,10 @@ function Dashboard({ user }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedTransactions, setSelectedTransactions] = useState(new Set());
-  const scrollPositionRef = useRef(0);
+  const [isCategoryFilterOpen, setIsCategoryFilterOpen] = useState(false);
+  const [selectedExpenseCategories, setSelectedExpenseCategories] = useState(new Set());
 
+  const scrollPositionRef = useRef(0);
   // --- 2. LÓGICA DE PAGINAÇÃO ---
   const itemsPerPage = 15;
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -63,7 +67,7 @@ function Dashboard({ user }) {
     setDataVersion(currentVersion => currentVersion + 1);
   };
 
- const adjustEndDate = (dateStr) => {
+  const adjustEndDate = (dateStr) => {
     const date = new Date(dateStr);
     date.setUTCHours(23, 59, 59, 999);
     return date;
@@ -149,12 +153,17 @@ function Dashboard({ user }) {
     fetchData();
   }, [user, dataVersion, filterStartDate, filterEndDate, filterCategory]);
 
+  useEffect(() => {
+    // Agora seleciona todas as categorias por padrão
+    const allCategoryNames = categories.map(cat => cat.name);
+    setSelectedExpenseCategories(new Set(allCategoryNames));
+  }, [categories]);
 
 
   useEffect(() => {
     if (filterStartDate && filterEndDate) {
-      const start = new Date(filterStartDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
-      const end = new Date(filterEndDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'});
+      const start = new Date(filterStartDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+      const end = new Date(filterEndDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
       setTooltipText(`Período: ${start} a ${end}`);
     } else {
       setTooltipText('Filtre por período ou categoria');
@@ -163,49 +172,57 @@ function Dashboard({ user }) {
 
   const summaryData = useMemo(() => {
 
-     const filteredTransactions = transactions.filter(tx => {
-        if (accountView === 'total') return true; // Mostra tudo
-        if (accountView === 'geral') {
-            const nonReserveAccountIds = new Set(accounts.filter(acc => !acc.isReserve).map(acc => acc.id));
-            return nonReserveAccountIds.has(tx.accountId);
-        }
-        // Filtra por uma conta específica
-        return tx.accountId === accountView;
+    const filteredTransactions = transactions.filter(tx => {
+      if (accountView === 'total') return true; // Mostra tudo
+      if (accountView === 'geral') {
+        const nonReserveAccountIds = new Set(accounts.filter(acc => !acc.isReserve).map(acc => acc.id));
+        return nonReserveAccountIds.has(tx.accountId);
+      }
+      // Filtra por uma conta específica
+      return tx.accountId === accountView;
     });
 
+
     const income = filteredTransactions.filter(tx => tx.type === 'income');
-    const expenses = filteredTransactions.filter(tx => tx.type === 'expense' || !tx.type);
-    const totalIncome = income.reduce((acc, tx) => acc + tx.amount, 0);
+    const expenses = transactions.filter(tx =>
+      (tx.type === 'expense' || !tx.type) && selectedExpenseCategories.has(tx.category) // ADICIONE ESTA CONDIÇÃO
+    ); const totalIncome = income.reduce((acc, tx) => acc + tx.amount, 0);
     const totalExpense = expenses.reduce((acc, tx) => acc + tx.amount, 0);
     const balance = totalIncome - totalExpense;
 
     const processDataForChart = (data, label) => {
-        const categoryTotals = {};
-        data.forEach(tx => {
-            categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount;
-        });
-        return {
-            labels: Object.keys(categoryTotals),
-            datasets: [{
-                label: label,
-                data: Object.values(categoryTotals),
-                backgroundColor: [ '#4A90E2', '#50E3C2', '#B8E986', '#9013FE', '#F5A623', '#BD10E0', '#7ED321' ],
-                borderColor: '#1E1E1E',
-                borderWidth: 2,
-            }],
-        };
+      const categoryTotals = {};
+      data.forEach(tx => {
+        categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount;
+      });
+      return {
+        labels: Object.keys(categoryTotals),
+        datasets: [{
+          label: label,
+          data: Object.values(categoryTotals),
+          backgroundColor: [
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40',
+            '#E7E9ED', '#8DDF3C', '#F45B5B', '#7798BF', '#24CBE5', '#64E572',
+            '#FFC233', '#50B432', '#ED561B', '#DDDF00', '#24CBE5', '#64E572',
+            '#FF9655', '#FFF263', '#6AF9C4', '#2b908f', '#f45b5b', '#91e8e1',
+            '#f7a35c', '#8085e9', '#f15c80', '#e4d354', '#2ec4b6', '#011627'
+          ],
+          borderColor: '#1E1E1E',
+          borderWidth: 2,
+        }],
+      };
     };
     const expenseChartData = processDataForChart(expenses, 'Gastos R$');
     const incomeChartData = processDataForChart(income, 'Rendas R$');
     const balanceChartData = {
-        labels: ['Rendas', 'Despesas'],
-        datasets: [{
-            label: 'Balanço R$',
-            data: [totalIncome, totalExpense],
-            backgroundColor: ['#50E3C2', '#FF1D58'],
-            borderColor: '#1E1E1E',
-            borderWidth: 2,
-        }],
+      labels: ['Rendas', 'Despesas'],
+      datasets: [{
+        label: 'Balanço R$',
+        data: [totalIncome, totalExpense],
+        backgroundColor: ['#50E3C2', '#FF1D58'],
+        borderColor: '#1E1E1E',
+        borderWidth: 2,
+      }],
     };
 
     const expenseByCategory = {};
@@ -229,47 +246,47 @@ function Dashboard({ user }) {
     let singleDayChartData = { labels: [], datasets: [] };
 
     if (transactions.length > 0) {
-        if (isSingleDayView) {
-            // Prepara os dados para o GRÁFICO DE BARRAS
-            singleDayChartData = {
-                labels: ['Rendas', 'Despesas'],
-                datasets: [{
-                    label: `Balanço para ${new Date(filterStartDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}`,
-                    data: [totalIncome, totalExpense],
-                    backgroundColor: ['#50E3C2', '#FF1D58'],
-                }],
-            };
-        } else {
-            // Prepara os dados para o GRÁFICO DE LINHA
-            const sortedTransactions = [...transactions].sort((a, b) => a.createdAt.toDate() - b.createdAt.toDate());
-            const dailyData = new Map();
-            sortedTransactions.forEach(tx => {
-                const dateKey = tx.createdAt.toDate().toLocaleDateString('pt-BR');
-                if (!dailyData.has(dateKey)) { dailyData.set(dateKey, { income: 0, expense: 0 }); }
-                const current = dailyData.get(dateKey);
-                if (tx.type === 'income') { current.income += tx.amount; }
-                else { current.expense += tx.amount; }
-            });
-            let runningBalance = 0;
-            const labels = [];
-            const balanceDataPoints = [];
-            const expenseDataPoints = [];
-            dailyData.forEach((value, date) => {
-                labels.push(date);
-                runningBalance += value.income - value.expense;
-                balanceDataPoints.push(runningBalance);
-                expenseDataPoints.push(value.expense);
-            });
-            lineChartData.labels = labels;
-            lineChartData.datasets = [
-                { label: 'Saldo', data: balanceDataPoints, borderColor: 'rgb(74, 144, 226)', backgroundColor: 'rgba(74, 144, 226, 0.5)'},
-                { label: 'Despesas', data: expenseDataPoints, borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.5)'}
-            ];
-        }
+      if (isSingleDayView) {
+        // Prepara os dados para o GRÁFICO DE BARRAS
+        singleDayChartData = {
+          labels: ['Rendas', 'Despesas'],
+          datasets: [{
+            label: `Balanço para ${new Date(filterStartDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`,
+            data: [totalIncome, totalExpense],
+            backgroundColor: ['#50E3C2', '#FF1D58'],
+          }],
+        };
+      } else {
+        // Prepara os dados para o GRÁFICO DE LINHA
+        const sortedTransactions = [...transactions].sort((a, b) => a.createdAt.toDate() - b.createdAt.toDate());
+        const dailyData = new Map();
+        sortedTransactions.forEach(tx => {
+          const dateKey = tx.createdAt.toDate().toLocaleDateString('pt-BR');
+          if (!dailyData.has(dateKey)) { dailyData.set(dateKey, { income: 0, expense: 0 }); }
+          const current = dailyData.get(dateKey);
+          if (tx.type === 'income') { current.income += tx.amount; }
+          else { current.expense += tx.amount; }
+        });
+        let runningBalance = 0;
+        const labels = [];
+        const balanceDataPoints = [];
+        const expenseDataPoints = [];
+        dailyData.forEach((value, date) => {
+          labels.push(date);
+          runningBalance += value.income - value.expense;
+          balanceDataPoints.push(runningBalance);
+          expenseDataPoints.push(value.expense);
+        });
+        lineChartData.labels = labels;
+        lineChartData.datasets = [
+          { label: 'Saldo', data: balanceDataPoints, borderColor: 'rgb(74, 144, 226)', backgroundColor: 'rgba(74, 144, 226, 0.5)' },
+          { label: 'Despesas', data: expenseDataPoints, borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.5)' }
+        ];
+      }
     }
 
     return { totalIncome, totalExpense, balance, expenseChartData, incomeChartData, balanceChartData, budgetProgress, lineChartData, singleDayChartData, isSingleDayView };
-  }, [transactions, budgets, filterStartDate, filterEndDate, accounts, accountView]);
+  }, [transactions, budgets, filterStartDate, filterEndDate, accounts, accountView, selectedExpenseCategories]); // ADICIONE AQUI
 
   const charts = [
     { title: "Gastos por Categoria", data: summaryData.expenseChartData },
@@ -277,7 +294,7 @@ function Dashboard({ user }) {
     { title: "Rendas vs. Despesas", data: summaryData.balanceChartData }
   ];
 
-   const currentMonthIncome = useMemo(() => {
+  const currentMonthIncome = useMemo(() => {
     const today = new Date();
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
@@ -286,8 +303,8 @@ function Dashboard({ user }) {
       .filter(tx => {
         const txDate = tx.createdAt.toDate();
         return tx.type === 'income' &&
-               txDate.getMonth() === currentMonth &&
-               txDate.getFullYear() === currentYear;
+          txDate.getMonth() === currentMonth &&
+          txDate.getFullYear() === currentYear;
       })
       .reduce((acc, tx) => acc + tx.amount, 0);
   }, [transactions]);
@@ -295,13 +312,13 @@ function Dashboard({ user }) {
   const goToPrevChart = () => setCurrentChartIndex(prev => (prev - 1 + charts.length) % charts.length);
 
   const handleLogout = () => signOut(auth);
- const handleOpenAddTransactionModal = () => {
+  const handleOpenAddTransactionModal = () => {
     setIsAddTransactionModalOpen(true);
   };
   const handleCloseAddTransactionModal = () => {
     setIsAddTransactionModalOpen(false);
   };
-    const handleSelectAllOnPage = (e) => {
+  const handleSelectAllOnPage = (e) => {
     const isChecked = e.target.checked;
     const newSelection = new Set(selectedTransactions);
 
@@ -424,7 +441,7 @@ function Dashboard({ user }) {
       toast.error("Falha ao salvar.");
     }
   };
-  
+
   // --- SUBSTITUIÇÃO DO useEffect PELO useLayoutEffect ---
   useLayoutEffect(() => {
     if (scrollPositionRef.current > 0) {
@@ -434,29 +451,29 @@ function Dashboard({ user }) {
 
   if (loading) return <div>Carregando suas finanças...</div>;
 
-   return (
+  return (
     <>
       <div className={styles.dashboard}>
         <header className={styles.header}>
           <div><h1>Dashboard Oikonomos</h1><p>Olá, {user.email}</p></div>
 
-            <div className={styles.accountSelector}>
-              <select value={accountView} onChange={(e) => setAccountView(e.target.value)}>
-                <option value="geral">Visão Geral (sem Reservas)</option>
-                <option value="total">Patrimônio Total</option>
-                <option disabled>--- Contas ---</option>
-                {accounts.map(acc => (
-                  <option key={acc.id} value={acc.id}>{acc.accountName}</option>
-                ))}
-              </select>
-            </div>
+          <div className={styles.accountSelector}>
+            <select value={accountView} onChange={(e) => setAccountView(e.target.value)}>
+              <option value="geral">Visão Geral (sem Reservas)</option>
+              <option value="total">Patrimônio Total</option>
+              <option disabled>--- Contas ---</option>
+              {accounts.map(acc => (
+                <option key={acc.id} value={acc.id}>{acc.accountName}</option>
+              ))}
+            </select>
+          </div>
 
           <div className={styles.headerActions}>
-                {/* <<< BOTÃO DE TRANSFERÊNCIA AGORA CHAMA A NOVA FUNÇÃO */}
-                <button onClick={handleOpenAddTransactionModal} className={styles.primaryActionButton}>+ Adicionar Transação</button>
-                <Link to="/reports" className={styles.headerButton}>Ver Relatórios</Link>
-                <button onClick={handleLogout} className={styles.logoutButton}>Sair</button>
-            </div>
+            {/* <<< BOTÃO DE TRANSFERÊNCIA AGORA CHAMA A NOVA FUNÇÃO */}
+            <button onClick={handleOpenAddTransactionModal} className={styles.primaryActionButton}>+ Adicionar Transação</button>
+            <Link to="/reports" className={styles.headerButton}>Ver Relatórios</Link>
+            <button onClick={handleLogout} className={styles.logoutButton}>Sair</button>
+          </div>
         </header>
 
         <section className={styles.filterSection}>
@@ -488,59 +505,54 @@ function Dashboard({ user }) {
         <section className={`${styles.managerSection} ${styles.budgetStatusSection}`}>
           <BudgetStatus budgetProgress={summaryData.budgetProgress} />
         </section>
-<main className={styles.mainContent}>
-  <div className={styles.chartsContainer}>
-    <div className={styles.chartWrapper}>
-      {summaryData.isSingleDayView ? (
-        <DailyBarChart
-          title={`Resumo do Dia: ${new Date(filterStartDate).toLocaleDateString('pt-BR', {timeZone: 'UTC'})}`}
-          chartData={summaryData.singleDayChartData}
-        />
-      ) : (
-        <>
-          <div className={styles.chartHeader}>
-            <h3 className={styles.chartTitle}>Evolução Financeira</h3>
-            <div className={styles.lineChartControls}>
-              <label><input type="checkbox" checked={lineChartVisibility.Saldo} onChange={() => handleLineChartToggle('Saldo')} /> Saldo</label>
-              <label><input type="checkbox" checked={lineChartVisibility.Despesas} onChange={() => handleLineChartToggle('Despesas')} /> Despesas</label>
+        <main className={styles.mainContent}>
+          <div className={styles.chartsContainer}>
+            {/* Este é o único gráfico que ficará no Dashboard */}
+            <div className={`${styles.chartWrapper} ${styles.doughnutChartWrapper}`}>
+              <div className={styles.chartHeader}>
+                <h3 className={styles.chartTitle}>{charts[currentChartIndex].title}</h3>
+
+                <div className={styles.chartActions}>
+                  <button onClick={() => setIsCategoryFilterOpen(prev => !prev)} className={styles.filterButton}>
+                    Filtrar Categorias
+                  </button>
+                  {isCategoryFilterOpen && (
+                    <CategoryFilter
+                      allCategories={categories} // Passe a lista completa de objetos
+                      selectedCategories={selectedExpenseCategories}
+                      onSelectionChange={setSelectedExpenseCategories}
+                    />
+                  )}
+                </div>
+
+                <div className={styles.navButtons}>
+                  <button onClick={goToPrevChart}>&lt;</button>
+                  <button onClick={goToNextChart}>&gt;</button>
+                </div>
+              </div>
+              <div className={styles.chartCanvasContainer}>
+                <SummaryChart chartData={charts[currentChartIndex].data} />
+              </div>
             </div>
           </div>
-          <div className={styles.chartCanvasContainer}>
-            <LineChart
-              chartData={{
-                ...summaryData.lineChartData,
-                datasets: summaryData.lineChartData.datasets.map(ds => ({...ds, hidden: !lineChartVisibility[ds.label]}))
-              }}
-            />
-          </div>
-        </>
-      )}
-    </div>
-    <div className={`${styles.chartWrapper} ${styles.doughnutChartWrapper}`}>
-      <div className={styles.chartHeader}>
-        <h3 className={styles.chartTitle}>{charts[currentChartIndex].title}</h3>
-        <div className={styles.navButtons}><button onClick={goToPrevChart}>&lt;</button><button onClick={goToNextChart}>&gt;</button></div>
-      </div>
-      <div className={styles.chartCanvasContainer}>
-        <SummaryChart chartData={charts[currentChartIndex].data} />
-      </div>
-    </div>
-  </div>
-  <div className={styles.transactionsContainer}>
-      <div className={styles.transactionsHeader}>
-      <h2>Suas Transações</h2>
-      {isSelectionMode ? (
-        <div className={styles.selectionActions}>
-          <span>{selectedTransactions.size} selecionada(s)</span>
-            <button onClick={handleDeleteSelected} className={styles.deleteSelectedButton}>Excluir Selecionados</button>
-            <button onClick={toggleSelectionMode} className={styles.cancelSelectionButton}>Cancelar</button>        </div>
-      ) : (
-        <button onClick={toggleSelectionMode} className={styles.selectButton}>
-          Selecionar Vários
-        </button>
-      )}
-    </div>
-    <table className={styles.table}>
+
+          <div className={styles.transactionsContainer}>
+            <div className={styles.transactionsHeader}>
+              <h2>Suas Transações</h2>
+              {isSelectionMode ? (
+                <div className={styles.selectionActions}>
+                  <span>{selectedTransactions.size} selecionada(s)</span>
+                  <button onClick={handleDeleteSelected} className={styles.deleteSelectedButton}>Excluir Selecionados</button>
+                  <button onClick={toggleSelectionMode} className={styles.cancelSelectionButton}>Cancelar</button>
+                </div>
+              ) : (
+                <button onClick={toggleSelectionMode} className={styles.selectButton}>
+                  Selecionar Vários
+                </button>
+              )}
+            </div>
+            <table className={styles.table}>
+              {/* O conteúdo da sua tabela de transações continua o mesmo aqui... */}
               <thead>
                 <tr>
                   {isSelectionMode && (
@@ -548,7 +560,6 @@ function Dashboard({ user }) {
                       <input
                         type="checkbox"
                         onChange={handleSelectAllOnPage}
-                        // O checkbox principal estará marcado se todos os itens visíveis na página estiverem selecionados
                         checked={currentTransactions.length > 0 && currentTransactions.every(tx => selectedTransactions.has(tx.id))}
                       />
                     </th>
@@ -569,12 +580,11 @@ function Dashboard({ user }) {
                     return (
                       <tr key={tx.id} className={isSelected ? styles.selectedRow : ''}>
                         {isSelectionMode && (
-                          // A célula inteira se torna clicável para selecionar/deselecionar a linha
                           <td className={styles.checkboxCell} onClick={() => handleRowSelect(tx.id)}>
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              readOnly // O clique é gerenciado pela <td>, então o checkbox é apenas visual
+                              readOnly
                             />
                           </td>
                         )}
@@ -584,66 +594,65 @@ function Dashboard({ user }) {
                         <td data-label="Conta">{accountName}</td>
                         <td data-label="Valor (R$)" className={tx.type === 'income' ? styles.incomeAmount : styles.expenseAmount}>{tx.type === 'income' ? '+ ' : '- '}R$ {tx.amount.toFixed(2)}</td>
                         <td data-label="Ações">
-                            <button onClick={() => handleOpenEditModal(tx)} className={styles.editButton}>Editar</button>
-                            <button onClick={() => handleDelete(tx.id)} className={styles.deleteButton}>Excluir</button>
+                          <button onClick={() => handleOpenEditModal(tx)} className={styles.editButton}>Editar</button>
+                          <button onClick={() => handleDelete(tx.id)} className={styles.deleteButton}>Excluir</button>
                         </td>
                       </tr>
                     )
                   })
                 ) : (
-                  // O colSpan se ajusta se o modo de seleção está ativo ou não
                   <tr><td colSpan={isSelectionMode ? 7 : 6}>Nenhuma transação encontrada.</td></tr>
                 )}
               </tbody>
             </table>
-    {totalPages > 1 && (
-      <div className={styles.pagination}>
-        <button onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1}>
-          Anterior
-        </button>
-        <span>
-          Página {currentPage} de {totalPages}
-        </span>
-        <button onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages}>
-          Próxima
-        </button>
-      </div>
-    )}
-  </div>
-</main>
+            {totalPages > 1 && (
+              <div className={styles.pagination}>
+                <button onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1}>
+                  Anterior
+                </button>
+                <span>
+                  Página {currentPage} de {totalPages}
+                </span>
+                <button onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages}>
+                  Próxima
+                </button>
+              </div>
+            )}
+          </div>
+        </main>
 
-           <section className={styles.managerSection}>
-    <DebtManager
-      expenseCategories={categories.filter(c => c.type === 'expense')}
-      accounts={accounts}
-      onDataChanged={triggerRefresh}
-    />
-</section>
+        <section className={styles.managerSection}>
+          <DebtManager
+            expenseCategories={categories.filter(c => c.type === 'expense')}
+            accounts={accounts}
+            onDataChanged={triggerRefresh}
+          />
+        </section>
 
 
         <section className={styles.managerSection}>
-        <GoalManager onDataChanged={triggerRefresh} accounts={accounts} />
-      </section>
+          <GoalManager onDataChanged={triggerRefresh} accounts={accounts} />
+        </section>
         <section className={styles.managerSection}>
-            <AccountManager onDataChanged={triggerRefresh} accounts={accounts} />
+          <AccountManager onDataChanged={triggerRefresh} accounts={accounts} />
         </section>
         <section className={styles.managerSection}>
           <BudgetManager onDataChanged={triggerRefresh} totalMonthIncome={currentMonthIncome} />
-          </section>
+        </section>
         <section className={styles.managerSection}>
-            <CategoryManager onDataChanged={triggerRefresh} />
-          </section>
+          <CategoryManager onDataChanged={triggerRefresh} />
+        </section>
       </div>
       {isModalOpen && (<EditModal transaction={editingTransaction} onSave={handleSaveTransaction} onCancel={handleCloseModal} categories={categories} />)}
       {isAddTransactionModalOpen && (
         <AddTransactionModal
-            onCancel={handleCloseAddTransactionModal}
-            onSave={() => {
-                handleCloseAddTransactionModal();
-                triggerRefresh();
-            }}
-            categories={categories}
-            accounts={accounts}
+          onCancel={handleCloseAddTransactionModal}
+          onSave={() => {
+            handleCloseAddTransactionModal();
+            triggerRefresh();
+          }}
+          categories={categories}
+          accounts={accounts}
         />
       )}
     </>

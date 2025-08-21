@@ -91,3 +91,25 @@
   padding: 8px 12px;
   font-size: 1rem;
 }
+
+
+/* Adicione ao final de ReportsPage.module.css */
+.chartHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.chartActions {
+  position: relative;
+}
+
+.filterButton {
+  background-color: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 8px 15px;
+  border-radius: 6px;
+  cursor: pointer;
+}

@@ -19,7 +19,7 @@ function SummaryChart({ chartData, title }) {
         font: { size: 16 }
       },
       legend: {
-        position: 'top', // Propriedade da primeira
+        position: 'right', // Propriedade da primeira
         labels: { color: '#A0A0A0' } // Propriedade da segunda
       }
     },
