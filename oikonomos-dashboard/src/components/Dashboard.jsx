@@ -7,16 +7,10 @@ import toast from 'react-hot-toast';
 // Componentes Filhos
 import SummaryChart from './SummaryChart';
 import EditModal from './EditModal';
-import CategoryManager from './CategoryManager';
-import BudgetManager from './BudgetManager';
 import BudgetStatus from './BudgetStatus';
-import DebtManager from './DebtManager';
-import GoalManager from './GoalManager';
-import AccountManager from './AccountManager';
 import AddTransactionModal from './AddTransactionModal';
-import HeaderActions from './HeaderActions'; // <<< NOVO
+import HeaderActions from './HeaderActions'; 
 import { showConfirmationToast } from '../utils/toastUtils.jsx';
-import { exportToCSV, exportToPDF } from '../utils/exportUtils'
 import CategoryFilter from './CategoryFilter';
 // Estilos
 import styles from './Dashboard.module.css';
@@ -50,7 +44,7 @@ function Dashboard({ user }) {
   const [selectedTransactions, setSelectedTransactions] = useState(new Set());
   const [isCategoryFilterOpen, setIsCategoryFilterOpen] = useState(false);
   const [selectedExpenseCategories, setSelectedExpenseCategories] = useState(new Set());
-  const [isFilterVisible, setIsFilterVisible] = useState(false); // <<< NOVO ESTADO
+  const [isFilterVisible, setIsFilterVisible] = useState(false);
 
   const scrollPositionRef = useRef(0);
   // --- LÓGICA DE PAGINAÇÃO ---
@@ -71,7 +65,6 @@ function Dashboard({ user }) {
     date.setUTCHours(23, 59, 59, 999);
     return date;
   };
-
 
   const toggleSelectionMode = () => {
     if (isSelectionMode) {
@@ -237,20 +230,6 @@ function Dashboard({ user }) {
     { title: "Rendas vs. Despesas", data: summaryData.balanceChartData }
   ];
 
-  const currentMonthIncome = useMemo(() => {
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-
-    return transactions
-      .filter(tx => {
-        const txDate = tx.createdAt.toDate();
-        return tx.type === 'income' &&
-          txDate.getMonth() === currentMonth &&
-          txDate.getFullYear() === currentYear;
-      })
-      .reduce((acc, tx) => acc + tx.amount, 0);
-  }, [transactions]);
   const goToNextChart = () => setCurrentChartIndex(prev => (prev + 1) % charts.length);
   const goToPrevChart = () => setCurrentChartIndex(prev => (prev - 1 + charts.length) % charts.length);
 
@@ -295,8 +274,8 @@ function Dashboard({ user }) {
   };
   
   const handleApplyFilters = () => {
-    fetchData(); // A função fetchData já usa os estados de filtro
-    setIsFilterVisible(false); // Fecha a seção de filtros após aplicar
+    fetchData();
+    setIsFilterVisible(false);
   };
 
   const handleDelete = (transactionId) => {
@@ -361,7 +340,6 @@ function Dashboard({ user }) {
   return (
     <>
       <div className={styles.dashboard}>
-        {/* --- CABEÇALHO MINIMALISTA --- */}
         <header className={styles.header}>
           <div><h1>Dashboard Oikonomos</h1><p>Olá, {user.email}</p></div>
           <div className={styles.headerActions}>
@@ -377,14 +355,12 @@ function Dashboard({ user }) {
           </div>
         </header>
 
-        {/* --- RESUMO FINANCEIRO (Como estava) --- */}
         <section className={styles.summary}>
           <div><h4>Total de Rendas</h4><p className={styles.incomeAmount}>R$ {summaryData.totalIncome.toFixed(2)}</p></div>
           <div><h4>Total de Despesas</h4><p className={styles.expenseAmount}>R$ {summaryData.totalExpense.toFixed(2)}</p></div>
           <div><h4>Saldo Atual</h4><p>R$ {summaryData.balance.toFixed(2)}</p></div>
         </section>
 
-        {/* --- NOVA SEÇÃO DE CONTROLES --- */}
         <section className={styles.controlsSection}>
             <button onClick={() => setIsFilterVisible(!isFilterVisible)} className={styles.controlButton}>
                 Filtros & Opções
@@ -399,7 +375,6 @@ function Dashboard({ user }) {
             />
         </section>
 
-        {/* --- SEÇÃO DE FILTROS RECOLHÍVEL --- */}
         {isFilterVisible && (
           <section className={styles.filterSection}>
             <div className={styles.filterGroup}><label>De:</label><input type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} /></div>
@@ -425,6 +400,7 @@ function Dashboard({ user }) {
         <section className={`${styles.managerSection} ${styles.budgetStatusSection}`}>
           <BudgetStatus budgetProgress={summaryData.budgetProgress} />
         </section>
+
         <main className={styles.mainContent}>
           <div className={styles.chartsContainer}>
             <div className={`${styles.chartWrapper} ${styles.doughnutChartWrapper}`}>
@@ -496,12 +472,6 @@ function Dashboard({ user }) {
             )}
           </div>
         </main>
-
-        <section className={styles.managerSection}><DebtManager expenseCategories={categories.filter(c => c.type === 'expense')} accounts={accounts} onDataChanged={triggerRefresh} /></section>
-        <section className={styles.managerSection}><GoalManager onDataChanged={triggerRefresh} accounts={accounts} /></section>
-        <section className={styles.managerSection}><AccountManager onDataChanged={triggerRefresh} accounts={accounts} /></section>
-        <section className={styles.managerSection}><BudgetManager onDataChanged={triggerRefresh} totalMonthIncome={currentMonthIncome} /></section>
-        <section className={styles.managerSection}><CategoryManager onDataChanged={triggerRefresh} /></section>
       </div>
       {isModalOpen && (<EditModal transaction={editingTransaction} onSave={handleSaveTransaction} onCancel={handleCloseModal} categories={categories} />)}
       {isAddTransactionModalOpen && (<AddTransactionModal onCancel={handleCloseAddTransactionModal} onSave={() => { handleCloseAddTransactionModal(); triggerRefresh(); }} categories={categories} accounts={accounts} />)}

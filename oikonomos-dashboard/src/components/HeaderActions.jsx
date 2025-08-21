@@ -36,6 +36,9 @@ function HeaderActions({ transactions, summary, accounts }) {
       </button>
       {isOpen && (
         <div className={styles.dropdownMenu}>
+          {/* ADICIONE O LINK PARA A NOVA PÁGINA AQUI */}
+          <Link to="/management" className={styles.dropdownItem}>Gerenciamento</Link>
+          <hr style={{ border: 'none', borderTop: '1px solid var(--borda-sutil)', margin: '4px 0' }} />
           <Link to="/reports" className={styles.dropdownItem}>Ver Relatórios</Link>
           <Link to="/forecast" className={styles.dropdownItem}>Previsões</Link>
           <button onClick={handleExportCSV} className={styles.dropdownItem}>

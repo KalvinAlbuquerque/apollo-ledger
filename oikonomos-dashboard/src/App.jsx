@@ -8,7 +8,7 @@ import ForecastPage from './pages/ForecastPage';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import ReportsPage from './pages/ReportsPage'
-
+import ManagementPage from './pages/ManagementPage';
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,8 +35,8 @@ function App() {
         <Route path="/" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
         <Route path="/dashboard" element={user ? <Dashboard user={user} /> : <Navigate to="/" />} />
         <Route path="/reports" element={user ? <ReportsPage /> : <Navigate to="/" />} />
-        <Route path="/forecast" element={user ? <ForecastPage /> : <Navigate to="/" />} /> 
-        {/* Adicione esta linha */}      
+        <Route path="/forecast" element={user ? <ForecastPage /> : <Navigate to="/" />} />
+        <Route path="/management" element={user ? <ManagementPage user={user} /> : <Navigate to="/" />} />
       </Routes>
     </Router>
   );

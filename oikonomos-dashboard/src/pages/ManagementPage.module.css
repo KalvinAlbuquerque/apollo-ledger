@@ -1,0 +1,42 @@
+.page {
+  max-width: 1200px; /* Mesma largura do dashboard para consistência */
+  margin: 40px auto;
+  padding: 20px;
+  color: var(--texto-principal);
+}
+
+.loading {
+    color: white;
+    text-align: center;
+    padding-top: 50px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+  border-bottom: 1px solid var(--borda-sutil);
+  padding-bottom: 20px;
+}
+
+.header h1 {
+    margin: 0;
+}
+
+.backButton {
+  background-color: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.backButton:hover {
+  background-color: var(--fundo-secundario);
+  color: var(--texto-principal);
+}
