@@ -6,8 +6,6 @@ import toast from 'react-hot-toast';
 
 // Componentes Filhos
 import SummaryChart from './SummaryChart';
-import LineChart from './LineChart';
-import DailyBarChart from './DailyBarChart';
 import EditModal from './EditModal';
 import CategoryManager from './CategoryManager';
 import BudgetManager from './BudgetManager';
@@ -17,7 +15,7 @@ import GoalManager from './GoalManager';
 import AccountManager from './AccountManager';
 import AddTransactionModal from './AddTransactionModal';
 import { showConfirmationToast } from '../utils/toastUtils.jsx';
-
+import { exportToCSV, exportToPDF } from '../utils/exportUtils'
 import CategoryFilter from './CategoryFilter';
 // Estilos
 import styles from './Dashboard.module.css';
@@ -470,9 +468,12 @@ function Dashboard({ user }) {
 
           <div className={styles.headerActions}>
             {/* <<< BOTÃO DE TRANSFERÊNCIA AGORA CHAMA A NOVA FUNÇÃO */}
+            <button onClick={() => exportToCSV(transactions, summaryData, accounts)} className={styles.headerButton}>Exportar CSV</button>
+            <button onClick={() => exportToPDF(transactions, summaryData, accounts)} className={styles.headerButton}>Exportar PDF</button>
+
             <button onClick={handleOpenAddTransactionModal} className={styles.primaryActionButton}>+ Adicionar Transação</button>
             <Link to="/reports" className={styles.headerButton}>Ver Relatórios</Link>
-             <Link to="/forecast" className={styles.headerButton}>Previsões</Link> 
+            <Link to="/forecast" className={styles.headerButton}>Previsões</Link>
             <button onClick={handleLogout} className={styles.logoutButton}>Sair</button>
           </div>
         </header>
