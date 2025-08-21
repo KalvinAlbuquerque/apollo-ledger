@@ -472,6 +472,7 @@ function Dashboard({ user }) {
             {/* <<< BOTÃO DE TRANSFERÊNCIA AGORA CHAMA A NOVA FUNÇÃO */}
             <button onClick={handleOpenAddTransactionModal} className={styles.primaryActionButton}>+ Adicionar Transação</button>
             <Link to="/reports" className={styles.headerButton}>Ver Relatórios</Link>
+             <Link to="/forecast" className={styles.headerButton}>Previsões</Link> 
             <button onClick={handleLogout} className={styles.logoutButton}>Sair</button>
           </div>
         </header>

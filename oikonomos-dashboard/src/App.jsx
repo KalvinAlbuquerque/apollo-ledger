@@ -4,7 +4,7 @@ import { auth } from '../firebaseClient';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Toaster } from 'react-hot-toast';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-
+import ForecastPage from './pages/ForecastPage';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import ReportsPage from './pages/ReportsPage'
@@ -35,7 +35,8 @@ function App() {
         <Route path="/" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
         <Route path="/dashboard" element={user ? <Dashboard user={user} /> : <Navigate to="/" />} />
         <Route path="/reports" element={user ? <ReportsPage /> : <Navigate to="/" />} />
-        {/* Adicione outras rotas aqui no futuro */}
+        <Route path="/forecast" element={user ? <ForecastPage /> : <Navigate to="/" />} /> 
+        {/* Adicione esta linha */}      
       </Routes>
     </Router>
   );

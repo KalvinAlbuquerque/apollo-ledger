@@ -1,0 +1,67 @@
+/* oikonomos-dashboard/src/components/UpcomingBills.module.css */
+.billsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%; /* Ocupa a altura do card */
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.billItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--fundo-secundario);
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 5px solid var(--acento-azul);
+  transition: transform 0.2s ease-in-out;
+}
+
+.billItem:hover {
+    transform: scale(1.02);
+}
+
+.billInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.billDescription {
+  font-weight: 700;
+  color: var(--texto-principal);
+}
+
+.billCategory {
+  font-size: 0.8rem;
+  color: var(--texto-secundario);
+  text-transform: capitalize;
+}
+
+.billDetails {
+  text-align: right;
+  flex-shrink: 0; /* Impede que o texto quebre em telas menores */
+  padding-left: 15px;
+}
+
+.billDueDate {
+  font-size: 0.8rem;
+  color: var(--texto-secundario);
+  display: block;
+}
+
+.billAmount {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--vermelho-destaque);
+}
+
+.emptyMessage {
+    color: var(--texto-secundario);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
