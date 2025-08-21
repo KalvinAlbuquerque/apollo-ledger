@@ -39,12 +39,27 @@
   transform: scale(1.05);
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.accountSelector {
+  /* O seletor de conta agora fica dentro do headerActions */
+}
+.accountSelector select {
+  font-weight: bold;
+  padding: 8px 12px;
+  font-size: 1rem;
+}
+
+
 /* --- Resumo Financeiro --- */
 .summary {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
-  margin-bottom: 20px;
+  margin-bottom: 20px; /* Reduzido para aproximar dos novos controles */
   text-align: center;
 }
 .summary > div {
@@ -70,16 +85,62 @@
   color: var(--vermelho-destaque);
 }
 
-/* --- Seção de Filtros (Desktop) --- */
+
+/* --- NOVA SEÇÃO DE CONTROLES --- */
+.controlsSection {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    padding: 15px 0;
+    margin-bottom: 20px;
+}
+
+.primaryActionButton {
+  background-color: var(--acento-azul);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s;
+  margin-left: auto; /* Joga o botão para a direita */
+}
+
+.primaryActionButton:hover {
+  opacity: 0.9;
+  transform: scale(1.05);
+}
+
+.controlButton {
+    background-color: transparent;
+    border: 1px solid var(--borda-sutil);
+    color: var(--texto-secundario);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.controlButton:hover {
+    background-color: var(--fundo-secundario);
+    color: var(--texto-principal);
+}
+
+
+/* --- Seção de Filtros RECOLHÍVEL --- */
 .filterSection {
   background-color: var(--cinza-elemento);
   padding: 15px 20px;
   border-radius: 12px;
-  margin-bottom: 40px;
+  margin-bottom: 20px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 20px;
+  border: 1px solid var(--borda-sutil);
 }
 .filterGroup {
   display: flex;
@@ -122,7 +183,20 @@
   margin-left: 10px;
 }
 .filterButton {
-  margin-left: auto; /* Empurra o botão "Filtrar" para a direita */
+  background-color: var(--acento-azul);
+  color: white;
+  border: none;
+  padding: 10px 25px; 
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9rem;
+  margin-left: auto;
+  transition: opacity 0.2s;
+}
+
+.filterButton:hover {
+  opacity: 0.8;
 }
 
 /* --- Conteúdo Principal (Gráficos e Tabela) --- */
@@ -132,10 +206,9 @@
   gap: 40px;
 }
 
-/* Em Dashboard.module.css */
 .chartsContainer {
   display: grid;
-  grid-template-columns: 1fr; /* Garante uma única coluna */
+  grid-template-columns: 1fr; 
   gap: 40px;
   align-items: stretch; 
 }
@@ -244,26 +317,7 @@
   margin-bottom: 40px;
 }
 
-
-  .filterButton {
-    background-color: var(--acento-azul);
-    color: white;
-    border: none;
-    padding: 10px 25px; /* Aumenta um pouco o padding para mais destaque */
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 0.9rem;
-    margin-left: auto; /* Mantém o alinhamento à direita no desktop */
-    transition: opacity 0.2s;
-  }
-
-.filterButton:hover {
-  opacity: 0.8;
-}
-
 .doughnutChartWrapper {
-  /* RESTAURE esta linha para o gráfico voltar a ser quadrado */
   aspect-ratio: 1 / 1;
   max-height: 550px;
 }
@@ -278,8 +332,28 @@
     margin: 20px auto;
   }
 
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .headerActions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .summary {
     grid-template-columns: 1fr;
+  }
+
+  .controlsSection {
+    flex-wrap: wrap;
+  }
+
+  .primaryActionButton {
+    order: -1; /* Coloca o botão de adicionar primeiro */
+    flex-grow: 1; /* Faz ele ocupar o espaço */
+    margin-left: 0;
   }
 
   .filterSection {
@@ -294,22 +368,6 @@
     width: 100%;
     justify-content: center;
   }
-  .filterButton {
-    background-color: var(--acento-azul);
-    color: white;
-    border: none;
-    padding: 10px 25px; /* Aumenta um pouco o padding para mais destaque */
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 0.9rem;
-    margin-left: auto; /* Mantém o alinhamento à direita no desktop */
-    transition: opacity 0.2s;
-  }
-
-.filterButton:hover {
-  opacity: 0.8;
-}
 
   .chartsContainer {
     grid-template-columns: 1fr;
@@ -320,91 +378,14 @@
     height: auto;
   }
 
-  .table thead {
-    display: none;
-  }
-  .table, .table tbody, .table tr, .table td {
-    display: block;
-    width: 100%;
-  }
-  .table tr {
-    margin-bottom: 15px;
-    padding: 10px;
-  }
-  .table td {
-    text-align: right;
-    position: relative;
-    padding-left: 50%;
-    border-bottom: 1px solid var(--borda-sutil);
-    padding-top: 10px;
-    padding-bottom: 10px;
-  }
-  .table tr td:last-child {
-    border-bottom: none;
-  }
-  .table td::before {
-    content: attr(data-label);
-    position: absolute;
-    left: 10px;
-    width: 45%;
-    padding-right: 10px;
-    text-align: left;
-    font-weight: bold;
-    color: var(--texto-secundario);
-    text-transform: capitalize;
-  }
+  .table thead { display: none; }
+  .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
+  .table tr { margin-bottom: 15px; padding: 10px; }
+  .table td { text-align: right; position: relative; padding-left: 50%; border-bottom: 1px solid var(--borda-sutil); padding-top: 10px; padding-bottom: 10px; }
+  .table tr td:last-child { border-bottom: none; }
+  .table td::before { content: attr(data-label); position: absolute; left: 10px; width: 45%; padding-right: 10px; text-align: left; font-weight: bold; color: var(--texto-secundario); text-transform: capitalize; }
 }
 
-.primaryActionButton {
-  background-color: var(--acento-azul);
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.2s ease, opacity 0.2s;
-}
-
-.primaryActionButton:hover {
-  opacity: 0.9;
-  transform: scale(1.05);
-}
-
-.headerActions {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-.accountSelector {
-  margin-top: 10px;
-}
-
-.accountSelector select {
-  /* Usa o estilo global de 'select' que já definimos */
-  font-weight: bold;
-  padding: 8px 12px;
-  font-size: 1rem;
-}
-
-
-.headerButton {
-  background-color: transparent;
-  border: 1px solid var(--borda-sutil);
-  color: var(--texto-secundario);
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  text-decoration: none;
-  transition: all 0.2s;
-}
-
-.headerButton:hover {
-  background-color: var(--fundo-secundario);
-  color: var(--texto-principal);
-  border-color: var(--texto-secundario);
-}
 
 .transactionsHeader {
   display: flex;
@@ -412,182 +393,23 @@
   align-items: center;
   margin-bottom: 15px;
 }
-.transactionsHeader h2 {
-  margin: 0;
-}
-.selectButton {
-  background-color: transparent;
-  border: 1px solid var(--borda-sutil);
-  color: var(--texto-secundario);
-  padding: 8px 15px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.selectButton:hover {
-  border-color: var(--texto-principal);
-  color: var(--texto-principal);
-}
-.selectionActions {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-.selectionActions span {
-  color: var(--texto-secundario);
-  font-size: 0.9rem;
-}
-.deleteSelectedButton {
-  background-color: var(--vermelho-destaque);
-  color: white;
-  border: none;
-  padding: 8px 15px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-}
-.checkboxCell {
-  width: 20px;
-}
-.selectedRow {
-  background-color: rgba(74, 144, 226, 0.2) !important; /* Cor de fundo azulada para a linha selecionada */
-}
+.transactionsHeader h2 { margin: 0; }
+.selectButton { background-color: transparent; border: 1px solid var(--borda-sutil); color: var(--texto-secundario); padding: 8px 15px; border-radius: 6px; cursor: pointer; }
+.selectButton:hover { border-color: var(--texto-principal); color: var(--texto-principal); }
+.selectionActions { display: flex; align-items: center; gap: 15px; }
+.selectionActions span { color: var(--texto-secundario); font-size: 0.9rem; }
+.deleteSelectedButton { background-color: var(--vermelho-destaque); color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+.checkboxCell { width: 20px; }
+.selectedRow { background-color: rgba(74, 144, 226, 0.2) !important; }
 
-cancelSelectionButton {
-  background-color: transparent;
-  border: 1px solid var(--borda-sutil);
-  color: var(--texto-secundario);
-  padding: 8px 15px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: all 0.2s;
-}
+.cancelSelectionButton { background-color: transparent; border: 1px solid var(--borda-sutil); color: var(--texto-secundario); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
+.cancelSelectionButton:hover { background-color: var(--fundo-secundario); border-color: var(--texto-principal); color: var(--texto-principal); }
 
-.cancelSelectionButton:hover {
-  background-color: var(--fundo-secundario);
-  border-color: var(--texto-principal);
-  color: var(--texto-principal);
-}
+.pagination { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px; padding: 10px; background-color: var(--cinza-elemento); border-radius: 0 0 12px 12px; }
+.pagination button { background-color: var(--acento-azul); color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
+.pagination button:hover { opacity: 0.8; }
+.pagination button:disabled { background-color: #555; cursor: not-allowed; opacity: 0.5; }
+.pagination span { color: var(--texto-secundario); font-weight: 500; }
 
-
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 15px;
-  margin-top: 20px;
-  padding: 10px;
-  background-color: var(--cinza-elemento);
-  border-radius: 0 0 12px 12px; /* Arredonda apenas os cantos de baixo */
-}
-
-.pagination button {
-  background-color: var(--acento-azul);
-  color: white;
-  border: none;
-  padding: 8px 15px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: opacity 0.2s;
-}
-
-.pagination button:hover {
-  opacity: 0.8;
-}
-
-.pagination button:disabled {
-  background-color: #555;
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.pagination span {
-  color: var(--texto-secundario);
-  font-weight: 500;
-}
-
-
-.lineChartControls {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-}
-
-.lineChartControls label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.8rem;
-    color: var(--texto-secundario);
-    cursor: pointer;
-}
-
-/* Garante que o LineChart ocupe o espaço restante */
-.chartWrapper > .chartCanvasContainer {
-    flex-grow: 1;
-    position: relative;
-}
-
-/* Adicione ao final de Dashboard.module.css */
-
-.chartToggleButton {
-  background-color: transparent;
-  border: 1px solid var(--borda-sutil);
-  color: var(--texto-secundario);
-  padding: 5px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 0.8rem;
-  transition: all 0.2s ease;
-}
-
-.chartToggleButton:hover {
-  background-color: var(--fundo-secundario);
-  color: var(--texto-principal);
-}
-
-
-/* Adicione ao final de Dashboard.module.css */
-
-.chartViewSelector {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.chartViewSelector button {
-  background-color: var(--cinza-elemento);
-  border: 1px solid var(--borda-sutil);
-  color: var(--texto-secundario);
-  padding: 8px 15px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.chartViewSelector button:hover {
-  background-color: var(--fundo-secundario);
-  color: var(--texto-principal);
-}
-
-.chartViewSelector button.active {
-  background-color: var(--acento-azul);
-  border-color: var(--acento-azul);
-  color: white;
-}
-
-.chartActions {
-  position: relative; /* Contêiner para o botão e o dropdown */
-}
-
-.filterButton {
-  background-color: transparent;
-  border: 1px solid var(--borda-sutil);
-  color: var(--texto-secundario);
-  padding: 5px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-}
+.chartActions { position: relative; }
+.chartActions .filterButton { background-color: transparent; border: 1px solid var(--borda-sutil); color: var(--texto-secundario); padding: 5px 10px; border-radius: 6px; cursor: pointer; }

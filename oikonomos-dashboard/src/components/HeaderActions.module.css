@@ -1,0 +1,57 @@
+.actionsContainer {
+  position: relative;
+  display: inline-block;
+}
+
+.menuButton {
+  background-color: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.menuButton:hover {
+  background-color: var(--fundo-secundario);
+  color: var(--texto-principal);
+  border-color: var(--texto-secundario);
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--borda-sutil);
+  border-radius: 8px;
+  padding: 8px;
+  z-index: 100;
+  width: 180px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  margin-top: 5px;
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdownItem {
+  background: none;
+  border: none;
+  color: var(--texto-principal);
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  width: 100%;
+  text-decoration: none;
+  display: block;
+}
+
+.dropdownItem:hover {
+  background-color: var(--acento-azul);
+  color: white;
+}
