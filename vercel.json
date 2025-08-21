@@ -2,28 +2,18 @@
   "version": 2,
   "builds": [
     {
-      "src": "oikonomos-dashboard/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "oikonomos-dashboard/dist"
-      }
-    },
-    {
       "src": "backend/bot.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
+      "src": "/api/bot",
       "dest": "backend/bot.py"
     },
     {
-      "handle": "filesystem"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "backend/bot.py"
     }
   ],
   "crons": [
