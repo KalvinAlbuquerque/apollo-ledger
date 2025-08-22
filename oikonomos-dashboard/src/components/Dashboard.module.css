@@ -3,7 +3,7 @@
    ========================================================================== */
 
 .dashboard {
-  max-width: 1200px;
+  max-width: 1400px; /* Aumentado para dar mais espaço */
   margin: 40px auto;
   padding: 20px;
 }
@@ -17,367 +17,95 @@
   border-bottom: 1px solid var(--borda-sutil);
   padding-bottom: 20px;
 }
-.header h1 {
-  font-size: 2rem;
-  margin: 0;
-}
-.header p {
-  margin: 0;
-  color: var(--texto-secundario);
-}
-.logoutButton {
-  background-color: var(--vermelho-destaque);
-  color: #fff;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-.logoutButton:hover {
-  transform: scale(1.05);
-}
+.header h1 { font-size: 2rem; margin: 0; }
+.header p { margin: 0; color: var(--texto-secundario); }
+.logoutButton { background-color: var(--vermelho-destaque); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: transform 0.2s ease; }
+.logoutButton:hover { transform: scale(1.05); }
 
-.headerActions {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-.accountSelector {
-  /* O seletor de conta agora fica dentro do headerActions */
-}
-.accountSelector select {
-  font-weight: bold;
-  padding: 8px 12px;
-  font-size: 1rem;
-}
-
+.headerActions { display: flex; align-items: center; gap: 15px; }
+.accountSelector select { font-weight: bold; padding: 8px 12px; font-size: 1rem; }
 
 /* --- Resumo Financeiro --- */
-.summary {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-bottom: 20px; /* Reduzido para aproximar dos novos controles */
-  text-align: center;
-}
-.summary > div {
-  background-color: var(--cinza-elemento);
-  padding: 20px;
-  border-radius: 12px;
-  border: 1px solid var(--borda-sutil);
-}
-.summary h4 {
-  margin: 0 0 10px 0;
-  color: var(--texto-secundario);
-  font-weight: 500;
-}
-.summary p {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
-}
-.incomeAmount {
-  color: var(--verde-destaque);
-}
-.expenseAmount {
-  color: var(--vermelho-destaque);
-}
-
+.summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px; text-align: center; }
+.summary > div { background-color: var(--cinza-elemento); padding: 20px; border-radius: 12px; border: 1px solid var(--borda-sutil); }
+.summary h4 { margin: 0 0 10px 0; color: var(--texto-secundario); font-weight: 500; }
+.summary p { margin: 0; font-size: 1.5rem; font-weight: 700; }
+.incomeAmount { color: var(--verde-destaque); }
+.expenseAmount { color: var(--vermelho-destaque); }
 
 /* --- NOVA SEÇÃO DE CONTROLES --- */
-.controlsSection {
-    display: flex;
-    gap: 15px;
-    align-items: center;
-    padding: 15px 0;
-    margin-bottom: 20px;
-}
-
-.primaryActionButton {
-  background-color: var(--acento-azul);
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 0.2s ease, opacity 0.2s;
-  margin-left: auto; /* Joga o botão para a direita */
-}
-
-.primaryActionButton:hover {
-  opacity: 0.9;
-  transform: scale(1.05);
-}
-
-.controlButton {
-    background-color: transparent;
-    border: 1px solid var(--borda-sutil);
-    color: var(--texto-secundario);
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-weight: 500;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all 0.2s;
-}
-
-.controlButton:hover {
-    background-color: var(--fundo-secundario);
-    color: var(--texto-principal);
-}
-
+.controlsSection { display: flex; gap: 15px; align-items: center; padding: 15px 0; margin-bottom: 20px; }
+.primaryActionButton { background-color: var(--acento-azul); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: transform 0.2s ease, opacity 0.2s; margin-left: auto; }
+.primaryActionButton:hover { opacity: 0.9; transform: scale(1.05); }
+.controlButton { background-color: transparent; border: 1px solid var(--borda-sutil); color: var(--texto-secundario); padding: 10px 20px; border-radius: 8px; font-weight: 500; cursor: pointer; text-decoration: none; transition: all 0.2s; }
+.controlButton:hover { background-color: var(--fundo-secundario); color: var(--texto-principal); }
 
 /* --- Seção de Filtros RECOLHÍVEL --- */
-.filterSection {
-  background-color: var(--cinza-elemento);
-  padding: 15px 20px;
-  border-radius: 12px;
-  margin-bottom: 20px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 20px;
-  border: 1px solid var(--borda-sutil);
-}
-.filterGroup {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.quickFilters {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-left: 1px solid var(--borda-sutil);
-  padding-left: 20px;
-  margin-left: 10px;
-}
-.quickFilters button {
-  background-color: #333;
-  color: var(--texto-secundario);
-  border: 1px solid var(--borda-sutil);
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.quickFilters button:hover {
-  background-color: #444;
-  color: var(--texto-principal);
-}
-.tooltip {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  line-height: 20px;
-  text-align: center;
-  background-color: var(--texto-secundario);
-  color: var(--fundo-primario);
-  border-radius: 50%;
-  font-weight: bold;
-  cursor: help;
-  margin-left: 10px;
-}
-.filterButton {
-  background-color: var(--acento-azul);
-  color: white;
-  border: none;
-  padding: 10px 25px; 
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: bold;
-  font-size: 0.9rem;
-  margin-left: auto;
-  transition: opacity 0.2s;
-}
-
-.filterButton:hover {
-  opacity: 0.8;
-}
+.filterSection { background-color: var(--cinza-elemento); padding: 15px 20px; border-radius: 12px; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; border: 1px solid var(--borda-sutil); }
+.filterGroup { display: flex; align-items: center; gap: 8px; }
+.quickFilters { display: flex; align-items: center; gap: 8px; border-left: 1px solid var(--borda-sutil); padding-left: 20px; margin-left: 10px; }
+.quickFilters button { background-color: #333; color: var(--texto-secundario); border: 1px solid var(--borda-sutil); border-radius: 6px; padding: 8px 12px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+.quickFilters button:hover { background-color: #444; color: var(--texto-principal); }
+.tooltip { display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; background-color: var(--texto-secundario); color: var(--fundo-primario); border-radius: 50%; font-weight: bold; cursor: help; margin-left: 10px; }
+.filterButton { background-color: var(--acento-azul); color: white; border: none; padding: 10px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; margin-left: auto; transition: opacity 0.2s; }
+.filterButton:hover { opacity: 0.8; }
 
 /* --- Conteúdo Principal (Gráficos e Tabela) --- */
-.mainContent {
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-}
+.mainContent { display: flex; flex-direction: column; gap: 40px; }
 
+/* <<< ESTILO ATUALIZADO PARA O GRID DO GRÁFICO E RANKING >>> */
 .chartsContainer {
   display: grid;
-  grid-template-columns: 1fr; 
-  gap: 40px;
+  grid-template-columns: 1fr 1fr; /* Duas colunas de tamanho igual */
+  gap: 25px;
   align-items: stretch; 
 }
-.chartWrapper {
-  background-color: var(--cinza-elemento);
-  padding: 20px;
-  border-radius: 12px;
-  border: 1px solid var(--borda-sutil);
-  display: flex;
-  flex-direction: column;
-}
-.chartHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  position: relative;
-}
-.chartTitle {
-  margin: 0;
-  font-weight: 500;
-}
-.navButtons {
-  display: flex;
-  gap: 10px;
-}
-.navButtons button {
-  background-color: #333;
-  border: 1px solid var(--borda-sutil);
-  color: var(--texto-principal);
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-weight: bold;
-  transition: background-color 0.2s;
-}
-.navButtons button:hover {
-  background-color: #444;
-}
-.chartCanvasContainer {
-  position: relative;
-  flex-grow: 1;
-}
+
+.chartWrapper { background-color: var(--cinza-elemento); padding: 20px; border-radius: 12px; border: 1px solid var(--borda-sutil); display: flex; flex-direction: column; }
+.chartHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; position: relative; }
+.chartTitle { margin: 0; font-weight: 500; }
+.navButtons { display: flex; gap: 10px; }
+.navButtons button { background-color: #333; border: 1px solid var(--borda-sutil); color: var(--texto-principal); border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; transition: background-color 0.2s; }
+.navButtons button:hover { background-color: #444; }
+.chartCanvasContainer { position: relative; flex-grow: 1; }
 
 /* --- Tabela de Transações --- */
-.transactionsContainer h2 {
-  margin-top: 0;
-}
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  background-color: var(--cinza-elemento);
-  border-radius: 12px;
-  overflow: hidden;
-}
-.table th, .table td {
-  padding: 15px;
-  text-align: left;
-}
-.table thead {
-  background-color: #252525;
-}
-.table tbody tr {
-  border-bottom: 1px solid var(--borda-sutil);
-}
-.table tbody tr:last-child {
-  border-bottom: none;
-}
-.table td:nth-child(2) {
-  color: #4A90E2;
-  font-weight: 500;
-}
-.editButton, .deleteButton {
-  border: none;
-  padding: 5px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 0.8rem;
-}
-.editButton {
-  background-color: #4A90E2;
-  color: white;
-  margin-right: 5px;
-}
-.deleteButton {
-  background-color: #555;
-  color: white;
-}
+.transactionsContainer h2 { margin-top: 0; }
+.table { width: 100%; border-collapse: collapse; background-color: var(--cinza-elemento); border-radius: 12px; overflow: hidden; }
+.table th, .table td { padding: 15px; text-align: left; }
+.table thead { background-color: #252525; }
+.table tbody tr { border-bottom: 1px solid var(--borda-sutil); }
+.table tbody tr:last-child { border-bottom: none; }
+.table td:nth-child(2) { color: #4A90E2; font-weight: 500; }
+.editButton, .deleteButton { border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; }
+.editButton { background-color: #4A90E2; color: white; margin-right: 5px; }
+.deleteButton { background-color: #555; color: white; }
 .editButton:hover { opacity: 0.8; }
 .deleteButton:hover { background-color: var(--vermelho-destaque); }
 
 /* --- Seções de Gerenciadores --- */
-.managerSection {
-  margin-top: 40px;
-  padding: 20px;
-  background-color: #1E1E1E;
-  border-radius: 12px;
-  border: 1px solid #2c2c2c;
-}
-
-.budgetStatusSection {
-  margin-bottom: 40px;
-}
-
-.doughnutChartWrapper {
-  aspect-ratio: 1 / 1;
-  max-height: 550px;
-}
-
+.managerSection { margin-top: 40px; padding: 20px; background-color: #1E1E1E; border-radius: 12px; border: 1px solid #2c2c2c; }
+.budgetStatusSection { margin-bottom: 40px; }
 
 /* ==========================================================================
    Estilos Responsivos (Mobile)
    ========================================================================== */
-@media (max-width: 768px) {
-  .dashboard {
-    padding: 15px;
-    margin: 20px auto;
-  }
-
-  .header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-  .headerActions {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .summary {
-    grid-template-columns: 1fr;
-  }
-
-  .controlsSection {
-    flex-wrap: wrap;
-  }
-
-  .primaryActionButton {
-    order: -1; /* Coloca o botão de adicionar primeiro */
-    flex-grow: 1; /* Faz ele ocupar o espaço */
-    margin-left: 0;
-  }
-
-  .filterSection {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 15px;
-  }
-  .quickFilters {
-    padding-left: 0;
-    margin-left: 0;
-    border-left: none;
-    width: 100%;
-    justify-content: center;
-  }
-
+@media (max-width: 1024px) { /* Ajustado para tablets e telas menores */
   .chartsContainer {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr; /* Volta para uma coluna */
   }
-  
-  .chartWrapper {
-    min-height: 320px;
-    height: auto;
-  }
+}
 
+@media (max-width: 768px) {
+  .dashboard { padding: 15px; margin: 20px auto; }
+  .header { flex-direction: column; align-items: flex-start; gap: 15px; }
+  .headerActions { width: 100%; justify-content: space-between; }
+  .summary { grid-template-columns: 1fr; }
+  .controlsSection { flex-wrap: wrap; }
+  .primaryActionButton { order: -1; flex-grow: 1; margin-left: 0; }
+  .filterSection { flex-direction: column; align-items: stretch; gap: 15px; }
+  .quickFilters { padding-left: 0; margin-left: 0; border-left: none; width: 100%; justify-content: center; }
+  .chartWrapper { min-height: 320px; height: auto; }
   .table thead { display: none; }
   .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
   .table tr { margin-bottom: 15px; padding: 10px; }
@@ -386,13 +114,7 @@
   .table td::before { content: attr(data-label); position: absolute; left: 10px; width: 45%; padding-right: 10px; text-align: left; font-weight: bold; color: var(--texto-secundario); text-transform: capitalize; }
 }
 
-
-.transactionsHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-}
+.transactionsHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .transactionsHeader h2 { margin: 0; }
 .selectButton { background-color: transparent; border: 1px solid var(--borda-sutil); color: var(--texto-secundario); padding: 8px 15px; border-radius: 6px; cursor: pointer; }
 .selectButton:hover { border-color: var(--texto-principal); color: var(--texto-principal); }
@@ -401,15 +123,12 @@
 .deleteSelectedButton { background-color: var(--vermelho-destaque); color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
 .checkboxCell { width: 20px; }
 .selectedRow { background-color: rgba(74, 144, 226, 0.2) !important; }
-
 .cancelSelectionButton { background-color: transparent; border: 1px solid var(--borda-sutil); color: var(--texto-secundario); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
 .cancelSelectionButton:hover { background-color: var(--fundo-secundario); border-color: var(--texto-principal); color: var(--texto-principal); }
-
 .pagination { display: flex; justify-content: center; align-items: center; gap: 15px; margin-top: 20px; padding: 10px; background-color: var(--cinza-elemento); border-radius: 0 0 12px 12px; }
 .pagination button { background-color: var(--acento-azul); color: white; border: none; padding: 8px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
 .pagination button:hover { opacity: 0.8; }
 .pagination button:disabled { background-color: #555; cursor: not-allowed; opacity: 0.5; }
 .pagination span { color: var(--texto-secundario); font-weight: 500; }
-
 .chartActions { position: relative; }
 .chartActions .filterButton { background-color: transparent; border: 1px solid var(--borda-sutil); color: var(--texto-secundario); padding: 5px 10px; border-radius: 6px; cursor: pointer; }

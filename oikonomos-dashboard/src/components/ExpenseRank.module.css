@@ -1,0 +1,65 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--fundo-secundario);
+  padding: 20px;
+  border-radius: 12px;
+  height: 100%; /* Faz o container preencher a altura do grid */
+}
+
+.container h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  text-align: center;
+  color: var(--texto-principal);
+  font-weight: 500;
+}
+
+.rankList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto; /* Adiciona scroll se a lista for muito grande */
+}
+
+.rankItem {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--borda-sutil);
+}
+
+.rankItem:last-child {
+  border-bottom: none;
+}
+
+.rankPosition {
+  font-weight: bold;
+  color: var(--texto-secundario);
+  font-size: 1.1rem;
+  width: 25px;
+  text-align: center;
+}
+
+.rankCategory {
+  flex-grow: 1;
+  color: var(--texto-principal);
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.rankAmount {
+  font-weight: bold;
+  color: var(--vermelho-destaque);
+  font-size: 1rem;
+}
+
+.emptyMessage {
+    text-align: center;
+    color: var(--texto-secundario);
+    margin-top: 20px;
+}

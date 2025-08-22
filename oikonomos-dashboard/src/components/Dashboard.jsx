@@ -10,6 +10,7 @@ import EditModal from './EditModal';
 import BudgetStatus from './BudgetStatus';
 import AddTransactionModal from './AddTransactionModal';
 import HeaderActions from './HeaderActions'; 
+import ExpenseRank from './ExpenseRank'; 
 import { showConfirmationToast } from '../utils/toastUtils.jsx';
 import CategoryFilter from './CategoryFilter';
 // Estilos
@@ -220,8 +221,14 @@ function Dashboard({ user }) {
         budget: budget.amount,
       }))
       .filter(b => b.budget > 0);
+      
+    // <<< LÓGICA ATUALIZADA PARA O RANKING DE CATEGORIAS >>>
+    const topExpenseCategories = Object.entries(expenseByCategory)
+        .map(([category, totalAmount]) => ({ category, totalAmount }))
+        .sort((a, b) => b.totalAmount - a.totalAmount)
+        .slice(0, 10);
 
-    return { totalIncome, totalExpense, balance, expenseChartData, incomeChartData, balanceChartData, budgetProgress };
+    return { totalIncome, totalExpense, balance, expenseChartData, incomeChartData, balanceChartData, budgetProgress, topExpenseCategories };
   }, [transactions, budgets, accounts, accountView, selectedExpenseCategories]); 
 
   const charts = [
@@ -403,7 +410,7 @@ function Dashboard({ user }) {
 
         <main className={styles.mainContent}>
           <div className={styles.chartsContainer}>
-            <div className={`${styles.chartWrapper} ${styles.doughnutChartWrapper}`}>
+            <div className={styles.chartWrapper}>
               <div className={styles.chartHeader}>
                 <h3 className={styles.chartTitle}>{charts[currentChartIndex].title}</h3>
                 <div className={styles.chartActions}>
@@ -419,6 +426,8 @@ function Dashboard({ user }) {
                 <SummaryChart chartData={charts[currentChartIndex].data} />
               </div>
             </div>
+            {/* <<< PASSANDO A NOVA PROPRIEDADE PARA O RANKING >>> */}
+            <ExpenseRank data={summaryData.topExpenseCategories} />
           </div>
 
           <div className={styles.transactionsContainer}>
