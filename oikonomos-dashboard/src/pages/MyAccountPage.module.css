@@ -35,6 +35,35 @@
   font-size: 1.2rem;
 }
 
+/* --- NOVOS ESTILOS PARA O CARD DE INFORMAÇÕES --- */
+.infoRow {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid var(--borda-sutil);
+}
+.infoRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.infoRow label {
+  font-size: 0.8rem;
+  color: var(--texto-secundario);
+  text-transform: uppercase;
+}
+.infoRow span {
+  font-weight: 500;
+}
+.uid {
+  font-family: monospace;
+  font-size: 0.9rem;
+  color: var(--texto-secundario);
+  word-break: break-all;
+}
+/* --- FIM DOS NOVOS ESTILOS --- */
+
+
 .formGroup {
   display: flex;
   flex-direction: column;
@@ -77,8 +106,39 @@
   opacity: 0.8;
 }
 
+/* --- NOVOS ESTILOS PARA O FORMULÁRIO DE SENHA --- */
+.fullWidth {
+  grid-column: 1 / -1; /* Faz o card ocupar a largura total */
+}
+
+.passwordForm {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr; /* 3 colunas para os inputs */
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.passwordValidation {
+  grid-column: 1 / -1; /* Ocupa as 3 colunas */
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.passwordForm .saveButton {
+    grid-column: 3 / 4; /* Coloca o botão na 3ª coluna */
+    align-self: end; /* Alinha o botão na parte de baixo */
+}
+
 @media (max-width: 900px) {
   .grid {
     grid-template-columns: 1fr;
+  }
+  .passwordForm {
+    grid-template-columns: 1fr; /* Volta para 1 coluna em telas menores */
+  }
+  .passwordForm .saveButton {
+    grid-column: 1 / -1; /* Ocupa toda a largura */
   }
 }

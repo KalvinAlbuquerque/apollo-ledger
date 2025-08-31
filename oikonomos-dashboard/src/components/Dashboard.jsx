@@ -17,7 +17,7 @@ import styles from './Dashboard.module.css';
 
 const formatDate = (date) => date.toISOString().split('T')[0];
 
-function Dashboard({ user }) {
+function Dashboard({ user, userProfile }) {
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -50,7 +50,7 @@ function Dashboard({ user }) {
 
   useEffect(() => {
     if (!user) return;
-  
+
     const fetchData = async () => {
       setLoading(true);
       try {
@@ -73,7 +73,7 @@ function Dashboard({ user }) {
         });
         setCategories(catData);
         setAccounts(accData);
-  
+
         const constraints = [where("userId", "==", user.uid)];
         if (filterCategories.size > 0) {
           constraints.push(where("category", "in", Array.from(filterCategories)));
@@ -84,12 +84,12 @@ function Dashboard({ user }) {
         if (filterEndDate) {
           constraints.push(where("createdAt", "<=", adjustEndDate(filterEndDate)));
         }
-  
+
         const finalQuery = query(collection(db, "transactions"), ...constraints, orderBy("createdAt", "desc"));
         const transSnapshot = await getDocs(finalQuery);
         const transData = transSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setTransactions(transData);
-  
+
       } catch (error) {
         console.error("Erro ao buscar dados:", error);
         toast.error("Erro ao buscar dados.");
@@ -97,7 +97,7 @@ function Dashboard({ user }) {
         setLoading(false);
       }
     };
-  
+
     fetchData();
   }, [user, dataVersion, filterStartDate, filterEndDate, filterCategories]);
 
@@ -113,10 +113,10 @@ function Dashboard({ user }) {
 
     const income = relevantTransactions.filter(tx => tx.type === 'income');
     const expenses = relevantTransactions.filter(tx => tx.type === 'expense' || !tx.type);
-    
+
     const totalIncome = income.reduce((acc, tx) => acc + tx.amount, 0);
     const totalExpense = expenses.reduce((acc, tx) => acc + tx.amount, 0);
-    
+
     const totalBalance = accounts
       .filter(acc => {
         if (accountView === 'total') return true;
@@ -139,10 +139,10 @@ function Dashboard({ user }) {
         }],
       };
     };
-    
+
     const expenseChartData = processDataForChart(expenses, 'Gastos R$');
     const incomeChartData = processDataForChart(income, 'Rendas R$');
-    
+
     const topExpenseCategories = Object.entries(expenses.reduce((acc, tx) => {
       acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
       return acc;
@@ -156,7 +156,7 @@ function Dashboard({ user }) {
     { title: "Gastos por Categoria", data: summaryData.expenseChartData },
     { title: "Origem das Rendas", data: summaryData.incomeChartData },
   ];
-  
+
   const itemsPerPage = 15;
   const currentTransactions = transactions.slice(currentPage * itemsPerPage - itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(transactions.length / itemsPerPage);
@@ -234,9 +234,15 @@ function Dashboard({ user }) {
     <>
       <div className={styles.dashboard}>
         <header className={styles.header}>
-          <div><h1>Dashboard Oikonomos</h1><p>Olá, {user.email}</p></div>
+          {/* Adicione a className 'titleContainer' a este div */}
+          <div className={styles.titleContainer}>
+            <h1>Dashboard Apollo</h1>
+            <p className={styles.greeting}>
+              Olá, {userProfile?.apelido || user.displayName || user.email}
+            </p>
+          </div>
           <div className={styles.headerActions}>
-            <AccountFilter accounts={accounts} currentSelection={accountView} onSelectionChange={setAccountView}/>
+            <AccountFilter accounts={accounts} currentSelection={accountView} onSelectionChange={setAccountView} />
             <button onClick={handleLogout} className={styles.logoutButton}>Sair</button>
           </div>
         </header>

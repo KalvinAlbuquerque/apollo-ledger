@@ -13,7 +13,6 @@ import styles from './MyAccountPage.module.css';
 function MyAccountPage() {
     const user = auth.currentUser;
 
-    // Estados para os campos do formulário
     const [displayName, setDisplayName] = useState(user?.displayName || '');
     const [nickname, setNickname] = useState('');
     const [currentPassword, setCurrentPassword] = useState('');
@@ -21,9 +20,8 @@ function MyAccountPage() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [passwordError, setPasswordError] = useState('');
 
-    // Efeito para buscar o apelido do Firestore quando a página carrega
     useEffect(() => {
-        const fetchNickname = async () => {
+        const fetchUserData = async () => {
             if (user) {
                 const userDocRef = doc(db, 'users', user.uid);
                 const userDocSnap = await getDoc(userDocRef);
@@ -32,18 +30,14 @@ function MyAccountPage() {
                 }
             }
         };
-        fetchNickname();
+        fetchUserData();
     }, [user]);
 
-    // Função para salvar as alterações do perfil (Nome e Apelido)
     const handleProfileUpdate = async (e) => {
         e.preventDefault();
         if (!user) return;
 
-        // Promessa para atualizar o nome no Firebase Auth
         const profileUpdatePromise = updateProfile(user, { displayName });
-
-        // Promessa para salvar/atualizar o apelido no Firestore
         const firestoreUpdatePromise = setDoc(doc(db, 'users', user.uid), { apelido: nickname }, { merge: true });
 
         toast.promise(
@@ -56,7 +50,6 @@ function MyAccountPage() {
         );
     };
 
-    // Função para validar a força da nova senha
     const validatePassword = (password) => {
         if (password.length < 8) return "A senha deve ter no mínimo 8 caracteres.";
         if (!/[A-Z]/.test(password)) return "A senha deve conter uma letra maiúscula.";
@@ -66,7 +59,6 @@ function MyAccountPage() {
         return "";
     };
 
-    // Função para lidar com a alteração de senha
     const handlePasswordChange = async (e) => {
         e.preventDefault();
         setPasswordError('');
@@ -88,28 +80,18 @@ function MyAccountPage() {
         }
 
         const credential = EmailAuthProvider.credential(user.email, currentPassword);
-
-        // O Firebase exige reautenticação para alterar a senha
         const changePasswordPromise = reauthenticateWithCredential(user, credential)
-            .then(() => {
-                return updatePassword(user, newPassword);
-            });
+            .then(() => updatePassword(user, newPassword));
 
         toast.promise(changePasswordPromise, {
             loading: 'Atualizando senha...',
             success: () => {
-                // Limpa os campos após o sucesso
                 setCurrentPassword('');
                 setNewPassword('');
                 setConfirmPassword('');
                 return 'Senha atualizada com sucesso!';
             },
-            error: (err) => {
-                if (err.code === 'auth/wrong-password') {
-                    return 'A senha atual está incorreta.';
-                }
-                return 'Falha ao atualizar a senha.';
-            },
+            error: (err) => err.code === 'auth/wrong-password' ? 'A senha atual está incorreta.' : 'Falha ao atualizar a senha.',
         });
     };
 
@@ -118,9 +100,30 @@ function MyAccountPage() {
             <h1>Minha Conta</h1>
 
             <div className={styles.grid}>
-                {/* Card de Informações do Usuário */}
+                {/* Card de Informações do Usuário (Layout Melhorado) */}
                 <div className={styles.card}>
                     <h2>Informações do Perfil</h2>
+                    <div className={styles.infoRow}>
+                        <label>Nome Completo</label>
+                        <span>{user?.displayName || 'Não definido'}</span>
+                    </div>
+                    <div className={styles.infoRow}>
+                        <label>Apelido</label>
+                        <span>{nickname || 'Não definido'}</span>
+                    </div>
+                    <div className={styles.infoRow}>
+                        <label>Email</label>
+                        <span>{user?.email}</span>
+                    </div>
+                     <div className={styles.infoRow}>
+                        <label>UID do Usuário</label>
+                        <span className={styles.uid}>{user?.uid}</span>
+                    </div>
+                </div>
+
+                {/* Card de Edição de Perfil */}
+                <div className={styles.card}>
+                    <h2>Editar Perfil</h2>
                     <form onSubmit={handleProfileUpdate}>
                         <div className={styles.formGroup}>
                             <label htmlFor="display-name">Nome Completo</label>
@@ -142,18 +145,14 @@ function MyAccountPage() {
                                 placeholder="Um nome curto ou apelido"
                             />
                         </div>
-                        <div className={styles.formGroup}>
-                            <label>Email</label>
-                            <input type="email" value={user?.email || ''} disabled />
-                        </div>
-                        <button type="submit" className={styles.saveButton}>Salvar Alterações</button>
+                        <button type="submit" className={styles.saveButton}>Salvar Alterações de Perfil</button>
                     </form>
                 </div>
 
                 {/* Card de Alteração de Senha */}
-                <div className={styles.card}>
+                <div className={`${styles.card} ${styles.fullWidth}`}>
                     <h2>Alterar Senha</h2>
-                    <form onSubmit={handlePasswordChange}>
+                    <form onSubmit={handlePasswordChange} className={styles.passwordForm}>
                         <div className={styles.formGroup}>
                             <label htmlFor="current-password">Senha Atual</label>
                             <input type="password" id="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required />
@@ -166,16 +165,16 @@ function MyAccountPage() {
                             <label htmlFor="confirm-password">Confirmar Nova Senha</label>
                             <input type="password" id="confirm-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
                         </div>
-
-                        {passwordError && <p className={styles.errorText}>{passwordError}</p>}
                         
-                        <ul className={styles.passwordRules}>
-                            <li>Mínimo 8 caracteres</li>
-                            <li>Letras maiúsculas e minúsculas</li>
-                            <li>Números e caracteres especiais</li>
-                        </ul>
-                        
-                        <button type="submit" className={styles.saveButton}>Salvar Nova Senha</button>
+                        <div className={styles.passwordValidation}>
+                            {passwordError && <p className={styles.errorText}>{passwordError}</p>}
+                            <ul className={styles.passwordRules}>
+                                <li>Mínimo 8 caracteres</li>
+                                <li>Letras maiúsculas e minúsculas</li>
+                                <li>Números e caracteres especiais</li>
+                            </ul>
+                        </div>
+                         <button type="submit" className={styles.saveButton}>Salvar Nova Senha</button>
                     </form>
                 </div>
             </div>

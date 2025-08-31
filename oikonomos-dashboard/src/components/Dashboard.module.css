@@ -12,18 +12,27 @@
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+align-items: flex-start;
   margin-bottom: 40px;
   border-bottom: 1px solid var(--borda-sutil);
   padding-bottom: 20px;
 }
 .header h1 { font-size: 2rem; margin: 0; }
-.header p { margin: 0; color: var(--texto-secundario); }
 .logoutButton { background-color: var(--vermelho-destaque); color: #fff; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: transform 0.2s ease; }
 .logoutButton:hover { transform: scale(1.05); }
 
 .headerActions { display: flex; align-items: center; gap: 15px; }
 .accountSelector select { font-weight: bold; padding: 8px 12px; font-size: 1rem; }
+.titleContainer {
+  display: flex;
+  flex-direction: column;
+}
+.greeting {
+  margin: 5px 0 0 0; /* Adiciona um pequeno espaço no topo */
+  color: #888; /* Um cinza um pouco mais claro que o --texto-secundario */
+    font-size: 1rem; /* Tamanho de fonte de um subtítulo */
+  font-weight: 500;
+}
 
 /* --- Resumo Financeiro --- */
 .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px; text-align: center; }
