@@ -1,0 +1,83 @@
+/* src/components/Sidebar.module.css */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 250px;
+  height: 100vh;
+  background-color: var(--cinza-elemento);
+  border-right: 1px solid var(--borda-sutil);
+  padding: 20px;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 40px;
+  padding: 0 10px;
+}
+
+.logo img {
+  width: 40px;
+  height: 40px;
+}
+
+.logo h1 {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.navList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.navList a {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px 15px;
+  border-radius: 8px;
+  color: var(--texto-secundario);
+  text-decoration: none;
+  font-weight: 500;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.navList a:hover {
+  background-color: var(--fundo-secundario);
+  color: var(--texto-principal);
+}
+
+.navList a.active {
+  background-color: var(--acento-azul);
+  color: white;
+}
+
+.footer {
+  margin-top: auto;
+}
+
+.logoutButton {
+  width: 100%;
+  background-color: transparent;
+  border: 1px solid var(--vermelho-destaque);
+  color: var(--vermelho-destaque);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logoutButton:hover {
+  background-color: var(--vermelho-destaque);
+  color: white;
+}

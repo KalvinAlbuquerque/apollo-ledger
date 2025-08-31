@@ -1,0 +1,84 @@
+/* src/pages/HelpPage.module.css */
+.page {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 20px;
+  color: var(--texto-principal);
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--borda-sutil);
+  border-radius: 12px;
+}
+
+.page h1 {
+  font-size: 2rem;
+  border-bottom: 1px solid var(--borda-sutil);
+  padding-bottom: 20px;
+  margin-bottom: 30px;
+  color: var(--acento-azul);
+}
+
+.page section {
+  margin-bottom: 40px;
+}
+
+.page h2 {
+  font-size: 1.5rem;
+  margin-bottom: 15px;
+  color: var(--texto-principal);
+}
+
+.page p, .page li {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--texto-secundario);
+}
+
+.page ul {
+  padding-left: 25px;
+  list-style-type: disc;
+}
+
+.page ul li {
+  margin-bottom: 10px;
+}
+
+.page strong {
+    color: var(--texto-principal);
+    font-weight: 500;
+}
+
+.summaryNav {
+  background-color: var(--fundo-secundario);
+  border: 1px solid var(--borda-sutil);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 40px;
+}
+
+.summaryNav h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: var(--texto-principal);
+}
+
+.summaryNav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.summaryNav li {
+  margin-bottom: 10px;
+}
+
+.summaryNav a {
+  color: var(--acento-azul);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.summaryNav a:hover {
+  color: var(--texto-principal);
+  text-decoration: underline;
+}

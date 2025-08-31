@@ -1,5 +1,5 @@
 .page {
-  max-width: 1200px; /* Mesma largura do dashboard para consistência */
+  max-width: 1200px;
   margin: 40px auto;
   padding: 20px;
   color: var(--texto-principal);
@@ -15,9 +15,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 40px;
-  border-bottom: 1px solid var(--borda-sutil);
-  padding-bottom: 20px;
+  margin-bottom: 25px;
 }
 
 .header h1 {
@@ -39,4 +37,60 @@
 .backButton:hover {
   background-color: var(--fundo-secundario);
   color: var(--texto-principal);
+}
+
+/* --- ESTILOS PARA AS ABAS E CONTEÚDO --- */
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  border-bottom: 1px solid var(--borda-sutil);
+  margin-bottom: 25px;
+}
+
+.tabs button {
+  background: transparent;
+  border: none;
+  color: var(--texto-secundario);
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+}
+
+.tabs button:hover {
+    color: var(--texto-principal);
+}
+
+.tabs button.active {
+  color: var(--acento-azul);
+  border-bottom-color: var(--acento-azul);
+}
+
+.tabContent {
+  background-color: var(--cinza-elemento);
+  padding: 25px;
+  border-radius: 12px;
+  border: 1px solid var(--borda-sutil);
+}
+
+.helpButton {
+  background-color: var(--fundo-secundario);
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: help;
+  transition: all 0.2s;
+}
+
+.helpButton:hover {
+  background-color: var(--acento-azul);
+  border-color: var(--acento-azul);
+  color: white;
 }

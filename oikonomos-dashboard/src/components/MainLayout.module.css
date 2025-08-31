@@ -1,0 +1,10 @@
+/* src/components/MainLayout.module.css */
+.layout {
+  display: flex;
+}
+
+.content {
+  flex-grow: 1;
+  padding-left: 250px; /* Mesma largura da sidebar */
+  /* padding: 20px 40px; (opcional, se quiser um espaçamento padrão) */
+}
