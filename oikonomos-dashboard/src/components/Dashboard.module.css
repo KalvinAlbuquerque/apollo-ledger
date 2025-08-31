@@ -34,8 +34,13 @@
 .expenseAmount { color: var(--vermelho-destaque); }
 
 /* --- NOVA SEÇÃO DE CONTROLES --- */
-.controlsSection { display: flex; gap: 15px; align-items: center; padding: 15px 0; margin-bottom: 20px; }
-.primaryActionButton { background-color: var(--acento-azul); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: transform 0.2s ease, opacity 0.2s; margin-left: auto; }
+.controlsSection {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  padding: 15px 0;
+  margin-bottom: 20px;
+}.primaryActionButton { background-color: var(--acento-azul); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; transition: transform 0.2s ease, opacity 0.2s; margin-left: auto; }
 .primaryActionButton:hover { opacity: 0.9; transform: scale(1.05); }
 .controlButton { background-color: transparent; border: 1px solid var(--borda-sutil); color: var(--texto-secundario); padding: 10px 20px; border-radius: 8px; font-weight: 500; cursor: pointer; text-decoration: none; transition: all 0.2s; }
 .controlButton:hover { background-color: var(--fundo-secundario); color: var(--texto-principal); }
@@ -49,7 +54,145 @@
 .tooltip { display: inline-block; width: 20px; height: 20px; line-height: 20px; text-align: center; background-color: var(--texto-secundario); color: var(--fundo-primario); border-radius: 50%; font-weight: bold; cursor: help; margin-left: 10px; }
 .filterButton { background-color: var(--acento-azul); color: white; border: none; padding: 10px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.9rem; margin-left: auto; transition: opacity 0.2s; }
 .filterButton:hover { opacity: 0.8; }
+/* ==========================================================================
+   Seção de Controles e Filtros (Layout Novo)
+   ========================================================================== */
+.controlsSection {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  padding: 15px 0;
+  margin-bottom: 20px;
+}
 
+.primaryActionButton {
+  background-color: var(--acento-azul);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s;
+  margin-left: auto; /* Joga o botão para a direita */
+}
+
+.primaryActionButton:hover {
+  opacity: 0.9;
+  transform: scale(1.05);
+}
+
+.controlButton {
+  background-color: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.controlButton:hover {
+  background-color: var(--fundo-secundario);
+  color: var(--texto-principal);
+}
+
+/* --- Estilo para o NOVO Menu de Filtros --- */
+.filterContainer {
+  position: relative;
+}
+
+.filterDropdown {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--borda-sutil);
+  border-radius: 12px;
+  padding: 20px;
+  z-index: 100;
+  width: 600px; /* Largura do menu */
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dateFilters {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--texto-secundario);
+}
+
+.quickFilters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 15px;
+  border-top: 1px solid var(--borda-sutil);
+}
+
+.quickFilters button {
+  background-color: var(--fundo-secundario);
+  color: var(--texto-secundario);
+  border: 1px solid var(--borda-sutil);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quickFilters button:hover {
+  background-color: #444;
+  color: var(--texto-principal);
+}
+
+.categoryFilterSection {
+  padding-top: 15px;
+  border-top: 1px solid var(--borda-sutil);
+}
+.categoryFilterSection > label {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--texto-secundario);
+  font-weight: 500;
+}
+
+/* O componente CategoryFilter será re-estilizado para se encaixar */
+.categoryFilterSection > div { /* Target o <div> do CategoryFilter */
+  position: static; /* Remove o posicionamento absoluto */
+  width: 100%;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.filterButton {
+  background-color: var(--acento-azul);
+  color: white;
+  border: none;
+  padding: 10px 25px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.9rem;
+  align-self: flex-end; /* Alinha o botão à direita */
+  transition: opacity 0.2s;
+}
+
+.filterButton:hover {
+  opacity: 0.8;
+}
 /* --- Conteúdo Principal (Gráficos e Tabela) --- */
 .mainContent { display: flex; flex-direction: column; gap: 40px; }
 

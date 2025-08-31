@@ -10,7 +10,7 @@
   --cinza-borda: #2c2c2c;
   --texto-principal: #E0E0E0;
   --texto-secundario: #A0A0A0;
-  --verde-destaque: #39FF14; /* Um verde neon/brilhante */
+  --verde-destaque: #39FF14;
   --acento-azul: #4A90E2;
   --vermelho-destaque: #FF1D58;
 }
@@ -30,8 +30,90 @@ body {
   box-sizing: border-box;
 }
 
-/* Adicione ao final de: src/index.css */
+/* ==========================================================================
+   Estilos Globais para Inputs
+   ========================================================================== */
 
+/* Estilo base para inputs de texto, número, etc. */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+select {
+  background-color: var(--cinza-elemento);
+  color: var(--texto-principal);
+  border: 1px solid var(--cinza-borda);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+}
+
+select option {
+  background-color: var(--cinza-elemento);
+  color: var(--texto-principal);
+}
+
+/* Foco nos inputs */
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--acento-azul);
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+}
+
+/* Remove as setas de incrementar/decrementar de todos os inputs numéricos */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* ==========================================================================
+   Estilos para Inputs de Data (CORRIGIDO)
+   ========================================================================== */
+
+/* Remove a aparência padrão e aplica nosso tema */
+input[type="date"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--cinza-borda);
+  color: var(--texto-principal);
+  padding: 8px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  cursor: text;
+  line-height: 1.5;
+  position: relative;
+}
+
+/* Força o tema escuro no pop-up do calendário */
+input[type="date"] {
+  color-scheme: dark;
+}
+
+/* Customiza o ícone do calendário */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="15" viewBox="0 0 24 24"><path fill="%23a0a0a0" d="M20 3h-1V1h-2v2H7V1H5v2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 18H4V8h16v13z"/></svg>');
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* ==========================================================================
+   Estilos para Toasts de Confirmação
+   ========================================================================== */
 .confirmationToast {
   display: flex;
   flex-direction: column;
@@ -60,40 +142,4 @@ body {
 .cancelButton {
   background-color: #555;
   color: white;
-}
-
-/* Remove as setas de incrementar/decrementar de todos os inputs numéricos */
-input[type=number]::-webkit-outer-spin-button,
-input[type=number]::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-input[type=number] {
-  -moz-appearance: textfield; /* Para Firefox */
-  appearance: textfield;
-}
-
-input[type="text"],
-input[type="number"],
-input[type="date"],
-input[type="email"],
-input[type="password"],
-select {
-  background-color: var(--cinza-elemento); /* Fundo preto/cinza escuro */
-  color: var(--texto-principal); /* Texto branco/claro */
-  border: 1px solid var(--cinza-borda);
-  border-radius: 6px;
-  padding: 10px 12px;
-}
-select option {
-  background-color: var(--cinza-elemento);
-  color: var(--texto-principal);
-}
-/* Regra para quando um campo está em FOCO (continua a mesma) */
-input:focus,
-select:focus {
-  outline: none;
-  border-color: var(--acento-azul);
-  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
 }

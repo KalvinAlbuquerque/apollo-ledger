@@ -1,0 +1,70 @@
+/* src/components/AccountFilter.module.css */
+.container {
+  position: relative;
+  display: inline-block;
+}
+
+.button {
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-principal);
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 250px;
+  justify-content: space-between;
+}
+
+.button:hover {
+  border-color: var(--acento-azul);
+}
+
+.arrow {
+  transition: transform 0.2s ease-in-out;
+  font-size: 0.8rem;
+}
+
+.arrow.open {
+  transform: rotate(180deg);
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 105%;
+  left: 0;
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--borda-sutil);
+  border-radius: 8px;
+  padding: 8px;
+  z-index: 100;
+  width: 100%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.dropdownItem {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.dropdownItem:hover {
+  background-color: var(--acento-azul);
+  color: white;
+}
+
+.separator {
+  font-size: 0.75rem;
+  color: var(--texto-secundario);
+  padding: 10px 12px 5px;
+  text-transform: uppercase;
+  font-weight: bold;
+  border-top: 1px solid var(--borda-sutil);
+  margin-top: 5px;
+}

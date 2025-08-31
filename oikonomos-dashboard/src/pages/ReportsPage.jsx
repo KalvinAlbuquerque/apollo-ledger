@@ -7,12 +7,15 @@ import LineChart from '../components/LineChart';
 import CategoryLineChart from '../components/CategoryLineChart';
 import styles from './ReportsPage.module.css';
 import CategoryFilter from '../components/CategoryFilter';
+import AccountFilter from '../components/AccountFilter';
+import { exportToCSV, exportToPDF } from '../utils/exportUtils';
+// Função para formatar moeda
+const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
 function ReportsPage() {
   const [allTransactions, setAllTransactions] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  // Estados para os filtros
   const [accountView, setAccountView] = useState('geral');
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
@@ -40,23 +43,17 @@ function ReportsPage() {
       const catSnapshot = await getDocs(catQuery);
       const catData = catSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setCategories(catData);
-
-
       setLoading(false);
     };
     fetchInitialData();
   }, [user]);
 
   useEffect(() => {
-    // A lista 'allReportCategories' agora terá os objetos completos
     setAllReportCategories(categories);
-    // A seleção inicial continua sendo todos os nomes de categoria
     setSelectedReportCategories(new Set(categories.map(c => c.name)));
-  }, [categories]); // A dependência agora é a nova lista de categorias
+  }, [categories]);
 
-  // Hook 'useMemo' para filtrar as transações com base em TODAS as seleções
   const filteredTransactions = useMemo(() => {
-    // Primeiro, filtra por conta
     let accountFiltered = [];
     if (accountView === 'total') {
       accountFiltered = allTransactions;
@@ -67,12 +64,10 @@ function ReportsPage() {
       accountFiltered = allTransactions.filter(tx => tx.accountId === accountView);
     }
 
-    // Se não houver filtros de data, retorna a lista filtrada por conta
     if (!filterStartDate && !filterEndDate) {
       return accountFiltered;
     }
 
-    // Se houver filtros de data, aplica-os à lista já filtrada por conta
     const start = filterStartDate ? new Date(`${filterStartDate}T00:00:00`) : null;
     const end = filterEndDate ? new Date(`${filterEndDate}T23:59:59`) : null;
 
@@ -84,8 +79,33 @@ function ReportsPage() {
     });
   }, [accountView, allTransactions, accounts, filterStartDate, filterEndDate]);
 
+  const summaryData = useMemo(() => {
+    const income = filteredTransactions.filter(tx => tx.type === 'income');
+    const expenses = filteredTransactions.filter(tx => tx.type === 'expense' || !tx.type);
+    const totalIncome = income.reduce((acc, tx) => acc + tx.amount, 0);
+    const totalExpense = expenses.reduce((acc, tx) => acc + tx.amount, 0);
+    const balance = totalIncome - totalExpense;
 
-  // Processa dados para o gráfico de Fluxo de Caixa Mensal
+    const processDataForChart = (data, label) => {
+      const categoryTotals = {};
+      data.forEach(tx => {
+        categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount;
+      });
+      return {
+        labels: Object.keys(categoryTotals),
+        datasets: [{ label: label, data: Object.values(categoryTotals) }],
+      };
+    };
+
+    return {
+      totalIncome,
+      totalExpense,
+      balance,
+      expenseChartData: processDataForChart(expenses, 'Gastos R$'),
+      incomeChartData: processDataForChart(income, 'Rendas R$'),
+    };
+  }, [filteredTransactions]);
+
   const monthlyFlowData = useMemo(() => {
     const monthlyData = {};
     filteredTransactions.forEach(tx => {
@@ -110,26 +130,12 @@ function ReportsPage() {
     };
   }, [filteredTransactions]);
 
-  // Processa dados para o gráfico de Evolução do Saldo
   const balanceAndExpenseData = useMemo(() => {
     const lineChartData = {
       labels: [],
       datasets: [
-        {
-          label: 'Saldo Acumulado',
-          data: [],
-          borderColor: 'rgb(74, 144, 226)',
-          backgroundColor: 'rgba(74, 144, 226, 0.5)',
-          // yAxisID: 'y_balance', // Não precisamos mais disto
-        },
-        {
-          // NOME ATUALIZADO
-          label: 'Despesas Acumuladas',
-          data: [],
-          borderColor: 'rgb(255, 99, 132)',
-          backgroundColor: 'rgba(255, 99, 132, 0.5)',
-          // yAxisID: 'y_expenses', // Nem disto
-        }
+        { label: 'Saldo Acumulado', data: [], borderColor: 'rgb(74, 144, 226)', backgroundColor: 'rgba(74, 144, 226, 0.5)' },
+        { label: 'Despesas Acumuladas', data: [], borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.5)' }
       ]
     };
 
@@ -143,29 +149,21 @@ function ReportsPage() {
           dailyData.set(dateKey, { income: 0, expense: 0 });
         }
         const current = dailyData.get(dateKey);
-        if (tx.type === 'income') {
-          current.income += tx.amount;
-        } else {
-          current.expense += tx.amount;
-        }
+        if (tx.type === 'income') current.income += tx.amount;
+        else current.expense += tx.amount;
       });
 
       let runningBalance = 0;
-      // NOVA VARIÁVEL PARA ACUMULAR DESPESAS
       let runningExpenses = 0;
-
       const labels = [];
       const balanceDataPoints = [];
-      const expenseDataPoints = []; // Agora vai guardar os valores acumulados
+      const expenseDataPoints = [];
 
       dailyData.forEach((value, date) => {
         labels.push(date);
         runningBalance += value.income - value.expense;
-        // LÓGICA DE ACÚMULO DE DESPESAS
         runningExpenses += value.expense;
-
         balanceDataPoints.push(runningBalance);
-        // Adiciona o valor acumulado ao array
         expenseDataPoints.push(runningExpenses);
       });
 
@@ -176,42 +174,31 @@ function ReportsPage() {
     return lineChartData;
   }, [filteredTransactions]);
 
-  // Processa dados para o gráfico de Despesas por Categoria
   const categoryExpenseData = useMemo(() => {
-    const expenses = filteredTransactions.filter(
-      tx => (tx.type === 'expense' || !tx.type) && selectedReportCategories.has(tx.category)
-    ); if (expenses.length === 0) return { labels: [], datasets: [] };
+    const expenses = filteredTransactions.filter(tx => (tx.type === 'expense' || !tx.type) && selectedReportCategories.has(tx.category));
+    if (expenses.length === 0) return { labels: [], datasets: [] };
     const dailyCategoryTotals = new Map();
     const allCategories = new Set();
     expenses.forEach(tx => {
       const dateKey = tx.createdAt.toDate().toLocaleDateString('pt-BR');
       const category = tx.category;
       allCategories.add(category);
-      if (!dailyCategoryTotals.has(dateKey)) {
-        dailyCategoryTotals.set(dateKey, {});
-      }
+      if (!dailyCategoryTotals.has(dateKey)) dailyCategoryTotals.set(dateKey, {});
       const dayData = dailyCategoryTotals.get(dateKey);
       dayData[category] = (dayData[category] || 0) + tx.amount;
     });
     const sortedDates = Array.from(dailyCategoryTotals.keys()).sort((a, b) => new Date(a.split('/').reverse().join('-')) - new Date(b.split('/').reverse().join('-')));
-    const categoryColors = [
-      '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40',
-      '#E7E9ED', '#8DDF3C', '#F45B5B', '#7798BF', '#24CBE5', '#64E572',
-      '#FFC233', '#50B432', '#ED561B', '#DDDF00', '#24CBE5', '#64E572',
-      '#FF9655', '#FFF263', '#6AF9C4', '#2b908f', '#f45b5b', '#91e8e1',
-      '#f7a35c', '#8085e9', '#f15c80', '#e4d354', '#2ec4b6', '#011627'
-    ];
-    const datasets = Array.from(allCategories).map((category, index) => {
-      return {
-        label: category,
-        data: sortedDates.map(date => dailyCategoryTotals.get(date)[category] || 0),
-        borderColor: categoryColors[index % categoryColors.length],
-        backgroundColor: `${categoryColors[index % categoryColors.length]}80`,
-        tension: 0.1
-      }
-    });
+    const categoryColors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#E7E9ED', '#8DDF3C', '#F45B5B', '#7798BF', '#24CBE5', '#64E572', '#FFC233', '#50B432', '#ED561B', '#DDDF00', '#24CBE5', '#64E572', '#FF9655', '#FFF263', '#6AF9C4'];
+    const datasets = Array.from(allCategories).map((category, index) => ({
+      label: category,
+      data: sortedDates.map(date => dailyCategoryTotals.get(date)[category] || 0),
+      borderColor: categoryColors[index % categoryColors.length],
+      backgroundColor: `${categoryColors[index % categoryColors.length]}80`,
+      tension: 0.1
+    }));
     return { labels: sortedDates, datasets: datasets };
-  }, [filteredTransactions, selectedReportCategories]); // ADICIONE AQUI
+  }, [filteredTransactions, selectedReportCategories]);
+
   if (loading) {
     return <div className={styles.loading}>A carregar dados dos relatórios...</div>;
   }
@@ -220,22 +207,20 @@ function ReportsPage() {
     <div className={styles.page}>
       <header className={styles.header}>
         <div>
-          <h1>Relatórios Financeiros</h1>
-          <div className={styles.accountSelector}>
-            <select value={accountView} onChange={(e) => setAccountView(e.target.value)}>
-              <option value="geral">Visão Geral (sem Reservas)</option>
-              <option value="total">Patrimônio Total</option>
-              <option disabled>--- Contas ---</option>
-              {accounts.map(acc => (
-                <option key={acc.id} value={acc.id}>{acc.accountName}</option>
-              ))}
-            </select>
-          </div>
+          <h1>Análise de Relatórios</h1>
+          <p className={styles.subtitle}>Explore suas tendências financeiras ao longo do tempo.</p>
         </div>
-        <Link to="/dashboard" className={styles.backButton}>Voltar ao Dashboard</Link>
       </header>
 
       <section className={styles.filterSection}>
+        <div className={styles.filterGroup}>
+          <label>Conta:</label>
+          <AccountFilter
+            accounts={accounts}
+            currentSelection={accountView}
+            onSelectionChange={setAccountView}
+          />
+        </div>
         <div className={styles.filterGroup}>
           <label>De:</label>
           <input type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} />
@@ -247,45 +232,69 @@ function ReportsPage() {
         <button onClick={() => { setFilterStartDate(''); setFilterEndDate(''); }} className={styles.clearButton}>Limpar Datas</button>
       </section>
 
-      <div className={styles.reportsGrid}>
-        {/* Gráfico 1: Fluxo de Caixa Mensal (Existente) */}
-        <div className={styles.reportCard}>
-          <h2>Fluxo de Caixa Mensal</h2>
-          <div className={styles.chartContainer}>
-            <MonthlyBarChart chartData={monthlyFlowData} />
-          </div>
+      <section className={styles.exportContainer}>
+        <div>
+          <h3>Exportar Relatório</h3>
+          <p>Gere um arquivo CSV ou PDF com os dados do período e filtros selecionados acima.</p>
         </div>
+        <div className={styles.exportButtons}>
+          <button onClick={() => exportToCSV(filteredTransactions, summaryData, accounts)}>
+            Exportar CSV
+          </button>
+          <button onClick={() => exportToPDF(filteredTransactions, summaryData, accounts)}>
+            Exportar PDF
+          </button>
+        </div>
+      </section>
+      {/* --- NOVA SEÇÃO DE RESUMO (KPIs) --- */}
+      <section className={styles.summaryGrid}>
+        <div className={styles.summaryCard}>
+          <h4>Rendas no Período</h4>
+          <p className={styles.income}>{formatCurrency(summaryData.totalIncome)}</p>
+        </div>
+        <div className={styles.summaryCard}>
+          <h4>Despesas no Período</h4>
+          <p className={styles.expense}>{formatCurrency(summaryData.totalExpense)}</p>
+        </div>
+        <div className={styles.summaryCard}>
+          <h4>Saldo do Período</h4>
+          <p className={summaryData.balance >= 0 ? styles.income : styles.expense}>{formatCurrency(summaryData.balance)}</p>
+        </div>
+      </section>
 
+      <div className={styles.reportsGrid}>
         <div className={`${styles.reportCard} ${styles.fullWidth}`}>
           <div className={styles.chartHeader}>
-            <h2>Evolução de Despesas por Categoria</h2>
+            <div>
+              <h2>Evolução de Despesas por Categoria</h2>
+              <p className={styles.chartSubtitle}>Acompanhe como seus gastos em cada categoria mudam ao longo dos dias.</p>
+            </div>
             <div className={styles.chartActions}>
-              <button onClick={() => setIsCategoryFilterOpen(prev => !prev)} className={styles.filterButton}>
-                Filtrar Categorias
-              </button>
-              {isCategoryFilterOpen && (
-                <CategoryFilter
-                  allCategories={allReportCategories} // Passe a lista completa
-                  selectedCategories={selectedReportCategories}
-                  onSelectionChange={setSelectedReportCategories}
-                />
-
-              )}
+              <button onClick={() => setIsCategoryFilterOpen(prev => !prev)} className={styles.filterButton}>Filtrar Categorias</button>
+              {isCategoryFilterOpen && <CategoryFilter allCategories={allReportCategories} selectedCategories={selectedReportCategories} onSelectionChange={setSelectedReportCategories} />}
             </div>
           </div>
           <div className={styles.chartContainer}>
             <CategoryLineChart chartData={categoryExpenseData} />
           </div>
         </div>
-        {/* Gráfico 3: Saldo vs. Despesas (O que adicionamos) */}
-        <div className={`${styles.reportCard} ${styles.fullWidth}`}>
-          <h2>Evolução do Saldo vs. Despesas Acumuladas</h2>
+
+        <div className={styles.reportCard}>
+          <h2>Fluxo de Caixa Mensal</h2>
+          <p className={styles.chartSubtitle}>Compare o total de rendas e despesas, mês a mês.</p>
+          <div className={styles.chartContainer}>
+            <MonthlyBarChart chartData={monthlyFlowData} />
+          </div>
+        </div>
+
+        <div className={styles.reportCard}>
+          <h2>Evolução do Patrimônio</h2>
+          <p className={styles.chartSubtitle}>Veja o crescimento do seu saldo em comparação com o total de despesas.</p>
           <div className={styles.chartContainer}>
             <LineChart chartData={balanceAndExpenseData} />
           </div>
         </div>
       </div>
-
     </div>
   );
 }

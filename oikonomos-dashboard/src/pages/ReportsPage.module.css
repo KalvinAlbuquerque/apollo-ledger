@@ -1,6 +1,6 @@
 /* src/pages/ReportsPage.module.css */
 .page {
-  max-width: 1200px;
+  max-width: 1400px; /* Aumentado para mais espaço */
   margin: 40px auto;
   padding: 20px;
   color: var(--texto-principal);
@@ -9,11 +9,14 @@
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 40px;
+  align-items: flex-start; /* Alinha no topo */
+  margin-bottom: 25px;
   border-bottom: 1px solid var(--borda-sutil);
   padding-bottom: 20px;
 }
+.header h1 { margin: 0; }
+.subtitle { margin: 5px 0 0 0; color: var(--texto-secundario); font-size: 1rem; }
+.headerActions { display: flex; align-items: center; gap: 15px; }
 
 .backButton {
   background-color: transparent;
@@ -26,48 +29,23 @@
   text-decoration: none;
   transition: all 0.2s;
 }
-
 .backButton:hover {
   background-color: var(--fundo-secundario);
   color: var(--texto-principal);
 }
 
-.reportsGrid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 20px;
-}
-
-.reportCard {
-  background-color: var(--cinza-elemento);
-  padding: 20px;
-  border-radius: 12px;
-  border: 1px solid var(--borda-sutil);
-}
-
-.chartContainer {
-  height: 400px; /* Define uma altura para o gráfico */
-  margin-top: 20px;
-}
-
-/* Adicione em: src/pages/ReportsPage.module.css */
-
 .filterSection {
   background-color: var(--cinza-elemento);
   padding: 15px 20px;
   border-radius: 12px;
-  margin-bottom: 20px;
+  margin-bottom: 25px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 20px;
+  gap: 25px;
+  border: 1px solid var(--borda-sutil);
 }
-
-.filterGroup {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+.filterGroup { display: flex; align-items: center; gap: 10px; }
 .clearButton {
   margin-left: auto;
   background-color: transparent;
@@ -78,33 +56,49 @@
   cursor: pointer;
 }
 
-.fullWidth {
-  grid-column: 1 / -1; /* Faz este card ocupar todas as colunas do grid */
+/* --- NOVA SEÇÃO DE RESUMO --- */
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 25px;
 }
-
-.accountSelector {
-  margin-top: 15px;
+.summaryCard {
+  background-color: var(--cinza-elemento);
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--borda-sutil);
 }
+.summaryCard h4 { margin: 0 0 10px 0; color: var(--texto-secundario); font-weight: 500; }
+.summaryCard p { margin: 0; font-size: 1.5rem; font-weight: 700; }
+.income { color: var(--verde-destaque); }
+.expense { color: var(--vermelho-destaque); }
+/* --- FIM DA NOVA SEÇÃO --- */
 
-.accountSelector select {
-  font-weight: bold;
-  padding: 8px 12px;
-  font-size: 1rem;
+
+.reportsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Duas colunas */
+  gap: 20px;
 }
+.reportCard {
+  background-color: var(--cinza-elemento);
+  padding: 25px;
+  border-radius: 12px;
+  border: 1px solid var(--borda-sutil);
+}
+.reportCard h2 { margin-top: 0; }
+.chartSubtitle { font-size: 0.9rem; color: var(--texto-secundario); margin: -10px 0 20px 0; }
+.chartContainer { height: 350px; }
+.fullWidth { grid-column: 1 / -1; }
 
-
-/* Adicione ao final de ReportsPage.module.css */
 .chartHeader {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  align-items: flex-start; /* Alinha no topo */
+  margin-bottom: 10px;
 }
-
-.chartActions {
-  position: relative;
-}
-
+.chartActions { position: relative; }
 .filterButton {
   background-color: transparent;
   border: 1px solid var(--borda-sutil);
@@ -112,4 +106,48 @@
   padding: 8px 15px;
   border-radius: 6px;
   cursor: pointer;
+}
+
+.exportContainer {
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--borda-sutil);
+  border-radius: 12px;
+  padding: 20px 25px;
+  margin-bottom: 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.exportContainer h3 {
+  margin: 0 0 5px 0;
+  color: var(--texto-principal);
+}
+
+.exportContainer p {
+  margin: 0;
+  color: var(--texto-secundario);
+  font-size: 0.9rem;
+}
+
+.exportButtons {
+  display: flex;
+  gap: 15px;
+}
+
+.exportButtons button {
+  background-color: var(--fundo-secundario);
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-principal);
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.exportButtons button:hover {
+  background-color: var(--acento-azul);
+  border-color: var(--acento-azul);
+  color: white;
 }
