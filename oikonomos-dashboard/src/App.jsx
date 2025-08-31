@@ -1,4 +1,4 @@
-// src/App.jsx (Versão Final com Layout)
+// src/App.jsx
 import React, { useState, useEffect } from 'react';
 import { auth } from '../firebaseClient';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -14,12 +14,13 @@ import Dashboard from './components/Dashboard';
 import ReportsPage from './pages/ReportsPage';
 import ForecastPage from './pages/ForecastPage';
 import ManagementPage from './pages/ManagementPage';
-import HelpPage from './pages/HelpPage'; // Importe a nova página
+import HelpPage from './pages/HelpPage';
+import MyAccountPage from './pages/MyAccountPage';
 
 // Componente para rotas protegidas
 const ProtectedLayout = () => (
   <MainLayout>
-    <Outlet /> {/* Renderiza a rota filha (Dashboard, Reports, etc.) */}
+    <Outlet />
   </MainLayout>
 );
 
@@ -36,7 +37,7 @@ function App() {
   }, []);
 
   if (loading) {
-    return <div style={{ color: 'white', textAlign: 'center', paddingTop: '50px' }}>Carregando Oikonomos...</div>;
+    return <div style={{ color: 'white', textAlign: 'center', paddingTop: '50px' }}>Carregando Apollo...</div>;
   }
 
   return (
@@ -44,8 +45,7 @@ function App() {
       <Toaster position="top-right" toastOptions={{ style: { background: '#333', color: '#fff' } }} />
       <Routes>
         <Route path="/" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
-        
-        {/* Rotas que usam o MainLayout */}
+
         {user && (
           <Route element={<ProtectedLayout />}>
             <Route path="/dashboard" element={<Dashboard user={user} />} />
@@ -53,10 +53,10 @@ function App() {
             <Route path="/forecast" element={<ForecastPage />} />
             <Route path="/management" element={<ManagementPage user={user} />} />
             <Route path="/help" element={<HelpPage />} />
+            <Route path="/my-account" element={<MyAccountPage />} /> {/* <-- 2. ADICIONE A ROTA AQUI */}
           </Route>
         )}
 
-        {/* Rota de fallback */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>

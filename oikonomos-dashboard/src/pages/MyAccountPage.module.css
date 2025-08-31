@@ -1,0 +1,84 @@
+/* src/pages/MyAccountPage.module.css */
+.page {
+  max-width: 1200px;
+  margin: 40px auto;
+  padding: 20px;
+  color: var(--texto-principal);
+}
+
+.page h1 {
+  font-size: 2rem;
+  border-bottom: 1px solid var(--borda-sutil);
+  padding-bottom: 20px;
+  margin-bottom: 30px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 25px;
+  align-items: flex-start;
+}
+
+.card {
+  background-color: var(--cinza-elemento);
+  padding: 25px;
+  border-radius: 12px;
+  border: 1px solid var(--borda-sutil);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.formGroup label {
+  font-weight: 500;
+}
+
+.errorText {
+  color: var(--vermelho-destaque);
+  background-color: rgba(255, 29, 88, 0.1);
+  border: 1px solid var(--vermelho-destaque);
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.passwordRules {
+  font-size: 0.8rem;
+  color: var(--texto-secundario);
+  padding-left: 20px;
+  margin: 0;
+}
+
+.saveButton {
+  background-color: var(--acento-azul);
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: opacity 0.2s;
+}
+.saveButton:hover {
+  opacity: 0.8;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
