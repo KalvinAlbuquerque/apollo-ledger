@@ -12,7 +12,7 @@ function Sidebar() {
             <div className={styles.logo}>
                 {/* O título agora fica sozinho no topo */}
                 <h1>Apollo Ledger</h1>
-            </div>
+                            </div>
             <ul className={styles.navList}>
                 <li>
                     <NavLink to="/dashboard" className={({ isActive }) => isActive ? styles.active : ''}>
@@ -47,7 +47,7 @@ function Sidebar() {
             </ul>
             <div className={styles.footer}>
                 {/* A logo foi movida para cá */}
-                <img src="/LogoApollo.png" alt="Apollo Logo" className={styles.footerLogo} />
+                <img src="/Logo_arpa_cores_fortes.png" alt="Apollo Logo" className={styles.footerLogo} />
                 <button onClick={handleLogout} className={styles.logoutButton}>
                     Sair
                 </button>
