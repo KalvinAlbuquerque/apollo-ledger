@@ -12,7 +12,15 @@
       "dest": "backend/bot.py"
     },
     {
-      "src": "/(.*)",
+      "src": "/api/generate-api-key",
+      "dest": "backend/bot.py"
+    },
+    {
+      "src": "/api/categories",
+      "dest": "backend/bot.py"
+    },
+    {
+      "src": "/api/transaction",
       "dest": "backend/bot.py"
     }
   ],
