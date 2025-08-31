@@ -16,6 +16,9 @@ from dotenv import load_dotenv
 from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler, CommandHandler
+import secrets
+from flask import jsonify
+from functools import wraps
 
 # --- 1. CONFIGURAÇÃO INICIAL ---
 load_dotenv()
@@ -1302,6 +1305,136 @@ def run_recurrence_check():
     except Exception as e:
         print(f"Erro no Cron Job: {e}")
         return f"Erro: {e}", 500
+    
+@app.route("/api/generate-api-key", methods=['POST'])
+def generate_api_key():
+    """
+    Gera uma nova chave de API para um utilizador autenticado.
+    O frontend deve enviar o ID Token do Firebase no cabeçalho de autorização.
+    """
+    try:
+        # 1. Obter o token do cabeçalho da requisição
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({"error": "Cabeçalho de autorização em falta ou mal formatado"}), 401
+
+        id_token = auth_header.split('Bearer ')[1]
+
+        # 2. Verificar o token para obter os dados do utilizador (e o seu UID)
+        decoded_token = auth.verify_id_token(id_token)
+        uid = decoded_token['uid']
+
+        # 3. Gerar uma chave de API segura
+        new_api_key = secrets.token_hex(32)
+
+        # 4. Salvar a chave no documento do utilizador na coleção 'users'
+        user_doc_ref = db.collection('users').document(uid)
+        user_doc_ref.set({'apiKey': new_api_key}, merge=True)
+
+        # 5. Retornar a nova chave para o frontend
+        return jsonify({"apiKey": new_api_key}), 200
+
+    except auth.InvalidIdTokenError:
+        return jsonify({"error": "ID Token inválido"}), 403
+    except Exception as e:
+        print(f"Erro ao gerar chave de API: {e}")
+        return jsonify({"error": "Ocorreu um erro interno"}), 500
+    
+    # --- DECORADOR DE AUTENTICAÇÃO VIA API KEY ---
+def require_api_key(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        api_key = request.headers.get('X-API-Key')
+        if not api_key:
+            return jsonify({"error": "Chave de API em falta no cabeçalho X-API-Key"}), 401
+
+        # Procura o utilizador que possui esta chave de API
+        users_ref = db.collection('users').where(filter=FieldFilter('apiKey', '==', api_key)).limit(1).stream()
+        user_doc = next(users_ref, None)
+
+        if not user_doc:
+            return jsonify({"error": "Chave de API inválida"}), 403
+
+        # Passa o UID do utilizador para a função da rota
+        uid = user_doc.id
+        return f(uid, *args, **kwargs)
+    return decorated_function
+
+# --- ENDPOINTS DA API PARA O CORVUS ---
+
+@app.route("/api/categories", methods=['GET'])
+@require_api_key
+def get_categories(uid):
+    """
+    Devolve as categorias de despesa de um utilizador, validado pela chave de API.
+    """
+    try:
+        cats_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', uid)).where(filter=FieldFilter('type', '==', 'expense')).stream()
+        categories = [cat.to_dict() for cat in cats_ref]
+        return jsonify(categories), 200
+    except Exception as e:
+        print(f"Erro ao buscar categorias via API: {e}")
+        return jsonify({"error": "Não foi possível buscar as categorias"}), 500
+
+
+@app.route("/api/transaction", methods=['POST'])
+@require_api_key
+def create_transaction(uid):
+    """
+    Cria uma transação de despesa na conta padrão do utilizador.
+    """
+    try:
+        data = request.get_json()
+        if not data or 'amount' not in data or 'category' not in data:
+            return jsonify({"error": "Dados em falta. 'amount' e 'category' são obrigatórios."}), 400
+
+        amount = float(data['amount'])
+        category = data['category']
+        description = data.get('description', 'Transação via Corvus API') # Descrição opcional
+
+        if amount <= 0:
+            return jsonify({"error": "O valor da transação deve ser positivo."}), 400
+
+        # 1. Encontrar a conta padrão do utilizador
+        accounts_ref = db.collection('accounts').where(filter=FieldFilter('userId', '==', uid)).where(filter=FieldFilter('isDefault', '==', True)).limit(1).stream()
+        default_account_doc = next(accounts_ref, None)
+
+        if not default_account_doc:
+            # Fallback: se não houver conta padrão, pega a primeira que encontrar
+            all_accounts_ref = db.collection('accounts').where(filter=FieldFilter('userId', '==', uid)).limit(1).stream()
+            default_account_doc = next(all_accounts_ref, None)
+            if not default_account_doc:
+                return jsonify({"error": "Nenhuma conta encontrada para este utilizador no Apollo."}), 404
+        
+        default_account_id = default_account_doc.id
+
+        # 2. Usar um batch para garantir a consistência dos dados
+        batch = db.batch()
+
+        # 3. Criar a nova transação
+        new_transaction_ref = db.collection("transactions").document()
+        batch.set(new_transaction_ref, {
+            "userId": uid,
+            "type": "expense",
+            "amount": amount,
+            "category": category,
+            "description": description,
+            "createdAt": firestore.SERVER_TIMESTAMP,
+            "accountId": default_account_id,
+        })
+
+        # 4. Atualizar o saldo da conta
+        account_doc_ref = db.collection('accounts').document(default_account_id)
+        batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(-amount)})
+        
+        # 5. Executar as operações
+        batch.commit()
+
+        return jsonify({"success": True, "message": "Transação criada com sucesso"}), 201
+
+    except Exception as e:
+        print(f"Erro ao criar transação via API: {e}")
+        return jsonify({"error": "Ocorreu um erro interno ao criar a transação"}), 500
 
 # --- 8. EXECUÇÃO LOCAL (Opcional) ---
 if __name__ == '__main__':

@@ -1,10 +1,12 @@
+// src/pages/MyAccountPage.jsx
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../../firebaseClient';
 import {
     updateProfile,
     EmailAuthProvider,
     reauthenticateWithCredential,
-    updatePassword
+    updatePassword,
+    getIdToken
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import toast from 'react-hot-toast';
@@ -15,6 +17,7 @@ function MyAccountPage() {
 
     const [displayName, setDisplayName] = useState(user?.displayName || '');
     const [nickname, setNickname] = useState('');
+    const [apiKey, setApiKey] = useState(''); // Estado para a chave de API
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -26,7 +29,9 @@ function MyAccountPage() {
                 const userDocRef = doc(db, 'users', user.uid);
                 const userDocSnap = await getDoc(userDocRef);
                 if (userDocSnap.exists()) {
-                    setNickname(userDocSnap.data().apelido || '');
+                    const userData = userDocSnap.data();
+                    setNickname(userData.apelido || '');
+                    setApiKey(userData.apiKey || ''); // Busca a chave de API existente
                 }
             }
         };
@@ -49,6 +54,39 @@ function MyAccountPage() {
             }
         );
     };
+    
+    // --- NOVA FUNÇÃO PARA GERAR A CHAVE DE API ---
+    const handleGenerateApiKey = async () => {
+        if (!user) {
+            toast.error("Utilizador não autenticado.");
+            return;
+        }
+
+        const toastId = toast.loading('Gerando nova chave de API...');
+        try {
+            const token = await getIdToken(user);
+            const response = await fetch('/api/generate-api-key', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Falha ao gerar a chave.');
+            }
+
+            const data = await response.json();
+            setApiKey(data.apiKey);
+            toast.success('Nova chave de API gerada com sucesso!', { id: toastId });
+
+        } catch (error) {
+            console.error("Erro ao gerar chave de API:", error);
+            toast.error(error.message, { id: toastId });
+        }
+    };
+
 
     const validatePassword = (password) => {
         if (password.length < 8) return "A senha deve ter no mínimo 8 caracteres.";
@@ -75,7 +113,7 @@ function MyAccountPage() {
         }
 
         if (!user || !user.email) {
-            toast.error("Usuário ou e-mail não encontrado.");
+            toast.error("Utilizador ou e-mail não encontrado.");
             return;
         }
 
@@ -100,7 +138,6 @@ function MyAccountPage() {
             <h1>Minha Conta</h1>
 
             <div className={styles.grid}>
-                {/* Card de Informações do Usuário (Layout Melhorado) */}
                 <div className={styles.card}>
                     <h2>Informações do Perfil</h2>
                     <div className={styles.infoRow}>
@@ -116,12 +153,11 @@ function MyAccountPage() {
                         <span>{user?.email}</span>
                     </div>
                      <div className={styles.infoRow}>
-                        <label>UID do Usuário</label>
+                        <label>UID do Utilizador</label>
                         <span className={styles.uid}>{user?.uid}</span>
                     </div>
                 </div>
 
-                {/* Card de Edição de Perfil */}
                 <div className={styles.card}>
                     <h2>Editar Perfil</h2>
                     <form onSubmit={handleProfileUpdate}>
@@ -148,8 +184,29 @@ function MyAccountPage() {
                         <button type="submit" className={styles.saveButton}>Salvar Alterações de Perfil</button>
                     </form>
                 </div>
+                
+                {/* --- NOVA SEÇÃO DE INTEGRAÇÕES --- */}
+                <div className={`${styles.card} ${styles.fullWidth}`}>
+                    <h2>Integrações & API</h2>
+                    <div className={styles.formGroup}>
+                        <label htmlFor="api-key">Sua Chave de API Corvus</label>
+                        <input
+                            type="text"
+                            id="api-key"
+                            value={apiKey || 'Nenhuma chave gerada ainda.'}
+                            readOnly
+                            onClick={(e) => e.target.select()} // Seleciona o texto ao clicar
+                        />
+                        <p className={styles.helpText}>
+                            Use esta chave para conectar o Corvus à sua conta Apollo. Não a partilhe com ninguém.
+                        </p>
+                    </div>
+                    <button onClick={handleGenerateApiKey} className={styles.saveButton}>
+                        {apiKey ? 'Gerar Nova Chave' : 'Gerar Chave de API'}
+                    </button>
+                </div>
 
-                {/* Card de Alteração de Senha */}
+
                 <div className={`${styles.card} ${styles.fullWidth}`}>
                     <h2>Alterar Senha</h2>
                     <form onSubmit={handlePasswordChange} className={styles.passwordForm}>

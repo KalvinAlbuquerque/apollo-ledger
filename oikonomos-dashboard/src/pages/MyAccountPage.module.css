@@ -142,3 +142,14 @@
     grid-column: 1 / -1; /* Ocupa toda a largura */
   }
 }
+
+helpText {
+  font-size: 0.8rem;
+  color: var(--texto-secundario);
+  margin-top: 5px;
+}
+
+#api-key {
+  font-family: monospace;
+  background-color: var(--fundo-primario);
+}
