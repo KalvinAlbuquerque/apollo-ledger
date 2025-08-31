@@ -12,17 +12,13 @@
   left: 0;
 }
 
+/* Regra do topo ajustada para centralizar apenas o título */
 .logo {
   display: flex;
   align-items: center;
-  gap: 15px;
+  justify-content: center; /* Centraliza o H1 */
   margin-bottom: 40px;
   padding: 0 10px;
-}
-
-.logo img {
-  width: 40px;
-  height: 40px;
 }
 
 .logo h1 {
@@ -61,8 +57,25 @@
   color: white;
 }
 
+/* Regra do rodapé atualizada para empilhar e centralizar os itens */
 .footer {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px; /* Espaço entre a logo e o botão */
+}
+
+/* Nova regra para a logo no rodapé */
+.footerLogo {
+  width: 60px; /* Reduzido de 100px para 60px */
+  height: 60px; /* Reduzido de 100px para 60px */
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.footerLogo:hover {
+  opacity: 1;
 }
 
 .logoutButton {

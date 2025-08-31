@@ -10,7 +10,7 @@ function Sidebar() {
     return (
         <nav className={styles.sidebar}>
             <div className={styles.logo}>
-                <img src="/LogoApollo.png" alt="Apollo Logo" />
+                {/* O título agora fica sozinho no topo */}
                 <h1>Apollo Ledger</h1>
             </div>
             <ul className={styles.navList}>
@@ -34,19 +34,20 @@ function Sidebar() {
                         <span>Previsões</span>
                     </NavLink>
                 </li>
-                {/* ADICIONE O NOVO LINK AQUI */}
-                <li>
-                    <NavLink to="/my-account" className={({ isActive }) => isActive ? styles.active : ''}>
-                        <span>Minha Conta</span>
-                    </NavLink>
-                </li>
                 <li>
                     <NavLink to="/help" className={({ isActive }) => isActive ? styles.active : ''}>
                         <span>Ajuda</span>
                     </NavLink>
                 </li>
+                <li>
+                    <NavLink to="/my-account" className={({ isActive }) => isActive ? styles.active : ''}>
+                        <span>Minha Conta</span>
+                    </NavLink>
+                </li>
             </ul>
             <div className={styles.footer}>
+                {/* A logo foi movida para cá */}
+                <img src="/LogoApollo.png" alt="Apollo Logo" className={styles.footerLogo} />
                 <button onClick={handleLogout} className={styles.logoutButton}>
                     Sair
                 </button>
