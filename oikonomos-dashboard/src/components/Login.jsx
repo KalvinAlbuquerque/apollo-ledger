@@ -23,7 +23,7 @@ function Login() {
   return (
     <div className={styles.loginContainer}>
       <div className={styles.loginBox}>
-        <h2>Oikonomos</h2>
+        <img src="/Logo_arpa_cores_fortes.png" alt="Logo Apollo Ledger" className={styles.logo} />
         <form onSubmit={handleLogin}>
           <input
             type="email"

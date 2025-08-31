@@ -60,3 +60,10 @@
   margin-top: 20px;
   font-size: 0.9rem;
 }
+
+.logo {
+  display: block;
+  width: 300px; /* Ou outro tamanho que preferir */
+  margin: 0 auto 20px;
+  opacity: 0.8;
+}
