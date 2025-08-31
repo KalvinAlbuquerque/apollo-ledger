@@ -8,7 +8,6 @@ import unicodedata
 from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
 import calendar
-
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -16,6 +15,7 @@ from dotenv import load_dotenv
 from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CallbackQueryHandler, CommandHandler
+from flask_cors import CORS
 import secrets
 from flask import jsonify
 from functools import wraps
@@ -1141,6 +1141,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # --- 6. SERVIDOR WEB E WEBHOOK ---
 app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 ptb_app = Application.builder().token(TELEGRAM_TOKEN).build()
 ptb_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 ptb_app.add_handler(CallbackQueryHandler(handle_account_selection))
