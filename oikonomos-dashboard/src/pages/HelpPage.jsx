@@ -118,6 +118,37 @@ function HelpPage() {
               <li><strong>Editar e Excluir:</strong> Use os botões ao lado de cada transação para fazer ajustes pontuais.</li>
               <li><strong>Ações em Massa:</strong> Para apagar várias transações de uma vez, clique em <strong>"Selecionar Vários"</strong>, marque as linhas desejadas e clique em "Excluir Selecionados".</li>
             </ul>
+            <h3>Passo 6: Importando Transações em Massa via CSV</h3>
+            <p>
+              Se você tem muitas transações para registrar de uma vez, a importação via CSV é a ferramenta ideal. Siga as regras abaixo para garantir que seu arquivo seja processado corretamente.
+            </p>
+            <ol>
+              <li>
+                <strong>Baixe o Modelo:</strong> Na área de transações, clique no menu de três pontinhos (⋮) e selecione "Baixar Modelo CSV". Isso garante que você tenha as colunas corretas.
+              </li>
+              <li>
+                <strong>Preencha o Ficheiro:</strong> Abra o ficheiro `modelo_transacoes.csv` em um editor de planilhas e preencha as linhas com suas transações, seguindo as regras abaixo.
+              </li>
+              <li>
+                <strong>Importe o Ficheiro:</strong> No mesmo menu, clique em "Importar CSV" e selecione seu ficheiro preenchido.
+              </li>
+            </ol>
+
+            <h4 style={{ color: 'var(--vermelho-destaque)' }}>⚠️ Regras de Validação (Muito Importante!)</h4>
+            <p>
+              O sistema valida cada linha do seu ficheiro antes de importar. Se <strong>qualquer erro</strong> for encontrado, a importação inteira será cancelada. Verifique se seu ficheiro segue estas regras:
+            </p>
+            <ul>
+              <li><strong>data:</strong> Use o formato <strong>AAAA-MM-DD</strong> (ex: `2025-12-31`).</li>
+              <li><strong>tipo:</strong> Deve ser exatamente `despesa` ou `renda` (sem acentos e em minúsculas).</li>
+              <li><strong>categoria:</strong> O nome da categoria deve ser <strong>exatamente igual</strong> a uma categoria que você já criou no sistema (em "Gerenciamento"). O sistema diferencia maiúsculas de minúsculas.</li>
+              <li><strong>valor:</strong> Use um ponto como separador decimal (ex: `15.50`). Não use vírgulas ou símbolos de moeda.</li>
+              <li><strong>conta:</strong> O nome da conta deve ser <strong>exatamente igual</strong> a uma conta que você já criou.</li>
+              <li><strong>descricao:</strong> Campo opcional para detalhes extras.</li>
+            </ul>
+            <p>
+              Se a importação falhar, o sistema mostrará uma mensagem de erro indicando a linha e o problema específico (ex: "Erro na linha 5: Categoria 'almoço' não encontrada."). Corrija seu ficheiro e tente novamente.
+            </p>
           </section>
         );
       case 3:

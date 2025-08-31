@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { auth, db } from '../../firebaseClient';
-import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc, writeBatch, Timestamp, increment } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
 // Componentes Filhos
@@ -12,6 +12,7 @@ import { showConfirmationToast } from '../utils/toastUtils.jsx';
 import CategoryFilter from './CategoryFilter';
 import AccountFilter from './AccountFilter';
 import HelpModal from './HelpModal';
+import { parseCSVAndValidate } from '../utils/importUtils';
 // Estilos
 import styles from './Dashboard.module.css';
 
@@ -157,6 +158,75 @@ function Dashboard({ user, userProfile }) {
     { title: "Gastos por Categoria", data: summaryData.expenseChartData },
     { title: "Origem das Rendas", data: summaryData.incomeChartData },
   ];
+  const handleDownloadTemplate = () => {
+    const headers = "data,tipo,categoria,valor,conta,descricao";
+    const example = "2025-08-31,despesa,Alimentação,25.50,Carteira,Almoço no restaurante";
+    const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + example;
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "modelo_transacoes.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleFileImport = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target.result;
+      const toastId = toast.loading('A processar e validar o seu ficheiro CSV...');
+
+      try {
+        const { validTransactions, errors } = await parseCSVAndValidate(text, user.uid, categories, accounts);
+
+        // --- LÓGICA ANTI-FALHA ---
+        // 1. Se houver qualquer erro, interrompa TUDO.
+        if (errors.length > 0) {
+          const firstError = errors[0];
+          toast.error(
+            `Erro na linha ${firstError.line}: ${firstError.message}. Nenhuma transação foi importada.`,
+            { id: toastId, duration: 6000 } // Toast mais longo para dar tempo de ler
+          );
+          console.error("Erros de validação do CSV:", errors);
+          return; // Interrompe a execução
+        }
+
+        // 2. Se não houver transações válidas (ficheiro vazio ou só com cabeçalho)
+        if (validTransactions.length === 0) {
+          toast.error("O ficheiro não contém transações válidas para importar.", { id: toastId });
+          return;
+        }
+
+        // 3. Se passou por todas as validações, prossiga com o salvamento.
+        const batch = writeBatch(db);
+        validTransactions.forEach(tx => {
+          const newTransactionRef = doc(collection(db, "transactions"));
+          batch.set(newTransactionRef, tx.data);
+
+          const accountDocRef = doc(db, "accounts", tx.accountId);
+          const amountToUpdate = tx.data.type === 'income' ? tx.data.amount : -tx.data.amount;
+          batch.update(accountDocRef, { balance: increment(amountToUpdate) });
+        });
+
+        await batch.commit();
+
+        toast.success(`${validTransactions.length} transações importadas com sucesso!`, { id: toastId });
+        triggerRefresh();
+
+      } catch (error) {
+        toast.error(`Erro inesperado ao processar o ficheiro: ${error.message}`, { id: toastId });
+        console.error(error);
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+  };
+
 
   const itemsPerPage = 15;
   const currentTransactions = transactions.slice(currentPage * itemsPerPage - itemsPerPage, currentPage * itemsPerPage);
@@ -235,7 +305,6 @@ function Dashboard({ user, userProfile }) {
     <>
       <div className={styles.dashboard}>
         <header className={styles.header}>
-          {/* Adicione a className 'titleContainer' a este div */}
           <div className={styles.titleContainer}>
             <h1>
               Dashboard Apollo
@@ -302,15 +371,34 @@ function Dashboard({ user, userProfile }) {
           <div className={styles.transactionsContainer}>
             <div className={styles.transactionsHeader}>
               <h2>Transações do Período</h2>
-              {isSelectionMode ? (
-                <div className={styles.selectionActions}>
-                  <span>{selectedTransactions.size} selecionada(s)</span>
-                  <button onClick={handleDeleteSelected} className={styles.deleteSelectedButton}>Excluir</button>
-                  <button onClick={toggleSelectionMode} className={styles.cancelSelectionButton}>Cancelar</button>
+              <div className={styles.headerActionsContainer}>
+                {isSelectionMode ? (
+                  <div className={styles.selectionActions}>
+                    <span>{selectedTransactions.size} selecionada(s)</span>
+                    <button onClick={handleDeleteSelected} className={styles.deleteSelectedButton}>Excluir</button>
+                    <button onClick={toggleSelectionMode} className={styles.cancelSelectionButton}>Cancelar</button>
+                  </div>
+                ) : (
+                  <button onClick={toggleSelectionMode} className={styles.selectButton}>Selecionar Vários</button>
+                )}
+
+                <div className={styles.importMenu}>
+                  <button className={styles.dotsButton}>⋮</button>
+                  <div className={styles.dropdownContent}>
+                    <a href="#!" onClick={handleDownloadTemplate}>Baixar Modelo CSV</a>
+                    <label htmlFor="csv-importer">
+                      Importar CSV
+                      <input
+                        type="file"
+                        id="csv-importer"
+                        accept=".csv"
+                        style={{ display: 'none' }}
+                        onChange={handleFileImport}
+                      />
+                    </label>
+                  </div>
                 </div>
-              ) : (
-                <button onClick={toggleSelectionMode} className={styles.selectButton}>Selecionar Vários</button>
-              )}
+              </div>
             </div>
             <table className={styles.table}>
               <thead>
@@ -377,7 +465,6 @@ function Dashboard({ user, userProfile }) {
           </ul>
         </HelpModal>
       )}
-
     </>
   );
 }

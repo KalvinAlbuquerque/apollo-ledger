@@ -304,3 +304,61 @@ align-items: flex-start;
   border-color: var(--acento-azul);
   color: white;
 }
+
+/* Adicione no final de Dashboard.module.css */
+
+.headerActionsContainer {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.importMenu {
+  position: relative;
+  display: inline-block;
+}
+
+.dotsButton {
+  background: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.importMenu:hover .dropdownContent {
+  display: block;
+}
+
+.dropdownContent {
+  display: none;
+  position: absolute;
+  right: 0;
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--borda-sutil);
+  min-width: 200px;
+  box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.3);
+  z-index: 1;
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 0.9rem;
+}
+
+.dropdownContent a, .dropdownContent label {
+  color: var(--texto-principal);
+  padding: 12px 16px;
+  text-decoration: none;
+  display: block;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.dropdownContent a:hover, .dropdownContent label:hover {
+  background-color: var(--acento-azul);
+  color: white;
+}
