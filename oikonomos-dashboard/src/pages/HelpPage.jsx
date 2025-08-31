@@ -140,14 +140,14 @@ function HelpPage() {
             </p>
             <ul>
               <li><strong>data:</strong> Use o formato <strong>AAAA-MM-DD</strong> (ex: `2025-12-31`).</li>
-              <li><strong>tipo:</strong> Deve ser exatamente `despesa` ou `renda` (sem acentos e em minúsculas).</li>
-              <li><strong>categoria:</strong> O nome da categoria deve ser <strong>exatamente igual</strong> a uma categoria que você já criou no sistema (em "Gerenciamento"). O sistema diferencia maiúsculas de minúsculas.</li>
-              <li><strong>valor:</strong> Use um ponto como separador decimal (ex: `15.50`). Não use vírgulas ou símbolos de moeda.</li>
-              <li><strong>conta:</strong> O nome da conta deve ser <strong>exatamente igual</strong> a uma conta que você já criou.</li>
+              <li><strong>tipo:</strong> Deve ser `despesa` ou `renda`. O sistema é flexível com maiúsculas/minúsculas (ex: `Despesa` ou `RENDA` são aceitos).</li>
+              <li><strong>categoria:</strong> O nome da categoria deve corresponder a uma categoria que você já criou. O sistema ignora diferenças de maiúsculas/minúsculas e acentos (ex: `Alimentação`, `alimentacao` e `ALIMENTACAO` são tratados como iguais).</li>
+              <li><strong>valor:</strong> Use ponto ou vírgula como separador decimal (ex: `15.50` ou `15,50`). Não use símbolos de moeda.</li>
+              <li><strong>conta:</strong> O nome da conta deve corresponder a uma conta que você já criou. A verificação também é flexível com maiúsculas/minúsculas e acentos (ex: `Carteira` e `carteira` são a mesma coisa).</li>
               <li><strong>descricao:</strong> Campo opcional para detalhes extras.</li>
             </ul>
             <p>
-              Se a importação falhar, o sistema mostrará uma mensagem de erro indicando a linha e o problema específico (ex: "Erro na linha 5: Categoria 'almoço' não encontrada."). Corrija seu ficheiro e tente novamente.
+              Se a importação falhar, o sistema mostrará uma mensagem de erro indicando a linha e o problema específico (ex: "Erro na linha 5: Categoria 'Lanches' não encontrada."). Corrija seu ficheiro e tente novamente.
             </p>
           </section>
         );

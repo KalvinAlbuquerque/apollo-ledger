@@ -1,4 +1,4 @@
-/* src/components/Sidebar.module.css */
+/* src/components/Sidebar.module.css (Versão para Esconder Completamente) */
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -10,21 +10,59 @@
   position: fixed;
   top: 0;
   left: 0;
+  z-index: 100; /* Garante que a sidebar fique por cima do conteúdo */
+  transform: translateX(0); /* Posição inicial (visível) */
+  transition: transform 0.3s ease-in-out;
+}
+
+/* --- NOVO: Estado Fechado --- */
+.sidebar.collapsed {
+  transform: translateX(-100%); /* Desliza a sidebar para fora da tela */
+}
+
+/* --- NOVO: Botão de controle com posicionamento Fixo --- */
+.toggleButton {
+  position: fixed; /* Fixo na tela, independente da sidebar */
+  top: 50%; /* Posição vertical no meio */
+  left: 250px; /* Posição inicial, na borda da sidebar aberta */
+  transform: translateY(-50%);
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-principal);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 110; /* Z-index maior que o da sidebar para ficar por cima */
+  transition: left 0.3s ease-in-out;
+}
+
+/* --- NOVO: Posição do botão quando a sidebar está fechada --- */
+.sidebar.collapsed + main .toggleButton, /* Seletor para quando está no MainLayout */
+.sidebar.collapsed .toggleButton { /* Seletor para o botão dentro da sidebar */
+  left: 15px; /* Posição recuada quando a sidebar está escondida */
 }
 
 
-/* Regra do topo ajustada para centralizar apenas o título */
+/* O resto do CSS é para manter o seu layout original */
 .logo {
   display: flex;
   align-items: center;
-  justify-content: center; /* Centraliza o H1 */
+  justify-content: center;
   margin-bottom: 40px;
   padding: 0 10px;
+  width: 100%;
 }
 
 .logo h1 {
   font-size: 1.5rem;
   margin: 0;
+  white-space: nowrap;
 }
 
 .navList {
@@ -34,18 +72,20 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
 }
 
 .navList a {
   display: flex;
   align-items: center;
-  gap: 15px;
+  justify-content: flex-start;
   padding: 12px 15px;
   border-radius: 8px;
   color: var(--texto-secundario);
   text-decoration: none;
   font-weight: 500;
   transition: background-color 0.2s, color 0.2s;
+  white-space: nowrap;
 }
 
 .navList a:hover {
@@ -58,19 +98,18 @@
   color: white;
 }
 
-/* Regra do rodapé atualizada para empilhar e centralizar os itens */
 .footer {
   margin-top: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px; /* Espaço entre a logo e o botão */
+  gap: 20px;
+  width: 100%;
 }
 
-/* Nova regra para a logo no rodapé */
 .footerLogo {
-  width: 250px; /* Aumente para o tamanho desejado */
-  height: 250px; /* Mantenha o mesmo valor da largura para a proporção */
+  width: 250px;
+  height: 250px;
   opacity: 0.7;
   transition: opacity 0.2s;
 }
@@ -89,6 +128,7 @@
   font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .logoutButton:hover {

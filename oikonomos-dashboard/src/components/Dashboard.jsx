@@ -316,7 +316,6 @@ function Dashboard({ user, userProfile }) {
           </div>
           <div className={styles.headerActions}>
             <AccountFilter accounts={accounts} currentSelection={accountView} onSelectionChange={setAccountView} />
-            <button onClick={handleLogout} className={styles.logoutButton}>Sair</button>
           </div>
         </header>
 

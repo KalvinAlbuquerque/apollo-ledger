@@ -5,6 +5,36 @@
 
 .content {
   flex-grow: 1;
-  padding-left: 250px; /* Mesma largura da sidebar */
-  /* padding: 20px 40px; (opcional, se quiser um espaçamento padrão) */
+  padding-left: 250px;
+  transition: padding-left 0.3s ease-in-out;
+}
+
+.contentCollapsed {
+  padding-left: 60px; 
+}
+
+/* --- NOVO: Estilos para o botão, agora no MainLayout --- */
+.sidebarToggleButton {
+  position: fixed;
+  top: 50%;
+  left: 250px;
+  transform: translateY(-50%);
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-principal);
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 110;
+  transition: left 0.3s ease-in-out;
+}
+
+.buttonCollapsed {
+  left: 15px; /* Posição do botão quando a sidebar está escondida */
 }

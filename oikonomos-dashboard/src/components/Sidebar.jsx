@@ -4,15 +4,18 @@ import { NavLink } from 'react-router-dom';
 import styles from './Sidebar.module.css';
 import { auth } from '../../firebaseClient';
 
-function Sidebar() {
+// Recebe as propriedades isCollapsed e toggleSidebar do MainLayout
+function Sidebar({ isCollapsed }) {
     const handleLogout = () => auth.signOut();
 
     return (
-        <nav className={styles.sidebar}>
+        // Aplica a classe 'collapsed' condicionalmente
+        <nav className={`${styles.sidebar} ${isCollapsed ? styles.collapsed : ''}`}>
+            
             <div className={styles.logo}>
-                {/* O título agora fica sozinho no topo */}
-                <h1>Apollo Ledger</h1>
-                            </div>
+                <h1>{isCollapsed ? 'AL' : 'Apollo Ledger'}</h1>
+            </div>
+            
             <ul className={styles.navList}>
                 <li>
                     <NavLink to="/dashboard" className={({ isActive }) => isActive ? styles.active : ''}>
@@ -46,10 +49,9 @@ function Sidebar() {
                 </li>
             </ul>
             <div className={styles.footer}>
-                {/* A logo foi movida para cá */}
                 <img src="/Logo_arpa_cores_fortes.png" alt="Apollo Logo" className={styles.footerLogo} />
                 <button onClick={handleLogout} className={styles.logoutButton}>
-                    Sair
+                    <span>Sair</span>
                 </button>
             </div>
         </nav>
