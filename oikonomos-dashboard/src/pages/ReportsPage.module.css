@@ -151,3 +151,23 @@
   border-color: var(--acento-azul);
   color: white;
 }
+
+.helpButton {
+  background-color: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-weight: bold;
+  font-size: 0.9rem;
+  cursor: help;
+  transition: all 0.2s;
+  margin-left: 10px;
+}
+
+.helpButton:hover {
+  background-color: var(--acento-azul);
+  border-color: var(--acento-azul);
+  color: white;
+}

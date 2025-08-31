@@ -47,10 +47,10 @@ function ManagementPage({ user }) {
         // Lógica para calcular o saldo de cada conta
         accData.forEach(acc => acc.balance = 0);
         transData.forEach(tx => {
-            const account = accData.find(acc => acc.id === tx.accountId);
-            if(account) {
-                account.balance += tx.type === 'income' ? tx.amount : -tx.amount;
-            }
+          const account = accData.find(acc => acc.id === tx.accountId);
+          if (account) {
+            account.balance += tx.type === 'income' ? tx.amount : -tx.amount;
+          }
         });
         setAccounts(accData);
 
@@ -95,7 +95,7 @@ function ManagementPage({ user }) {
       case 'goals':
         return <GoalManager onDataChanged={triggerRefresh} accounts={accounts} />;
       case 'debts':
-        return <DebtManager expenseCategories={categories.filter(c => c.type === 'expense')} accounts={accounts} onDataChanged={triggerRefresh}/>;
+        return <DebtManager expenseCategories={categories.filter(c => c.type === 'expense')} accounts={accounts} onDataChanged={triggerRefresh} />;
       default:
         return null;
     }
@@ -110,34 +110,34 @@ function ManagementPage({ user }) {
       <div className={pageStyles.page}>
         <header className={pageStyles.header}>
           <h1>Central de Gerenciamento</h1>
-           <button onClick={() => setIsHelpOpen(true)} className={pageStyles.helpButton}>?</button>
+          <button onClick={() => setIsHelpOpen(true)} className={pageStyles.helpButton}>?</button>
         </header>
 
         <div className={pageStyles.tabs}>
-            <button onClick={() => setActiveTab('accounts')} className={activeTab === 'accounts' ? pageStyles.active : ''}>Contas</button>
-            <button onClick={() => setActiveTab('categories')} className={activeTab === 'categories' ? pageStyles.active : ''}>Categorias</button>
-            <button onClick={() => setActiveTab('budgets')} className={activeTab === 'budgets' ? pageStyles.active : ''}>Orçamentos</button>
-            <button onClick={() => setActiveTab('goals')} className={activeTab === 'goals' ? pageStyles.active : ''}>Metas</button>
-            <button onClick={() => setActiveTab('debts')} className={activeTab === 'debts' ? pageStyles.active : ''}>Contas a Pagar</button>
+          <button onClick={() => setActiveTab('accounts')} className={activeTab === 'accounts' ? pageStyles.active : ''}>Contas</button>
+          <button onClick={() => setActiveTab('categories')} className={activeTab === 'categories' ? pageStyles.active : ''}>Categorias</button>
+          <button onClick={() => setActiveTab('budgets')} className={activeTab === 'budgets' ? pageStyles.active : ''}>Orçamentos</button>
+          <button onClick={() => setActiveTab('goals')} className={activeTab === 'goals' ? pageStyles.active : ''}>Metas</button>
+          <button onClick={() => setActiveTab('debts')} className={activeTab === 'debts' ? pageStyles.active : ''}>Contas a Pagar</button>
         </div>
 
         <div className={pageStyles.tabContent}>
-            {renderActiveManager()}
+          {renderActiveManager()}
         </div>
       </div>
 
       {isHelpOpen && (
         <HelpModal title="Central de Gerenciamento" onClose={() => setIsHelpOpen(false)}>
-            <p>
-              Esta é a sua central de configurações. Utilize as abas acima para navegar entre as diferentes seções e organizar a estrutura do seu controle financeiro.
-            </p>
-            <ul style={{paddingLeft: '20px', lineHeight: '1.8'}}>
-              <li><strong>Contas:</strong> Cadastre todas as suas fontes de dinheiro, como contas bancárias, carteiras ou reservas.</li>
-              <li><strong>Categorias:</strong> Crie as categorias de renda e despesa que refletem seu estilo de vida.</li>
-              <li><strong>Orçamentos:</strong> Defina limites de gastos mensais para suas categorias de despesa.</li>
-              <li><strong>Metas:</strong> Crie e acompanhe o progresso de suas metas de poupança.</li>
-              <li><strong>Contas a Pagar:</strong> Gerencie suas contas recorrentes ou dívidas para nunca mais perder um vencimento.</li>
-            </ul>
+          <p>
+            Esta é a sua central de configurações. Utilize as abas acima para navegar entre as diferentes seções e organizar a estrutura do seu controle financeiro.
+          </p>
+          <ul style={{ paddingLeft: '20px', lineHeight: '1.8' }}>
+            <li><strong>Contas:</strong> Cadastre todas as suas fontes de dinheiro, como contas bancárias, carteiras ou reservas.</li>
+            <li><strong>Categorias:</strong> Crie as categorias de renda e despesa que refletem seu estilo de vida.</li>
+            <li><strong>Orçamentos:</strong> Defina limites de gastos mensais para suas categorias de despesa.</li>
+            <li><strong>Metas:</strong> Crie e acompanhe o progresso de suas metas de poupança.</li>
+            <li><strong>Contas a Pagar:</strong> Gerencie suas contas recorrentes ou dívidas para nunca mais perder um vencimento.</li>
+          </ul>
         </HelpModal>
       )}
     </>

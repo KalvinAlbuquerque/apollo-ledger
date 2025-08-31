@@ -1,3 +1,4 @@
+// src/pages/ForecastPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { db, auth } from '../../firebaseClient';
@@ -5,8 +6,9 @@ import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/f
 import toast from 'react-hot-toast';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import HelpModal from '../components/HelpModal';
 
-import styles from './ForecastPage.module.css';
+import styles from './ForecastPage.module.css'; // Adicione esta linha
 
 // Registrar os componentes do Chart.js que vamos usar
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -17,7 +19,7 @@ function ForecastPage() {
   const [loading, setLoading] = useState(true);
   const [allTransactions, setAllTransactions] = useState([]);
   const [scheduledTransactions, setScheduledTransactions] = useState([]);
-  
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [forecastMonth, setForecastMonth] = useState(new Date(new Date().setMonth(new Date().getMonth() + 1, 1)));
   const [manualIncomes, setManualIncomes] = useState([{ id: 1, description: 'Salário', amount: '' }]);
   const [manualExpenses, setManualExpenses] = useState([]);
@@ -29,7 +31,7 @@ function ForecastPage() {
     if (!user) return;
     const fetchForecastData = async () => {
       setLoading(true);
-      
+
       const transQuery = query(collection(db, "transactions"), where("userId", "==", user.uid));
       const transSnapshot = await getDocs(transQuery);
       setAllTransactions(transSnapshot.docs.map(doc => doc.data()));
@@ -37,7 +39,7 @@ function ForecastPage() {
       const scheduledQuery = query(collection(db, "scheduled_transactions"), where("userId", "==", user.uid));
       const scheduledSnapshot = await getDocs(scheduledQuery);
       setScheduledTransactions(scheduledSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-      
+
       setLoading(false);
     };
     fetchForecastData();
@@ -55,7 +57,7 @@ function ForecastPage() {
     for (const category in categoryTotals) {
       averages.push({
         category,
-        amount: categoryTotals[category] / 3 
+        amount: categoryTotals[category] / 3
       });
     }
     return averages.sort((a, b) => b.amount - a.amount);
@@ -86,7 +88,7 @@ function ForecastPage() {
         amount: avg.amount,
         type: 'Variável (Média)'
       }));
-    return [...fixedExpenses, ...variableExpenses, ...manualExpenses].sort((a,b) => b.amount - a.amount);
+    return [...fixedExpenses, ...variableExpenses, ...manualExpenses].sort((a, b) => b.amount - a.amount);
   }, [scheduledTransactions, averageSpending, forecastMonth, manualExpenses, excludedFixed]);
 
   const totalPredictedIncome = useMemo(() => manualIncomes.reduce((acc, income) => acc + parseFloat(income.amount || 0), 0), [manualIncomes]);
@@ -165,9 +167,9 @@ function ForecastPage() {
       newMonth.setMonth(newMonth.getMonth() + increment);
       return newMonth;
     });
-    setExcludedFixed(new Set()); 
+    setExcludedFixed(new Set());
   };
-  
+
   const addAverageToManual = (avg) => {
     const newId = (manualExpenses.length > 0 ? Math.max(...manualExpenses.map(e => e.id)) : 0) + 1;
     setManualExpenses(prev => [...prev, {
@@ -187,11 +189,11 @@ function ForecastPage() {
   };
 
   const handleManualIncomeChange = (id, field, value) => {
-    setManualIncomes(prevIncomes => 
+    setManualIncomes(prevIncomes =>
       prevIncomes.map(income => income.id === id ? { ...income, [field]: value } : income)
     );
   };
-  
+
   const addManualIncome = () => {
     const newId = manualIncomes.length > 0 ? Math.max(...manualIncomes.map(i => i.id)) + 1 : 1;
     setManualIncomes([...manualIncomes, { id: newId, description: '', amount: '' }]);
@@ -202,7 +204,10 @@ function ForecastPage() {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1>Previsão Financeira</h1>
+        <h1>
+          Previsão Financeira
+          <button onClick={() => setIsHelpOpen(true)} className={styles.helpButton}>?</button>
+        </h1>
         <Link to="/dashboard" className={styles.backButton}>Voltar ao Dashboard</Link>
       </header>
 
@@ -220,10 +225,10 @@ function ForecastPage() {
                 <button onClick={() => addAverageToManual(avg)} className={styles.addAverageButton} title="Adicionar à previsão">+</button>
               </li>
             ))}
-             {averageSpending.length === 0 && <p>Nenhum dado de despesa nos últimos 3 meses para calcular médias.</p>}
+            {averageSpending.length === 0 && <p>Nenhum dado de despesa nos últimos 3 meses para calcular médias.</p>}
           </ul>
         </div>
-        
+
         <div className={styles.card}>
           <div className={styles.monthSelector}>
             <button onClick={() => handleMonthChange(-1)}>&lt;</button>
@@ -265,12 +270,12 @@ function ForecastPage() {
             <span>Despesas Previstas</span>
             <span className={styles.expense}>{formatCurrency(totalPredictedExpense)}</span>
           </div>
-          <hr/>
+          <hr />
           <div className={`${styles.summaryItem} ${styles.balanceItem}`}>
             <strong>Saldo Final Previsto</strong>
             <strong className={predictedBalance >= 0 ? styles.income : styles.expense}>{formatCurrency(predictedBalance)}</strong>
           </div>
-          
+
           <div className={styles.chartContainer}>
             <Bar options={chartOptions} data={summaryChartData} />
           </div>
@@ -278,6 +283,17 @@ function ForecastPage() {
           <button onClick={handleSaveForecast} className={styles.saveButton}>Salvar Previsão</button>
         </div>
       </div>
+      {isHelpOpen && (
+        <HelpModal title="Previsão Financeira" onClose={() => setIsHelpOpen(false)}>
+          <p>A página de Previsão é a sua "bola de cristal" financeira. Ela ajuda a planejar o próximo mês e a simular cenários para garantir que você não termine no vermelho.</p>
+          <ul style={{ paddingLeft: '20px', lineHeight: '1.8' }}>
+            <li><strong>Média de Gastos:</strong> O sistema calcula automaticamente a média dos seus gastos dos últimos 3 meses, oferecendo uma base para sua previsão.</li>
+            <li><strong>Despesas Fixas e Variáveis:</strong> As contas agendadas do próximo mês são importadas como despesas fixas, e você pode adicionar despesas variáveis com base nas suas médias ou em valores manuais.</li>
+            <li><strong>Simulação:</strong> Insira as suas rendas esperadas e compare com o total de despesas projetadas para ver o seu saldo final.</li>
+            <li><strong>Salve a Previsão:</strong> Você pode salvar suas previsões para consultá-las no futuro e comparar o planejado com o realizado.</li>
+          </ul>
+        </HelpModal>
+      )}
     </div>
   );
 }

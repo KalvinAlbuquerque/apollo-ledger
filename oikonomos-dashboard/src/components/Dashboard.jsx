@@ -11,7 +11,7 @@ import ExpenseRank from './ExpenseRank';
 import { showConfirmationToast } from '../utils/toastUtils.jsx';
 import CategoryFilter from './CategoryFilter';
 import AccountFilter from './AccountFilter';
-import HeaderActions from './HeaderActions';
+import HelpModal from './HelpModal';
 // Estilos
 import styles from './Dashboard.module.css';
 
@@ -35,6 +35,7 @@ function Dashboard({ user, userProfile }) {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedTransactions, setSelectedTransactions] = useState(new Set());
   const [isFilterVisible, setIsFilterVisible] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const scrollPositionRef = useRef(0);
 
   const triggerRefresh = () => {
@@ -236,7 +237,10 @@ function Dashboard({ user, userProfile }) {
         <header className={styles.header}>
           {/* Adicione a className 'titleContainer' a este div */}
           <div className={styles.titleContainer}>
-            <h1>Dashboard Apollo</h1>
+            <h1>
+              Dashboard Apollo
+              <button onClick={() => setIsHelpOpen(true)} className={styles.helpButton}>?</button>
+            </h1>
             <p className={styles.greeting}>
               Olá, {userProfile?.apelido || user.displayName || user.email}
             </p>
@@ -351,6 +355,29 @@ function Dashboard({ user, userProfile }) {
       </div>
       {isModalOpen && (<EditModal transaction={editingTransaction} onSave={handleSaveTransaction} onCancel={() => setIsModalOpen(false)} categories={categories} />)}
       {isAddTransactionModalOpen && (<AddTransactionModal onCancel={() => setIsAddTransactionModalOpen(false)} onSave={() => { setIsAddTransactionModalOpen(false); triggerRefresh(); }} categories={categories} accounts={accounts} />)}
+      {isHelpOpen && (
+        <HelpModal title="Dashboard" onClose={() => setIsHelpOpen(false)}>
+          <p>O Dashboard é o ponto de partida ideal. Siga estes passos para começar a usá-lo:</p>
+          <ul style={{ paddingLeft: '20px', lineHeight: '1.8' }}>
+            <li>
+              <strong>Passo 1: Entenda sua Situação Atual.</strong> Veja nos cartões do topo o resumo das suas finanças no período selecionado, incluindo rendas, despesas e seu saldo atual.
+            </li>
+            <li>
+              <strong>Passo 2: Explore com os Filtros.</strong> Use a seção "Filtros & Opções" para mudar a visualização para o dia, semana, mês ou um período personalizado.
+            </li>
+            <li>
+              <strong>Passo 3: Adicione Transações.</strong> Clique em "+ Adicionar Transação" para registrar novos gastos, rendas ou transferências.
+            </li>
+            <li>
+              <strong>Passo 4: Analise os Gráficos.</strong> Use os gráficos de pizza para ver para onde seu dinheiro está indo e quais são suas maiores fontes de renda.
+            </li>
+            <li>
+              <strong>Passo 5: Gerencie a Tabela.</strong> Edite ou exclua transações individuais, ou use o botão "Selecionar Vários" para fazer alterações em massa.
+            </li>
+          </ul>
+        </HelpModal>
+      )}
+
     </>
   );
 }

@@ -1,3 +1,4 @@
+// src/pages/ReportsPage.jsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { db, auth } from '../../firebaseClient';
@@ -9,6 +10,8 @@ import styles from './ReportsPage.module.css';
 import CategoryFilter from '../components/CategoryFilter';
 import AccountFilter from '../components/AccountFilter';
 import { exportToCSV, exportToPDF } from '../utils/exportUtils';
+import HelpModal from '../components/HelpModal'; // 1. IMPORTE O MODAL DE AJUDA
+
 // Função para formatar moeda
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
@@ -23,6 +26,7 @@ function ReportsPage() {
   const [selectedReportCategories, setSelectedReportCategories] = useState(new Set());
   const [allReportCategories, setAllReportCategories] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [isHelpOpen, setIsHelpOpen] = useState(false); // 2. NOVO ESTADO PARA O MODAL DE AJUDA
   const user = auth.currentUser;
 
   useEffect(() => {
@@ -207,7 +211,10 @@ function ReportsPage() {
     <div className={styles.page}>
       <header className={styles.header}>
         <div>
-          <h1>Análise de Relatórios</h1>
+          <h1>
+            Análise de Relatórios
+            <button onClick={() => setIsHelpOpen(true)} className={styles.helpButton}>?</button> {/* 3. ADICIONE O BOTÃO */}
+          </h1>
           <p className={styles.subtitle}>Explore suas tendências financeiras ao longo do tempo.</p>
         </div>
       </header>
@@ -295,6 +302,20 @@ function ReportsPage() {
           </div>
         </div>
       </div>
+      
+      {/* 4. POSICIONE O MODAL AQUI */}
+      {isHelpOpen && (
+        <HelpModal title="Relatórios" onClose={() => setIsHelpOpen(false)}>
+          <p>
+            A página de Relatórios permite que você visualize o histórico da sua saúde financeira ao longo do tempo. Use os gráficos para identificar padrões, tendências e áreas onde você pode melhorar seus gastos.
+          </p>
+          <ul style={{ paddingLeft: '20px', lineHeight: '1.8' }}>
+            <li><strong>Fluxo de Caixa Mensal:</strong> Compare suas rendas e despesas a cada mês.</li>
+            <li><strong>Evolução de Despesas por Categoria:</strong> Veja como seus gastos em uma categoria específica mudam com o tempo.</li>
+            <li><strong>Evolução do Saldo:</strong> Acompanhe o crescimento do seu saldo total em comparação com as despesas acumuladas.</li>
+          </ul>
+        </HelpModal>
+      )}
     </div>
   );
 }

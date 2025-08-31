@@ -82,3 +82,56 @@
   color: var(--texto-principal);
   text-decoration: underline;
 }
+
+.mainContent {
+  display: grid;
+  grid-template-columns: 3fr 1fr; /* Coluna de conteúdo (3 partes) e coluna do sumário (1 parte) */
+  gap: 40px;
+}
+
+.contentColumn {
+  /* Opcional: Estilize a coluna principal se necessário */
+}
+
+.summaryNav {
+  background-color: var(--fundo-secundario);
+  border: 1px solid var(--borda-sutil);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 40px;
+  
+  /* TORNA O SUMÁRIO FIXO */
+  position: sticky;
+  top: 40px; /* Distância do topo da tela */
+  align-self: flex-start; /* Impede que o elemento estique */
+}
+
+@media (max-width: 900px) {
+  .mainContent {
+    grid-template-columns: 1fr; /* Volta para uma coluna em telas menores */
+    gap: 20px;
+  }
+  .summaryNav {
+    position: static; /* Desativa a fixação no topo em telas menores */
+  }
+}
+
+.summaryNav a {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  color: var(--texto-secundario);
+  text-decoration: none;
+}
+
+.summaryNav a:hover {
+  background-color: var(--cinza-claro);
+  color: var(--texto-primario);
+}
+
+.summaryNav .activeLink {
+  background-color: var(--acento-verde);
+  color: white;
+  font-weight: bold;
+}

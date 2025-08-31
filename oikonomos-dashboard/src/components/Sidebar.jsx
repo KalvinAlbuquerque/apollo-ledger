@@ -35,13 +35,13 @@ function Sidebar() {
                     </NavLink>
                 </li>
                 <li>
-                    <NavLink to="/help" className={({ isActive }) => isActive ? styles.active : ''}>
-                        <span>Ajuda</span>
+                    <NavLink to="/my-account" className={({ isActive }) => isActive ? styles.active : ''}>
+                        <span>Minha Conta</span>
                     </NavLink>
                 </li>
                 <li>
-                    <NavLink to="/my-account" className={({ isActive }) => isActive ? styles.active : ''}>
-                        <span>Minha Conta</span>
+                    <NavLink to="/help" className={({ isActive }) => isActive ? styles.active : ''}>
+                        <span>Ajuda</span>
                     </NavLink>
                 </li>
             </ul>
