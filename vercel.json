@@ -2,25 +2,26 @@
   "version": 2,
   "builds": [
     {
-      "src": "oikonomos-dashboard/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "oikonomos-dashboard/dist"
-      }
-    },
-    {
       "src": "backend/bot.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
+      "src": "/api/bot",
       "dest": "backend/bot.py"
     },
     {
-      "src": "/(.*)",
-      "dest": "oikonomos-dashboard/dist/index.html"
+      "src": "/api/generate-api-key",
+      "dest": "backend/bot.py"
+    },
+    {
+      "src": "/api/categories",
+      "dest": "backend/bot.py"
+    },
+    {
+      "src": "/api/transaction",
+      "dest": "backend/bot.py"
     }
   ],
   "crons": [
