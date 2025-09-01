@@ -1371,12 +1371,19 @@ def get_categories(uid):
     """
     try:
         cats_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', uid)).where(filter=FieldFilter('type', '==', 'expense')).stream()
-        categories = [cat.to_dict() for cat in cats_ref]
+        
+        # --- CORREÇÃO AQUI ---
+        categories = []
+        for cat in cats_ref:
+            cat_data = cat.to_dict()
+            cat_data['id'] = cat.id  # Adiciona o ID do documento aos dados
+            categories.append(cat_data)
+        # --- FIM DA CORREÇÃO ---
+
         return jsonify(categories), 200
     except Exception as e:
         print(f"Erro ao buscar categorias via API: {e}")
         return jsonify({"error": "Não foi possível buscar as categorias"}), 500
-
 
 @app.route("/api/transaction", methods=['POST'])
 @require_api_key
