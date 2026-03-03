@@ -278,7 +278,9 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         match_index = valid_categories_normalized.index(category_name_normalized)
         correct_category_name = original_categories[match_index]
         amount = float(value_str.replace(',', '.'))
-        description = description.strip() if description else None
+        description = description.strip() if description else ""
+        tags = [tag.lower() for tag in re.findall(r'#(\w+)', description)]
+        description = re.sub(r'#\w+', '', description).strip() or None
         
         # --- Lógica de Conversa (NOVA) ---
         accounts_query = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
@@ -294,6 +296,7 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
             'amount': amount,
             'category': correct_category_name,
             'description': description,
+            'tags': tags,
             'userId': firebase_uid,
             'createdAt': firestore.SERVER_TIMESTAMP 
         }
@@ -358,8 +361,10 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
             await update.message.reply_text(error_message)
             return
 
-        description = " ".join(potential_source_and_desc[category_word_count:]).strip() or None
+        description = " ".join(potential_source_and_desc[category_word_count:]).strip() or ""
         amount = float(value_str.replace(',', '.'))
+        tags = [tag.lower() for tag in re.findall(r'#(\w+)', description)]
+        description = re.sub(r'#\w+', '', description).strip() or None
         
         # --- Lógica de Conversa (NOVA) ---
         accounts_query = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
@@ -375,6 +380,7 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
             'amount': amount,
             'category': found_category_original,
             'description': description,
+            'tags': tags,
             'userId': firebase_uid,
             'createdAt': firestore.SERVER_TIMESTAMP
         }
@@ -438,18 +444,22 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
         accounts_query = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
         accounts = {acc.id: acc.to_dict() for acc in accounts_query}
 
-        if transaction_type == 'expense':
+        if transaction_type in ['expense', 'income']:
             account_doc_ref = db.collection('accounts').document(selected_account_id)
             new_trans_ref = db.collection("transactions").document()
 
             final_transaction = {
                 'userId': firebase_uid, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': selected_account_id,
-                'type': 'expense', 'amount': pending_transaction['amount'], 'category': pending_transaction['category'],
-                'description': pending_transaction.get('description')
+                'type': transaction_type, 'amount': pending_transaction['amount'], 'category': pending_transaction['category'],
+                'description': pending_transaction.get('description'),
+                'tags': pending_transaction.get('tags', [])
             }
             batch.set(new_trans_ref, final_transaction)
             
-            batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(-pending_transaction['amount'])})
+            if transaction_type == 'expense':
+                batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(-pending_transaction['amount'])})
+            else:
+                batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(pending_transaction['amount'])})
             
             batch.commit()
             pending_doc_ref.delete()
@@ -549,12 +559,14 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
                 await sent_message.edit_text(f"❌ Origem de RENDA '{' '.join(potential_source_and_desc)}' não encontrada.")
                 return
             correct_category_name = found_category_original
-            description = " ".join(potential_source_and_desc[category_word_count:]).strip() or None
+            description = " ".join(potential_source_and_desc[category_word_count:]).strip() or ""
+            tags = [tag.lower() for tag in re.findall(r'#(\w+)', description)]
+            description = re.sub(r'#\w+', '', description).strip() or None
 
             # Salva a transação de renda
             batch = db.batch()
             new_trans_ref = db.collection("transactions").document()
-            batch.set(new_trans_ref, {'userId': firebase_uid, 'type': 'income', 'amount': amount, 'category': correct_category_name, 'description': description, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id})
+            batch.set(new_trans_ref, {'userId': firebase_uid, 'type': 'income', 'amount': amount, 'category': correct_category_name, 'description': description, 'tags': tags, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id})
             account_doc_ref = db.collection('accounts').document(default_account_id)
             batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(amount)})
             batch.commit()
@@ -573,7 +585,9 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
                 
             value_str, category_name_input, description = match.groups()
             amount = float(value_str.replace(',', '.'))
-            description = description.strip() if description else None
+            description = description.strip() if description else ""
+            tags = [tag.lower() for tag in re.findall(r'#(\w+)', description)]
+            description = re.sub(r'#\w+', '', description).strip() or None
             
             categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).stream()
             
@@ -589,7 +603,7 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
             # Salva a transação de despesa
             batch = db.batch()
             new_trans_ref = db.collection("transactions").document()
-            batch.set(new_trans_ref, {'userId': firebase_uid, 'type': 'expense', 'amount': amount, 'category': correct_category_name, 'description': description, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id})
+            batch.set(new_trans_ref, {'userId': firebase_uid, 'type': 'expense', 'amount': amount, 'category': correct_category_name, 'description': description, 'tags': tags, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id})
             account_doc_ref = db.collection('accounts').document(default_account_id)
             batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(-amount)})
             batch.commit()

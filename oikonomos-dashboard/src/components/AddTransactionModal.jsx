@@ -6,13 +6,15 @@ import styles from './EditModal.module.css';
 
 function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
   const [type, setType] = useState('expense');
-  
+
   // Estados para transação normal
   const [amount, setAmount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedAccount, setSelectedAccount] = useState(''); // Inicia vazio
   const [description, setDescription] = useState('');
-  
+  const [tags, setTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
+
   // Estados para transferência
   const [fromAccountId, setFromAccountId] = useState(''); // Inicia vazio
   const [toAccountId, setToAccountId] = useState(''); // Inicia vazio
@@ -31,7 +33,7 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
     if (defaultAccount) {
       setSelectedAccount(defaultAccount.id);
       setFromAccountId(defaultAccount.id);
-      
+
       // Define uma conta de destino padrão para transferências
       const firstOtherAccount = accounts.find(acc => acc.id !== defaultAccount.id);
       if (firstOtherAccount) {
@@ -50,7 +52,7 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
   }, [fromAccountId, accounts, type]);
 
   const availableCategories = useMemo(() => {
-    return categories.filter(cat => cat.type === type);
+    return categories.filter(cat => cat.type === type && cat.isActive !== false);
   }, [type, categories]);
 
   useEffect(() => {
@@ -60,6 +62,21 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
       setSelectedCategory('');
     }
   }, [type, availableCategories]);
+
+  const handleTagKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const newTag = tagInput.trim().toLowerCase();
+      if (newTag && !tags.includes(newTag)) {
+        setTags([...tags, newTag]);
+      }
+      setTagInput('');
+    }
+  };
+
+  const removeTag = (tagToRemove) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
+  };
 
   const handleSave = async () => {
     if (!user) return;
@@ -79,76 +96,76 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
       }
       savePromise = new Promise(async (resolve, reject) => {
         try {
-            const batch = writeBatch(db);
-            const fromAccountRef = doc(db, "accounts", fromAccountId);
-            const toAccountRef = doc(db, "accounts", toAccountId);
-            const fromAccountData = accounts.find(acc => acc.id === fromAccountId);
-            const toAccountData = accounts.find(acc => acc.id === toAccountId);
+          const batch = writeBatch(db);
+          const fromAccountRef = doc(db, "accounts", fromAccountId);
+          const toAccountRef = doc(db, "accounts", toAccountId);
+          const fromAccountData = accounts.find(acc => acc.id === fromAccountId);
+          const toAccountData = accounts.find(acc => acc.id === toAccountId);
 
-            // 1. Cria as transações de entrada e saída
-            const expenseTransRef = doc(collection(db, "transactions"));
-            batch.set(expenseTransRef, {
-                userId: user.uid, type: 'expense', amount: transferAmount,
-                category: 'transferência', 
-                description: `Transferência para: ${toAccountData.accountName}`,
-                createdAt: Timestamp.now(), accountId: fromAccountId,
+          // 1. Cria as transações de entrada e saída
+          const expenseTransRef = doc(collection(db, "transactions"));
+          batch.set(expenseTransRef, {
+            userId: user.uid, type: 'expense', amount: transferAmount,
+            category: 'transferência',
+            description: `Transferência para: ${toAccountData.accountName}`,
+            createdAt: Timestamp.now(), accountId: fromAccountId,
+          });
+          const incomeTransRef = doc(collection(db, "transactions"));
+          batch.set(incomeTransRef, {
+            userId: user.uid, type: 'income', amount: transferAmount,
+            category: 'transferência',
+            description: `Transferência de: ${fromAccountData.accountName}`,
+            createdAt: Timestamp.now(), accountId: toAccountId,
+          });
+          // 2. Atualiza os saldos das contas
+          batch.update(fromAccountRef, { balance: increment(-transferAmount) });
+          batch.update(toAccountRef, { balance: increment(transferAmount) });
+
+          // 3. Cria a conta a pagar, se necessário
+          if (isSourceAccountReserve && createPaybackDebt) {
+            const paybackDebtRef = doc(collection(db, "scheduled_transactions"));
+            batch.set(paybackDebtRef, {
+              userId: user.uid,
+              description: `Reposição para: ${fromAccountData.accountName}`,
+              amount: transferAmount,
+              categoryName: 'reservas',
+              dueDate: Timestamp.fromDate(new Date(new Date().setMonth(new Date().getMonth() + 2, 0))),
+              status: 'pending',
+              isRecurring: false,
             });
-            const incomeTransRef = doc(collection(db, "transactions"));
-            batch.set(incomeTransRef, {
-                userId: user.uid, type: 'income', amount: transferAmount,
-                category: 'transferência', 
-                description: `Transferência de: ${fromAccountData.accountName}`,
-                createdAt: Timestamp.now(), accountId: toAccountId,
-            });
-            // 2. Atualiza os saldos das contas
-            batch.update(fromAccountRef, { balance: increment(-transferAmount) });
-            batch.update(toAccountRef, { balance: increment(transferAmount) });
+          }
 
-            // 3. Cria a conta a pagar, se necessário
-            if (isSourceAccountReserve && createPaybackDebt) {
-                const paybackDebtRef = doc(collection(db, "scheduled_transactions"));
-                batch.set(paybackDebtRef, {
-                    userId: user.uid,
-                    description: `Reposição para: ${fromAccountData.accountName}`,
-                    amount: transferAmount,
-                    categoryName: 'reservas',
-                    dueDate: Timestamp.fromDate(new Date(new Date().setMonth(new Date().getMonth() + 2, 0))),
-                    status: 'pending',
-                    isRecurring: false,
-                });
-            }
-
-            await batch.commit();
-            resolve();
-        } catch(error) { reject(error); }
+          await batch.commit();
+          resolve();
+        } catch (error) { reject(error); }
       });
       toast.promise(savePromise, {
-          loading: 'Transferindo...',
-          success: 'Transferência realizada com sucesso!',
-          error: 'Falha ao realizar a transferência.',
+        loading: 'Transferindo...',
+        success: 'Transferência realizada com sucesso!',
+        error: 'Falha ao realizar a transferência.',
       });
     } else {
       // --- LÓGICA DE RENDA/DESPESA ---
       savePromise = new Promise(async (resolve, reject) => {
         try {
-            const batch = writeBatch(db);
-            const newTransactionRef = doc(collection(db, "transactions"));
-            batch.set(newTransactionRef, {
-              userId: user.uid, type: type, amount: parseFloat(amount),
-              category: selectedCategory, accountId: selectedAccount,
-              description: description, createdAt: Timestamp.now(),
-            });
-            const accountDocRef = doc(db, "accounts", selectedAccount);
-            const amountToUpdate = type === 'income' ? parseFloat(amount) : -parseFloat(amount);
-            batch.update(accountDocRef, { balance: increment(amountToUpdate) });
-            await batch.commit();
-            resolve();
+          const batch = writeBatch(db);
+          const newTransactionRef = doc(collection(db, "transactions"));
+          batch.set(newTransactionRef, {
+            userId: user.uid, type: type, amount: parseFloat(amount),
+            category: selectedCategory, accountId: selectedAccount,
+            description: description, tags: tags, createdAt: Timestamp.now(),
+          });
+          const accountDocRef = doc(db, "accounts", selectedAccount);
+          const amountToUpdate = type === 'income' ? parseFloat(amount) : -parseFloat(amount);
+          batch.update(accountDocRef, { balance: increment(amountToUpdate) });
+          await batch.commit();
+          resolve();
         } catch (error) { reject(error); }
       });
       toast.promise(savePromise, {
-          loading: 'Registrando transação...',
-          success: 'Transação registrada com sucesso!',
-          error: 'Falha ao registrar.',
+        loading: 'Registrando transação...',
+        success: 'Transação registrada com sucesso!',
+        error: 'Falha ao registrar.',
       });
     }
     onSave();
@@ -203,6 +220,24 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
               <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} required>
                 {availableCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
               </select>
+              <label>Tags:</label>
+              <div className={styles.tagsInputContainer}>
+                <div className={styles.tagsList}>
+                  {tags.map((tag, index) => (
+                    <span key={index} className={styles.tagPill}>
+                      {tag}
+                      <button type="button" onClick={() => removeTag(tag)} className={styles.removeTagBtn}>&times;</button>
+                    </span>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={tagInput}
+                  onChange={e => setTagInput(e.target.value)}
+                  onKeyDown={handleTagKeyDown}
+                  placeholder="Digite uma tag e aperte Enter ou Espaço"
+                />
+              </div>
               <label>Descrição (Opcional):</label>
               <input type="text" value={description} onChange={e => setDescription(e.target.value)} />
             </>

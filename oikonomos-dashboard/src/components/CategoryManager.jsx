@@ -43,6 +43,7 @@ function CategoryManager({ onDataChanged }) {
         name: newCategoryName.trim().toLowerCase(),
         type: newCategoryType,
         userId: user.uid,
+        isActive: true,
       });
       setNewCategoryName('');
       toast.success("Categoria adicionada!");
@@ -57,16 +58,28 @@ function CategoryManager({ onDataChanged }) {
   const handleDeleteCategory = (categoryId) => {
     const deleteAction = async () => {
       try {
-        await deleteDoc(doc(db, "categories", categoryId));
-        toast.success("Categoria excluída!");
+        await updateDoc(doc(db, "categories", categoryId), { isActive: false });
+        toast.success("Categoria arquivada com sucesso!");
         fetchCategories();
         if (onDataChanged) onDataChanged();
       } catch (error) {
-        console.error("Erro ao deletar categoria:", error);
-        toast.error("Falha ao excluir categoria.");
+        console.error("Erro ao arquivar categoria:", error);
+        toast.error("Falha ao arquivar categoria.");
       }
     };
-    showConfirmationToast(deleteAction, "Excluir esta categoria?");
+    showConfirmationToast(deleteAction, "Arquivar esta categoria?");
+  };
+
+  const handleRestoreCategory = async (categoryId) => {
+    try {
+      await updateDoc(doc(db, "categories", categoryId), { isActive: true });
+      toast.success("Categoria restaurada com sucesso!");
+      fetchCategories();
+      if (onDataChanged) onDataChanged();
+    } catch (error) {
+      console.error("Erro ao restaurar categoria:", error);
+      toast.error("Falha ao restaurar categoria.");
+    }
   };
 
   // --- FUNÇÕES QUE FALTAVAM ---
@@ -148,14 +161,22 @@ function CategoryManager({ onDataChanged }) {
 
         <ul className={styles.categoryList}>
           {filteredCategories.map(cat => (
-            <li key={cat.id} className={styles.categoryItem}>
-              <span>{cat.name}</span>
+            <li key={cat.id} className={styles.categoryItem} style={{ opacity: cat.isActive === false ? 0.6 : 1 }}>
+              <span style={{ textDecoration: cat.isActive === false ? 'line-through' : 'none', color: cat.isActive === false ? 'gray' : 'inherit' }}>
+                {cat.name} {cat.isActive === false && <span style={{ fontSize: '0.8em', fontStyle: 'italic', marginLeft: '5px' }}>(Arquivada)</span>}
+              </span>
               <span className={`${styles.typeLabel} ${cat.type === 'income' ? styles.income : styles.expense}`}>
                 {cat.type === 'income' ? 'Renda' : 'Despesa'}
               </span>
               <div className={styles.actionButtons}>
-                <button onClick={() => handleOpenEditModal(cat)} className={styles.editButton}>Editar</button>
-                <button onClick={() => handleDeleteCategory(cat.id)} className={styles.deleteButton}>&times;</button>
+                {cat.isActive === false ? (
+                  <button onClick={() => handleRestoreCategory(cat.id)} className={styles.editButton} style={{ backgroundColor: '#4CAF50', color: 'white' }}>Restaurar</button>
+                ) : (
+                  <>
+                    <button onClick={() => handleOpenEditModal(cat)} className={styles.editButton}>Editar</button>
+                    <button title="Arquivar" onClick={() => handleDeleteCategory(cat.id)} className={styles.deleteButton}>&times;</button>
+                  </>
+                )}
               </div>
             </li>
           ))}
