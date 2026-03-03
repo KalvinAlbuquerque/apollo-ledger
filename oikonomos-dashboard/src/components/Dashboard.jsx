@@ -312,7 +312,45 @@ function Dashboard({ user, userProfile }) {
   const handleSetTodayFilter = () => setFilterDateRange(new Date(), new Date());
   const handleSetYearlyFilter = () => { const t = new Date(); setFilterDateRange(new Date(t.getFullYear(), 0, 1), new Date(t.getFullYear(), 11, 31)); };
   const handleOpenEditModal = (transaction) => { setEditingTransaction(transaction); setIsModalOpen(true); };
-  const handleSaveTransaction = async (updatedData) => { if (!editingTransaction) return; await updateDoc(doc(db, "transactions", editingTransaction.id), updatedData); setIsModalOpen(false); setEditingTransaction(null); triggerRefresh(); toast.success("Transação atualizada!"); };
+  const handleSaveTransaction = async (updatedData) => {
+    if (!editingTransaction) return;
+
+    try {
+      const batch = writeBatch(db);
+
+      // Update transaction
+      const txRef = doc(db, "transactions", editingTransaction.id);
+      batch.update(txRef, updatedData);
+
+      // Check for new tags and add them
+      if (updatedData.tags && updatedData.tags.length > 0) {
+        // Fetch existing tags to avoid duplicates
+        const existingTagsQuery = query(collection(db, "tags"), where("userId", "==", user.uid));
+        const tagsSnapshot = await getDocs(existingTagsQuery);
+        const existingTags = tagsSnapshot.docs.map(tDoc => tDoc.data().name);
+
+        const newTagsToCreate = updatedData.tags.filter(tag => !existingTags.includes(tag));
+        newTagsToCreate.forEach(tag => {
+          const newTagRef = doc(collection(db, "tags"));
+          batch.set(newTagRef, {
+            name: tag,
+            userId: user.uid,
+            isActive: true
+          });
+        });
+      }
+
+      await batch.commit();
+
+      setIsModalOpen(false);
+      setEditingTransaction(null);
+      triggerRefresh();
+      toast.success("Transação atualizada!");
+    } catch (error) {
+      console.error("Erro ao atualizar transação:", error);
+      toast.error("Falha ao atualizar transação.");
+    }
+  };
 
   if (loading) return <div>Carregando suas finanças...</div>;
 

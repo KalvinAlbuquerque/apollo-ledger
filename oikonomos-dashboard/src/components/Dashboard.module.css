@@ -825,8 +825,17 @@
 .tagsContainer {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  /* Align tags to right on mobile by default to fit the style */
   gap: 4px;
   margin-top: 2px;
+}
+
+@media (min-width: 768px) {
+  .tagsContainer {
+    justify-content: flex-start;
+    /* Normal left alignment on larger screens */
+  }
 }
 
 .tagPill {

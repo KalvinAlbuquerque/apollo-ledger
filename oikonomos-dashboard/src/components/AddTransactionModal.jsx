@@ -165,18 +165,25 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
       savePromise = new Promise(async (resolve, reject) => {
         try {
           const batch = writeBatch(db);
+
+          let finalTags = [...tags];
+          const pendingTag = tagInput.trim().toLowerCase().replace(/\s+/g, '');
+          if (pendingTag && !finalTags.includes(pendingTag)) {
+            finalTags.push(pendingTag);
+          }
+
           const newTransactionRef = doc(collection(db, "transactions"));
           batch.set(newTransactionRef, {
             userId: user.uid, type: type, amount: parseFloat(amount),
             category: selectedCategory, accountId: selectedAccount,
-            description: description, tags: tags, createdAt: Timestamp.now(),
+            description: description, tags: finalTags, createdAt: Timestamp.now(),
           });
           const accountDocRef = doc(db, "accounts", selectedAccount);
           const amountToUpdate = type === 'income' ? parseFloat(amount) : -parseFloat(amount);
           batch.update(accountDocRef, { balance: increment(amountToUpdate) });
 
           // Cria novas tags dinamicamente
-          const newTagsToCreate = tags.filter(tag => !availableTags.includes(tag));
+          const newTagsToCreate = finalTags.filter(tag => !availableTags.includes(tag));
           newTagsToCreate.forEach(tag => {
             const newTagRef = doc(collection(db, "tags"));
             batch.set(newTagRef, {
