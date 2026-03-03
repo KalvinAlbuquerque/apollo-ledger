@@ -7,6 +7,7 @@ import MonthlyBarChart from '../components/MonthlyBarChart';
 import LineChart from '../components/LineChart';
 import CategoryLineChart from '../components/CategoryLineChart';
 import TagChart from '../components/TagChart';
+import TagsEvolutionChart from '../components/TagsEvolutionChart';
 import styles from './ReportsPage.module.css';
 import CategoryFilter from '../components/CategoryFilter';
 import AccountFilter from '../components/AccountFilter';
@@ -292,6 +293,14 @@ function ReportsPage() {
           <p className={styles.chartSubtitle}>Entenda como os seus gastos estão distribuídos entre as suas hashtags.</p>
           <div className={styles.chartContainer}>
             <TagChart transactions={filteredTransactions} />
+          </div>
+        </div>
+
+        <div className={styles.reportCard}>
+          <h2>Evolução de Gastos por Tag</h2>
+          <p className={styles.chartSubtitle}>Acompanhe o histórico e a evolução das suas despesas por hashtags.</p>
+          <div className={styles.chartContainer}>
+            <TagsEvolutionChart transactions={filteredTransactions} />
           </div>
         </div>
 
