@@ -54,7 +54,8 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background-color: var(--borda-sutil);
+    background-color: #666;
+    /* Turned brighter so users can see the second dot */
     cursor: pointer;
     transition: background-color 0.2s;
 }
