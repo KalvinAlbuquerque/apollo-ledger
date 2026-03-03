@@ -5,13 +5,14 @@ import 'jspdf-autotable';
 export const exportToCSV = (transactions, summary, accounts) => {
   const validAccounts = Array.isArray(accounts) ? accounts : [];
   const accountMap = new Map(validAccounts.map(acc => [acc.id, acc.accountName]));
-  
-  const headers = ['Data', 'Categoria', 'Descrição', 'Conta', 'Valor (R$)'];
+
+  const headers = ['Data', 'Categoria', 'Descrição', 'Conta', 'Tags', 'Valor (R$)'];
   const rows = transactions.map(tx => [
     `"${tx.createdAt ? tx.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}"`,
     `"${tx.category}"`,
     `"${tx.description || '-'}"`,
     `"${accountMap.get(tx.accountId) || tx.accountId}"`,
+    `"${tx.tags ? tx.tags.join(';') : ''}"`,
     `"${tx.type === 'income' ? '+' : '-'} ${tx.amount.toFixed(2)}"`
   ]);
 
@@ -27,12 +28,12 @@ export const exportToCSV = (transactions, summary, accounts) => {
       amount: summary.expenseChartData.datasets[0].data[index]
     }))
     .sort((a, b) => b.amount - a.amount); // Ordena do maior para o menor
-  
-  const expenseSummaryRows = expenseDataSorted.map(item => 
+
+  const expenseSummaryRows = expenseDataSorted.map(item =>
     `"${item.label}","${item.amount.toFixed(2)}"`
   );
   csvContent += expenseSummaryHeader.join("\n") + "\n" + expenseSummaryRows.join("\n") + "\n";
-  
+
   // --- Resumo de Rendas por Categoria (ORDENADO) ---
   const incomeSummaryHeader = ['\n"Resumo de Rendas por Categoria"\n"Categoria","Total (R$)"'];
   const incomeDataSorted = summary.incomeChartData.labels
@@ -41,8 +42,8 @@ export const exportToCSV = (transactions, summary, accounts) => {
       amount: summary.incomeChartData.datasets[0].data[index]
     }))
     .sort((a, b) => b.amount - a.amount); // Ordena do maior para o menor
-    
-  const incomeSummaryRows = incomeDataSorted.map(item => 
+
+  const incomeSummaryRows = incomeDataSorted.map(item =>
     `"${item.label}","${item.amount.toFixed(2)}"`
   );
   csvContent += incomeSummaryHeader.join("\n") + "\n" + incomeSummaryRows.join("\n") + "\n";
@@ -70,14 +71,15 @@ export const exportToPDF = (transactions, summary, accounts) => {
   const validAccounts = Array.isArray(accounts) ? accounts : [];
   const accountMap = new Map(validAccounts.map(acc => [acc.id, acc.accountName]));
   const doc = new jsPDF();
-  
+
   // Tabela principal de transações
-  const tableColumn = ['Data', 'Categoria', 'Descrição', 'Conta', 'Valor (R$)'];
+  const tableColumn = ['Data', 'Categoria', 'Descrição', 'Conta', 'Tags', 'Valor (R$)'];
   const tableRows = transactions.map(tx => [
     tx.createdAt ? tx.createdAt.toDate().toLocaleDateString('pt-BR') : '-',
     tx.category,
     tx.description || '-',
     accountMap.get(tx.accountId) || tx.accountId,
+    tx.tags ? tx.tags.join('; ') : '-',
     `${tx.type === 'income' ? '+' : '-'} ${tx.amount.toFixed(2)}`
   ]);
 
@@ -103,10 +105,10 @@ export const exportToPDF = (transactions, summary, accounts) => {
 
   doc.text('Resumo de Despesas por Categoria', 14, finalY + 15);
   doc.autoTable({
-      head: [['Categoria', 'Total Gasto']],
-      body: expenseSummaryBody,
-      startY: finalY + 20,
-      theme: 'grid'
+    head: [['Categoria', 'Total Gasto']],
+    body: expenseSummaryBody,
+    startY: finalY + 20,
+    theme: 'grid'
   });
   finalY = doc.lastAutoTable.finalY;
 
@@ -118,13 +120,13 @@ export const exportToPDF = (transactions, summary, accounts) => {
     }))
     .sort((a, b) => b.amount - a.amount)
     .map(item => [item.label, `R$ ${item.amount.toFixed(2)}`]);
-    
+
   doc.text('Resumo de Rendas por Categoria', 14, finalY + 15);
   doc.autoTable({
-      head: [['Categoria', 'Total Recebido']],
-      body: incomeSummaryBody,
-      startY: finalY + 20,
-      theme: 'grid'
+    head: [['Categoria', 'Total Recebido']],
+    body: incomeSummaryBody,
+    startY: finalY + 20,
+    theme: 'grid'
   });
   finalY = doc.lastAutoTable.finalY;
 

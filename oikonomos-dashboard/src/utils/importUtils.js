@@ -30,16 +30,16 @@ export async function parseCSVAndValidate(csvText, userId, userCategories, userA
     if (lines.length <= 1) {
         return { validTransactions, errors: [{ line: 1, message: "Ficheiro CSV vazio ou contém apenas o cabeçalho." }] };
     }
-    
+
     const headers = lines[0].split(',').map(h => normalizeString(h.trim()));
-    
+
     // Mapeia nomes normalizados para os dados originais para validação flexível
     const categoryMap = new Map(userCategories.map(cat => [
-        normalizeString(cat.name), 
+        normalizeString(cat.name),
         { originalName: cat.name, type: cat.type }
     ]));
     const accountMap = new Map(userAccounts.map(acc => [
-        normalizeString(acc.accountName), 
+        normalizeString(acc.accountName),
         { id: acc.id, originalName: acc.accountName }
     ]));
 
@@ -94,6 +94,7 @@ export async function parseCSVAndValidate(csvText, userId, userCategories, userA
                 category: categoryData.originalName, // Usa o nome original
                 accountId: accountData.id,
                 description: row.descricao || '',
+                tags: row.tags ? row.tags.split(';').map(t => t.trim()).filter(Boolean) : [],
                 type: type === 'renda' ? 'income' : 'expense',
                 createdAt: Timestamp.fromDate(date),
             }

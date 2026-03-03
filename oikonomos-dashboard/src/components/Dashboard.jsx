@@ -174,8 +174,8 @@ function Dashboard({ user, userProfile }) {
     { title: "Origem das Rendas", data: summaryData.incomeChartData },
   ];
   const handleDownloadTemplate = () => {
-    const headers = "data,tipo,categoria,valor,conta,descricao";
-    const example = "2025-08-31,despesa,Alimentação,25.50,Carteira,Almoço no restaurante";
+    const headers = "data,tipo,categoria,valor,conta,descricao,tags";
+    const example = "2025-08-31,despesa,Alimentação,25.50,Carteira,Almoço no restaurante,restaurante;almoco";
     const csvContent = "data:text/csv;charset=utf-8," + headers + "\n" + example;
 
     const encodedUri = encodeURI(csvContent);

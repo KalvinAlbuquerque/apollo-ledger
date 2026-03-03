@@ -205,6 +205,10 @@ function ReportsPage() {
     return { labels: sortedDates, datasets: datasets };
   }, [filteredTransactions, selectedReportCategories]);
 
+  const transactionsWithCategoryFilter = useMemo(() => {
+    return filteredTransactions.filter(tx => selectedReportCategories.has(tx.category));
+  }, [filteredTransactions, selectedReportCategories]);
+
   if (loading) {
     return <div className={styles.loading}>A carregar dados dos relatórios...</div>;
   }
@@ -292,7 +296,7 @@ function ReportsPage() {
           <h2>Despesas por Tag (Top 10)</h2>
           <p className={styles.chartSubtitle}>Entenda como os seus gastos estão distribuídos entre as suas hashtags.</p>
           <div className={styles.chartContainer}>
-            <TagChart transactions={filteredTransactions} />
+            <TagChart transactions={transactionsWithCategoryFilter} />
           </div>
         </div>
 
@@ -300,7 +304,7 @@ function ReportsPage() {
           <h2>Evolução de Gastos por Tag</h2>
           <p className={styles.chartSubtitle}>Acompanhe o histórico e a evolução das suas despesas por hashtags.</p>
           <div className={styles.chartContainer}>
-            <TagsEvolutionChart transactions={filteredTransactions} />
+            <TagsEvolutionChart transactions={transactionsWithCategoryFilter} />
           </div>
         </div>
 
