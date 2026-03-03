@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
 import SummaryChart from './SummaryChart';
 import EditModal from './EditModal';
 import AddTransactionModal from './AddTransactionModal';
-import ExpenseRank from './ExpenseRank';
+import TopExpensesCarousel from './TopExpensesCarousel';
 import { showConfirmationToast } from '../utils/toastUtils.jsx';
 import CategoryFilter from './CategoryFilter';
 import AccountFilter from './AccountFilter';
@@ -145,13 +145,28 @@ function Dashboard({ user, userProfile }) {
     const expenseChartData = processDataForChart(expenses, 'Gastos R$');
     const incomeChartData = processDataForChart(income, 'Rendas R$');
 
+    // Categorias Top 10
     const topExpenseCategories = Object.entries(expenses.reduce((acc, tx) => {
       acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
       return acc;
-    }, {})).map(([category, totalAmount]) => ({ category, totalAmount }))
-      .sort((a, b) => b.totalAmount - a.totalAmount).slice(0, 10);
+    }, {})).map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value).slice(0, 10);
 
-    return { totalIncome, totalExpense, totalBalance, expenseChartData, incomeChartData, topExpenseCategories, relevantTransactions };
+    // Tags Top 10
+    const tagTotals = {};
+    expenses.forEach(tx => {
+      if (tx.tags && tx.tags.length > 0) {
+        tx.tags.forEach(tag => {
+          tagTotals[tag] = (tagTotals[tag] || 0) + tx.amount;
+        });
+      }
+    });
+
+    const topExpenseTags = Object.entries(tagTotals)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value).slice(0, 10);
+
+    return { totalIncome, totalExpense, totalBalance, expenseChartData, incomeChartData, topExpenseCategories, topExpenseTags, relevantTransactions };
   }, [transactions, accounts, accountView]);
 
   const charts = [
@@ -364,7 +379,10 @@ function Dashboard({ user, userProfile }) {
                 <SummaryChart chartData={charts[currentChartIndex]?.data} />
               </div>
             </div>
-            <ExpenseRank data={summaryData.topExpenseCategories} />
+            <TopExpensesCarousel
+              categoryData={summaryData.topExpenseCategories}
+              tagData={summaryData.topExpenseTags}
+            />
           </div>
 
           <div className={styles.transactionsContainer}>

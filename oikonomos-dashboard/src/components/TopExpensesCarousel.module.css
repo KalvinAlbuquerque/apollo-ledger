@@ -1,0 +1,113 @@
+/* src/components/TopExpensesCarousel.module.css */
+.container {
+    background-color: var(--cinza-elemento);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid var(--borda-sutil);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.headerContent {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.headerContent h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--texto-principal);
+    text-align: center;
+}
+
+.navArrow {
+    background: transparent;
+    border: none;
+    color: var(--texto-secundario);
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0 10px;
+    transition: color 0.2s;
+}
+
+.navArrow:hover {
+    color: var(--texto-principal);
+}
+
+.pagination {
+    display: flex;
+    gap: 6px;
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--borda-sutil);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.dot.active {
+    background-color: var(--acento-azul);
+}
+
+.emptyMessage {
+    color: var(--texto-secundario);
+    font-style: italic;
+    text-align: center;
+    margin-top: 40px;
+}
+
+.rankList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    flex-grow: 1;
+    overflow-y: auto;
+}
+
+.rankItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rankItem:last-child {
+    border-bottom: none;
+}
+
+.rankPosition {
+    font-weight: bold;
+    color: var(--texto-secundario);
+    width: 30px;
+    font-size: 0.9rem;
+}
+
+.rankName {
+    flex-grow: 1;
+    color: var(--texto-principal);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 15px;
+}
+
+.rankAmount {
+    font-weight: bold;
+    color: var(--vermelho-destaque);
+}
