@@ -290,7 +290,7 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
             await update.message.reply_text("Você precisa criar uma conta no dashboard primeiro antes de registrar uma transação.")
             return
 
-        # 1. Salva a transação pendente no Firestore
+        # 1. Salva a transação pendente e sincroniza tags no Firestore
         pending_data = {
             'type': 'expense',
             'amount': amount,
@@ -300,8 +300,20 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
             'userId': firebase_uid,
             'createdAt': firestore.SERVER_TIMESTAMP 
         }
+        batch = db.batch()
+        
+        if tags:
+            existing_tags_query = db.collection('tags').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
+            existing_tags = [doc.to_dict().get('name') for doc in existing_tags_query]
+            for tag in tags:
+                if tag not in existing_tags:
+                    new_tag_ref = db.collection('tags').document()
+                    batch.set(new_tag_ref, {'name': tag, 'userId': firebase_uid, 'isActive': True, 'createdAt': firestore.SERVER_TIMESTAMP})
+                    existing_tags.append(tag)
+
         pending_ref = db.collection('pending_transactions').document()
-        pending_ref.set(pending_data)
+        batch.set(pending_ref, pending_data)
+        batch.commit()
         
         # 2. Cria os botões com o ID da transação pendente no callback_data
         keyboard = []
@@ -374,7 +386,7 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
             await update.message.reply_text("Você precisa criar uma conta no dashboard primeiro antes de registrar uma transação.")
             return
 
-        # 1. Salva a transação pendente no Firestore
+        # 1. Salva a transação pendente e sincroniza tags no Firestore
         pending_data = {
             'type': 'income',
             'amount': amount,
@@ -384,8 +396,20 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
             'userId': firebase_uid,
             'createdAt': firestore.SERVER_TIMESTAMP
         }
+        batch = db.batch()
+        
+        if tags:
+            existing_tags_query = db.collection('tags').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
+            existing_tags = [doc.to_dict().get('name') for doc in existing_tags_query]
+            for tag in tags:
+                if tag not in existing_tags:
+                    new_tag_ref = db.collection('tags').document()
+                    batch.set(new_tag_ref, {'name': tag, 'userId': firebase_uid, 'isActive': True, 'createdAt': firestore.SERVER_TIMESTAMP})
+                    existing_tags.append(tag)
+
         pending_ref = db.collection('pending_transactions').document()
-        pending_ref.set(pending_data)
+        batch.set(pending_ref, pending_data)
+        batch.commit()
         
         # 2. Cria os botões com o ID da transação pendente no callback_data
         keyboard = []
@@ -563,8 +587,18 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
             tags = [tag.lower() for tag in re.findall(r'#(\w+)', description)]
             description = re.sub(r'#\w+', '', description).strip() or None
 
-            # Salva a transação de renda
+            # Salva a transação de renda e sincroniza tags
             batch = db.batch()
+            
+            if tags:
+                existing_tags_query = db.collection('tags').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
+                existing_tags = [doc.to_dict().get('name') for doc in existing_tags_query]
+                for tag in tags:
+                    if tag not in existing_tags:
+                        new_tag_ref = db.collection('tags').document()
+                        batch.set(new_tag_ref, {'name': tag, 'userId': firebase_uid, 'isActive': True, 'createdAt': firestore.SERVER_TIMESTAMP})
+                        existing_tags.append(tag)
+
             new_trans_ref = db.collection("transactions").document()
             batch.set(new_trans_ref, {'userId': firebase_uid, 'type': 'income', 'amount': amount, 'category': correct_category_name, 'description': description, 'tags': tags, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id})
             account_doc_ref = db.collection('accounts').document(default_account_id)
@@ -600,8 +634,18 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
                 return
             correct_category_name = original_categories[category_name_normalized]
 
-            # Salva a transação de despesa
+            # Salva a transação de despesa e sincroniza tags
             batch = db.batch()
+            
+            if tags:
+                existing_tags_query = db.collection('tags').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
+                existing_tags = [doc.to_dict().get('name') for doc in existing_tags_query]
+                for tag in tags:
+                    if tag not in existing_tags:
+                        new_tag_ref = db.collection('tags').document()
+                        batch.set(new_tag_ref, {'name': tag, 'userId': firebase_uid, 'isActive': True, 'createdAt': firestore.SERVER_TIMESTAMP})
+                        existing_tags.append(tag)
+
             new_trans_ref = db.collection("transactions").document()
             batch.set(new_trans_ref, {'userId': firebase_uid, 'type': 'expense', 'amount': amount, 'category': correct_category_name, 'description': description, 'tags': tags, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id})
             account_doc_ref = db.collection('accounts').document(default_account_id)
