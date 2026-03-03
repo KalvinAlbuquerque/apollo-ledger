@@ -1,0 +1,160 @@
+/* src/components/TagManager.module.css */
+.container {
+    padding: 10px;
+}
+
+.container h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+}
+
+.form {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.inputName {
+    flex-grow: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--borda-sutil);
+    background-color: var(--fundo-secundario);
+    color: var(--texto-principal);
+}
+
+.addButton {
+    background-color: var(--acento-azul);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.filterGroup {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--borda-sutil);
+    padding-bottom: 15px;
+}
+
+.searchInput {
+    flex-grow: 1;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--borda-sutil);
+    background-color: var(--fundo-secundario);
+    color: var(--texto-principal);
+}
+
+.filterTabs {
+    display: flex;
+    gap: 10px;
+}
+
+.filterButton {
+    background: transparent;
+    border: 1px solid var(--borda-sutil);
+    color: var(--texto-secundario);
+    padding: 8px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filterButton:hover {
+    background-color: var(--fundo-secundario);
+    color: var(--texto-principal);
+}
+
+.activeFilter {
+    background-color: var(--acento-azul);
+    border-color: var(--acento-azul);
+    color: white;
+}
+
+.tagList {
+    list-style: none;
+    padding: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.tagItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background-color: transparent;
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin-bottom: 2px;
+    border: 1px solid transparent;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.tagItem:hover {
+    background-color: var(--fundo-secundario);
+    border-color: var(--borda-sutil);
+}
+
+.actionButtons {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+
+.editButton {
+    background-color: #555;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.editButton:hover {
+    background-color: var(--acento-azul);
+}
+
+.deleteButton {
+    background: #444;
+    border: none;
+    color: var(--texto-secundario);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    opacity: 0.5;
+}
+
+.tagItem:hover .deleteButton {
+    opacity: 1;
+}
+
+.deleteButton:hover {
+    background-color: var(--vermelho-destaque);
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .form {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filterGroup {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}

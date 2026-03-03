@@ -6,6 +6,7 @@ import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import MonthlyBarChart from '../components/MonthlyBarChart';
 import LineChart from '../components/LineChart';
 import CategoryLineChart from '../components/CategoryLineChart';
+import TagChart from '../components/TagChart';
 import styles from './ReportsPage.module.css';
 import CategoryFilter from '../components/CategoryFilter';
 import AccountFilter from '../components/AccountFilter';
@@ -287,6 +288,14 @@ function ReportsPage() {
         </div>
 
         <div className={styles.reportCard}>
+          <h2>Despesas por Tag (Top 10)</h2>
+          <p className={styles.chartSubtitle}>Entenda como os seus gastos estão distribuídos entre as suas hashtags.</p>
+          <div className={styles.chartContainer}>
+            <TagChart transactions={filteredTransactions} />
+          </div>
+        </div>
+
+        <div className={styles.reportCard}>
           <h2>Fluxo de Caixa Mensal</h2>
           <p className={styles.chartSubtitle}>Compare o total de rendas e despesas, mês a mês.</p>
           <div className={styles.chartContainer}>
@@ -302,7 +311,7 @@ function ReportsPage() {
           </div>
         </div>
       </div>
-      
+
       {/* 4. POSICIONE O MODAL AQUI */}
       {isHelpOpen && (
         <HelpModal title="Relatórios" onClose={() => setIsHelpOpen(false)}>

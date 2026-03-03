@@ -8,6 +8,7 @@ import BudgetManager from '../components/BudgetManager';
 import GoalManager from '../components/GoalManager';
 import AccountManager from '../components/AccountManager';
 import DebtManager from '../components/DebtManager';
+import TagManager from '../components/TagManager';
 import HelpModal from '../components/HelpModal'; // Importe o modal de ajuda
 
 // Estilos
@@ -90,6 +91,8 @@ function ManagementPage({ user }) {
         return <AccountManager onDataChanged={triggerRefresh} accounts={accounts} />;
       case 'categories':
         return <CategoryManager onDataChanged={triggerRefresh} />;
+      case 'tags':
+        return <TagManager onDataChanged={triggerRefresh} />;
       case 'budgets':
         return <BudgetManager onDataChanged={triggerRefresh} totalMonthIncome={totalMonthIncome} />;
       case 'goals':
@@ -116,6 +119,7 @@ function ManagementPage({ user }) {
         <div className={pageStyles.tabs}>
           <button onClick={() => setActiveTab('accounts')} className={activeTab === 'accounts' ? pageStyles.active : ''}>Contas</button>
           <button onClick={() => setActiveTab('categories')} className={activeTab === 'categories' ? pageStyles.active : ''}>Categorias</button>
+          <button onClick={() => setActiveTab('tags')} className={activeTab === 'tags' ? pageStyles.active : ''}>Tags</button>
           <button onClick={() => setActiveTab('budgets')} className={activeTab === 'budgets' ? pageStyles.active : ''}>Orçamentos</button>
           <button onClick={() => setActiveTab('goals')} className={activeTab === 'goals' ? pageStyles.active : ''}>Metas</button>
           <button onClick={() => setActiveTab('debts')} className={activeTab === 'debts' ? pageStyles.active : ''}>Contas a Pagar</button>
@@ -134,6 +138,7 @@ function ManagementPage({ user }) {
           <ul style={{ paddingLeft: '20px', lineHeight: '1.8' }}>
             <li><strong>Contas:</strong> Cadastre todas as suas fontes de dinheiro, como contas bancárias, carteiras ou reservas.</li>
             <li><strong>Categorias:</strong> Crie as categorias de renda e despesa que refletem seu estilo de vida.</li>
+            <li><strong>Tags:</strong> Gerencie as tags para categorizar e organizar suas transações e rotinas livremente.</li>
             <li><strong>Orçamentos:</strong> Defina limites de gastos mensais para suas categorias de despesa.</li>
             <li><strong>Metas:</strong> Crie e acompanhe o progresso de suas metas de poupança.</li>
             <li><strong>Contas a Pagar:</strong> Gerencie suas contas recorrentes ou dívidas para nunca mais perder um vencimento.</li>

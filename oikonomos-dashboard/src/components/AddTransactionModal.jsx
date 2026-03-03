@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { db, auth } from '../../firebaseClient';
-import { collection, doc, writeBatch, Timestamp, increment } from 'firebase/firestore';
+import { collection, doc, writeBatch, Timestamp, increment, query, where, getDocs } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import styles from './EditModal.module.css';
 
@@ -21,6 +21,22 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
   const [createPaybackDebt, setCreatePaybackDebt] = useState(false);
 
   const user = auth.currentUser;
+  const [availableTags, setAvailableTags] = useState([]);
+
+  useEffect(() => {
+    const fetchTags = async () => {
+      if (!user) return;
+      try {
+        const q = query(collection(db, "tags"), where("userId", "==", user.uid), where("isActive", "==", true));
+        const querySnapshot = await getDocs(q);
+        const fetchedTags = querySnapshot.docs.map(doc => doc.data().name);
+        setAvailableTags(fetchedTags);
+      } catch (error) {
+        console.error("Erro ao buscar tags:", error);
+      }
+    };
+    fetchTags();
+  }, [user]);
 
   // --- LÓGICA CORRIGIDA COM useEffect ---
   // Primeiro, calculamos qual é a conta padrão sempre que a lista de contas mudar.
@@ -158,6 +174,18 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
           const accountDocRef = doc(db, "accounts", selectedAccount);
           const amountToUpdate = type === 'income' ? parseFloat(amount) : -parseFloat(amount);
           batch.update(accountDocRef, { balance: increment(amountToUpdate) });
+
+          // Cria novas tags dinamicamente
+          const newTagsToCreate = tags.filter(tag => !availableTags.includes(tag));
+          newTagsToCreate.forEach(tag => {
+            const newTagRef = doc(collection(db, "tags"));
+            batch.set(newTagRef, {
+              name: tag,
+              userId: user.uid,
+              isActive: true
+            });
+          });
+
           await batch.commit();
           resolve();
         } catch (error) { reject(error); }
@@ -232,11 +260,18 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
                 </div>
                 <input
                   type="text"
+                  list="tag-suggestions"
                   value={tagInput}
                   onChange={e => setTagInput(e.target.value)}
                   onKeyDown={handleTagKeyDown}
                   placeholder="Digite uma tag e aperte Enter ou Espaço"
+                  autoComplete="off"
                 />
+                <datalist id="tag-suggestions">
+                  {availableTags.map((t, idx) => (
+                    <option key={idx} value={t} />
+                  ))}
+                </datalist>
               </div>
               <label>Descrição (Opcional):</label>
               <input type="text" value={description} onChange={e => setDescription(e.target.value)} />
