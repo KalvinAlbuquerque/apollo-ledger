@@ -459,7 +459,7 @@ function Dashboard({ user, userProfile }) {
               <thead>
                 <tr>
                   {isSelectionMode && (<th className={styles.checkboxCell}><input type="checkbox" onChange={handleSelectAllOnPage} checked={currentTransactions.length > 0 && currentTransactions.every(tx => selectedTransactions.has(tx.id))} /></th>)}
-                  <th>Data</th><th>Categoria</th><th>Descrição</th><th>Conta</th><th>Valor (R$)</th><th>Ações</th>
+                  <th>Data</th><th>Categoria</th><th>Descrição</th><th>Tags</th><th>Conta</th><th>Valor (R$)</th><th>Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -474,14 +474,16 @@ function Dashboard({ user, userProfile }) {
                         <td data-label="Descrição">
                           <div className={styles.descContainer}>
                             <span>{tx.description || '-'}</span>
-                            {tx.tags && tx.tags.length > 0 && (
-                              <div className={styles.tagsContainer}>
-                                {tx.tags.map((tag, idx) => (
-                                  <span key={idx} className={styles.tagPill}>#{tag}</span>
-                                ))}
-                              </div>
-                            )}
                           </div>
+                        </td>
+                        <td data-label="Tags">
+                          {tx.tags && tx.tags.length > 0 ? (
+                            <div className={styles.tagsContainer}>
+                              {tx.tags.map((tag, idx) => (
+                                <span key={idx} className={styles.tagPill}>#{tag}</span>
+                              ))}
+                            </div>
+                          ) : '-'}
                         </td>
                         <td data-label="Conta">{accounts.find(acc => acc.id === tx.accountId)?.accountName || 'N/A'}</td>
                         <td data-label="Valor (R$)" className={tx.type === 'income' ? styles.incomeAmount : styles.expenseAmount}>{tx.type === 'income' ? '+ ' : '- '}R$ {tx.amount.toFixed(2)}</td>
@@ -493,7 +495,7 @@ function Dashboard({ user, userProfile }) {
                     )
                   })
                 ) : (
-                  <tr><td colSpan={isSelectionMode ? 7 : 6}>Nenhuma transação para os filtros selecionados.</td></tr>
+                  <tr><td colSpan={isSelectionMode ? 8 : 7}>Nenhuma transação para os filtros selecionados.</td></tr>
                 )}
               </tbody>
             </table>
