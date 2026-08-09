@@ -19,6 +19,10 @@ from flask_cors import CORS
 import secrets
 from flask import jsonify
 from functools import wraps
+from apollo import (
+    ApolloAgent, validar_arquivo, TRIGGERS_APOLLO,
+    carregar_historico, salvar_historico,
+)
 
 # --- 1. CONFIGURAÇÃO INICIAL ---
 load_dotenv()
@@ -1149,7 +1153,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = update.message.text.strip()
-    
+
+    # --- APOLLO AI: triggers textuais e modo ativo ---
+    if TRIGGERS_APOLLO.match(text):
+        await handle_ai_command(update, context)
+        return
+
+    user_doc = db.collection('telegram_users').document(str(chat_id)).get()
+    if user_doc.exists and user_doc.to_dict().get('ai_mode', False):
+        await handle_apollo_message(update, context, firebase_uid)
+        return
+    # ------------------------------------------------
+
     # --- NOVA LÓGICA DE ROTEAMENTO ---
     if text.startswith('*'):
         await process_default_transaction(update, context, text, firebase_uid)
@@ -1197,11 +1212,226 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Assume que é uma despesa como último recurso
         await process_expense(update, context, parts, firebase_uid)
 
+# --- 5b. APOLLO AI — HANDLERS DO TELEGRAM ---
+
+async def handle_ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Ativa o modo Apollo para o usuário."""
+    chat_id = update.effective_chat.id
+    firebase_uid = await get_firebase_user_id(chat_id)
+    if not firebase_uid:
+        await update.message.reply_text("Vincule sua conta primeiro enviando seu e-mail.")
+        return
+    db.collection('telegram_users').document(str(chat_id)).update({'ai_mode': True})
+    await update.message.reply_text(
+        "🤖 Apollo ativo, senhor.\n\n"
+        "Pode me falar naturalmente sobre seus gastos, "
+        "me enviar um extrato bancário (.ofx ou .csv) para importar, "
+        "ou perguntar qualquer coisa sobre suas finanças.\n\n"
+        "Para voltar ao modo de comandos, envie /sair"
+    )
+
+
+async def handle_exit_ai(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Desativa o modo Apollo."""
+    chat_id = update.effective_chat.id
+    db.collection('telegram_users').document(str(chat_id)).update({'ai_mode': False})
+    await update.message.reply_text(
+        "Modo normal ativado. Use '?' para ver os comandos disponíveis."
+    )
+
+
+async def handle_apollo_message(update: Update, context: ContextTypes.DEFAULT_TYPE, firebase_uid: str):
+    """Processa mensagens de texto no modo Apollo."""
+    chat_id = update.effective_chat.id
+    mensagem = update.message.text.strip()
+
+    user_doc = db.collection('users').document(firebase_uid).get()
+    apelido = user_doc.to_dict().get('apelido', 'senhor') if user_doc.exists else 'senhor'
+
+    aguardando = await update.message.reply_text("⏳ Pensando...")
+
+    try:
+        historico = carregar_historico(db, firebase_uid, 'telegram')
+        agent = ApolloAgent(firebase_uid=firebase_uid, db=db, apelido=apelido)
+        resposta, historico_novo = await asyncio.to_thread(agent.chat, mensagem, historico)
+        salvar_historico(db, firebase_uid, 'telegram', historico_novo)
+        await aguardando.edit_text(resposta)
+    except Exception as e:
+        print(f"Erro Apollo chat: {e}")
+        await aguardando.edit_text("❌ Não consegui processar sua mensagem. Tente novamente.")
+
+
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Recebe arquivos — processa como extrato se estiver no modo Apollo."""
+    chat_id = update.effective_chat.id
+    firebase_uid = await get_firebase_user_id(chat_id)
+    if not firebase_uid:
+        return
+
+    user_doc = db.collection('telegram_users').document(str(chat_id)).get()
+    ai_mode = user_doc.exists and user_doc.to_dict().get('ai_mode', False)
+
+    if not ai_mode:
+        await update.message.reply_text(
+            "Envio de arquivos disponível apenas no modo Apollo. "
+            "Diga 'Apollo' ou envie /ai para ativá-lo."
+        )
+        return
+
+    documento = update.message.document
+    filename = documento.file_name or "extrato"
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+
+    if ext not in ('ofx', 'csv', 'pdf'):
+        await update.message.reply_text(
+            "Formato não suportado, senhor. Envie um arquivo .ofx ou .csv do seu banco."
+        )
+        return
+
+    aguardando = await update.message.reply_text("⏳ Analisando o extrato...")
+
+    try:
+        tg_file = await context.bot.get_file(documento.file_id)
+        content = await tg_file.download_as_bytearray()
+        content = bytes(content)
+        validar_arquivo(filename, content)
+
+        user_meta = db.collection('users').document(firebase_uid).get()
+        apelido = user_meta.to_dict().get('apelido', 'senhor') if user_meta.exists else 'senhor'
+
+        agent = ApolloAgent(firebase_uid=firebase_uid, db=db, apelido=apelido)
+        resultado = await asyncio.to_thread(agent.processar_extrato, content, filename)
+
+        # Salvar import_session no Firestore
+        from datetime import timedelta
+        session_ref = db.collection('import_sessions').document()
+        session_ref.set({
+            'userId': firebase_uid,
+            'status': 'pending_review',
+            'sourceFile': filename,
+            'format': ext,
+            'transactions': resultado['transactions'],
+            'newCategories': resultado['newCategories'],
+            'summary': resultado['summary'],
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'expiresAt': datetime.now(timezone.utc) + timedelta(hours=24),
+        })
+        session_id = session_ref.id
+
+        summary = resultado['summary']
+        novas_cats = resultado['newCategories']
+        aprovadas = resultado['transactions']
+        nao_duplicatas = [t for t in aprovadas if not t.get('isDuplicate')]
+
+        msg_resumo = (
+            f"📊 Analisei seu extrato, senhor.\n\n"
+            f"• {summary['approved']} transações categorizadas automaticamente\n"
+            f"• {summary['pendingReview']} aguardando sua revisão\n"
+            f"• {summary['duplicates']} duplicata(s) ignorada(s)\n"
+        )
+        if novas_cats:
+            msg_resumo += f"• Categorias novas sugeridas: {', '.join(novas_cats)}\n"
+
+        # Para volumes pequenos: mostrar resumo inline
+        if len(nao_duplicatas) <= 10:
+            linhas = []
+            for t in nao_duplicatas[:10]:
+                icon = '✅' if t.get('status') == 'approved' else '⚠️' if t.get('status') == 'review' else '❓'
+                cat_label = t.get('suggestedCategory', '?')
+                if t.get('isNewCategory'):
+                    cat_label += ' ⭐'
+                linhas.append(
+                    f"{icon} {t.get('date', '')[-5:].replace('-', '/')} | "
+                    f"R$ {t.get('amount', 0):.2f} | {cat_label} | \"{t.get('description', '')[:30]}\""
+                )
+
+            msg_resumo += "\n📋 Revisão:\n" + "\n".join(linhas)
+            if novas_cats:
+                msg_resumo += f"\n\n⭐ Categorias novas a criar: {', '.join(novas_cats)}"
+
+            keyboard = InlineKeyboardMarkup([[
+                InlineKeyboardButton("✅ Confirmar tudo", callback_data=f"import_confirm_{session_id}"),
+                InlineKeyboardButton("❌ Cancelar", callback_data=f"import_cancel_{session_id}"),
+            ]])
+            await aguardando.edit_text(msg_resumo, reply_markup=keyboard)
+        else:
+            msg_resumo += f"\n\nComo são {summary['total']} transações, prefiro que revise no dashboard.\nSession ID: `{session_id}`"
+            await aguardando.edit_text(msg_resumo, parse_mode='Markdown')
+
+    except ValueError as e:
+        await aguardando.edit_text(f"❌ {e}")
+    except Exception as e:
+        print(f"Erro ao processar extrato: {e}")
+        await aguardando.edit_text("❌ Ocorreu um erro ao processar o extrato. Tente novamente.")
+
+
+async def handle_import_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Processa confirmação ou cancelamento de importação de extrato."""
+    query = update.callback_query
+    await query.answer()
+    chat_id = update.effective_chat.id
+    firebase_uid = await get_firebase_user_id(chat_id)
+    if not firebase_uid:
+        return
+
+    data = query.data
+    partes = data.split('_')
+    acao = partes[1]           # 'confirm' ou 'cancel'
+    session_id = partes[2]
+
+    session_doc = db.collection('import_sessions').document(session_id).get()
+    if not session_doc.exists:
+        await query.message.edit_text("❌ Sessão expirada ou não encontrada.")
+        return
+    session_data = session_doc.to_dict()
+    if session_data.get('userId') != firebase_uid:
+        await query.answer("Esta operação não pertence a você.", show_alert=True)
+        return
+
+    if acao == 'cancel':
+        db.collection('import_sessions').document(session_id).update({'status': 'cancelled'})
+        await query.message.edit_text("Importação cancelada.")
+        return
+
+    # Confirmar
+    try:
+        # Usar conta padrão
+        conta_ref = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('isDefault', '==', True)).limit(1).stream()
+        conta_doc = next(conta_ref, None)
+        if not conta_doc:
+            await query.message.edit_text("❌ Nenhuma conta padrão definida. Configure no dashboard.")
+            return
+
+        user_meta = db.collection('users').document(firebase_uid).get()
+        apelido = user_meta.to_dict().get('apelido', 'senhor') if user_meta.exists else 'senhor'
+
+        agent = ApolloAgent(firebase_uid=firebase_uid, db=db, apelido=apelido)
+        resultado = await asyncio.to_thread(
+            agent.confirmar_importacao,
+            session_data['transactions'],
+            conta_doc.id
+        )
+        db.collection('import_sessions').document(session_id).update({'status': 'confirmed'})
+
+        msg = f"✅ Importação concluída! {resultado['criadas']} transação(ões) registrada(s)."
+        if resultado.get('categorias_novas'):
+            msg += f"\nCategorias criadas: {', '.join(resultado['categorias_novas'])}"
+        await query.message.edit_text(msg)
+
+    except Exception as e:
+        print(f"Erro ao confirmar importação: {e}")
+        await query.message.edit_text("❌ Erro ao gravar as transações. Tente novamente.")
+
+
 # --- 6. SERVIDOR WEB E WEBHOOK ---
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 ptb_app = Application.builder().token(TELEGRAM_TOKEN).build()
+ptb_app.add_handler(CommandHandler("ai", handle_ai_command))
+ptb_app.add_handler(CommandHandler("sair", handle_exit_ai))
+ptb_app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
 ptb_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+ptb_app.add_handler(CallbackQueryHandler(handle_import_callback, pattern=r"^import_"))
 ptb_app.add_handler(CallbackQueryHandler(handle_account_selection))
 
 @app.route("/")
@@ -1502,7 +1732,161 @@ def create_transaction(uid):
         print(f"Erro ao criar transação via API: {e}")
         return jsonify({"error": "Ocorreu um erro interno ao criar a transação"}), 500
 
-# --- 8. EXECUÇÃO LOCAL (Opcional) ---
+# --- 8. ENDPOINTS APOLLO AI ---
+
+def _verificar_firebase_token(request) -> str:
+    """Verifica Firebase ID Token no header Authorization. Retorna firebase_uid ou lança exceção."""
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        raise PermissionError("Token de autorização ausente ou mal formatado")
+    id_token = auth_header.split('Bearer ')[1]
+    decoded = auth.verify_id_token(id_token)
+    return decoded['uid']
+
+
+def _get_apelido(uid: str) -> str:
+    doc = db.collection('users').document(uid).get()
+    return doc.to_dict().get('apelido', 'senhor') if doc.exists else 'senhor'
+
+
+@app.route("/api/apollo/chat", methods=['POST'])
+def apollo_chat():
+    try:
+        uid = _verificar_firebase_token(request)
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 401
+    except Exception:
+        return jsonify({"error": "Token inválido"}), 403
+
+    data = request.get_json()
+    if not data or not data.get('message'):
+        return jsonify({"error": "Campo 'message' obrigatório"}), 400
+
+    mensagem = str(data['message'])[:2000]
+    channel = data.get('channel', 'web')
+
+    try:
+        historico = carregar_historico(db, uid, channel)
+        agent = ApolloAgent(firebase_uid=uid, db=db, apelido=_get_apelido(uid))
+        resposta, historico_novo = agent.chat(mensagem, historico)
+        salvar_historico(db, uid, channel, historico_novo)
+        return jsonify({"reply": resposta}), 200
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 503
+    except Exception as e:
+        print(f"Erro apollo/chat: {e}")
+        return jsonify({"error": "Erro interno ao processar mensagem"}), 500
+
+
+@app.route("/api/apollo/import", methods=['POST'])
+def apollo_import():
+    try:
+        uid = _verificar_firebase_token(request)
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 401
+    except Exception:
+        return jsonify({"error": "Token inválido"}), 403
+
+    arquivo = request.files.get('file')
+    if not arquivo:
+        return jsonify({"error": "Arquivo não enviado. Use multipart/form-data com campo 'file'"}), 400
+
+    try:
+        content = arquivo.read()
+        filename = arquivo.filename or "extrato"
+        validar_arquivo(filename, content)
+
+        agent = ApolloAgent(firebase_uid=uid, db=db, apelido=_get_apelido(uid))
+        resultado = agent.processar_extrato(content, filename)
+
+        from datetime import timedelta
+        session_ref = db.collection('import_sessions').document()
+        session_ref.set({
+            'userId': uid,
+            'status': 'pending_review',
+            'sourceFile': filename,
+            'format': os.path.splitext(filename)[1].lower().lstrip('.'),
+            'transactions': resultado['transactions'],
+            'newCategories': resultado['newCategories'],
+            'summary': resultado['summary'],
+            'createdAt': firestore.SERVER_TIMESTAMP,
+            'expiresAt': datetime.now(timezone.utc) + timedelta(hours=24),
+        })
+
+        return jsonify({
+            "sessionId": session_ref.id,
+            "status": "pending_review",
+            **resultado,
+        }), 200
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 503
+    except Exception as e:
+        print(f"Erro apollo/import: {e}")
+        return jsonify({"error": "Erro interno ao processar extrato"}), 500
+
+
+@app.route("/api/apollo/import/<session_id>/confirm", methods=['POST'])
+def apollo_import_confirm(session_id):
+    try:
+        uid = _verificar_firebase_token(request)
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 401
+    except Exception:
+        return jsonify({"error": "Token inválido"}), 403
+
+    session_doc = db.collection('import_sessions').document(session_id).get()
+    if not session_doc.exists:
+        return jsonify({"error": "Sessão não encontrada ou expirada"}), 404
+    if session_doc.to_dict().get('userId') != uid:
+        return jsonify({"error": "Acesso negado"}), 403
+
+    data = request.get_json() or {}
+    transacoes = data.get('transactions', session_doc.to_dict().get('transactions', []))
+    conta_id = data.get('accountId', 'default')
+
+    # Resolver conta padrão se não especificada
+    if conta_id == 'default':
+        conta_ref = db.collection('accounts').where(filter=FieldFilter('userId', '==', uid)).where(filter=FieldFilter('isDefault', '==', True)).limit(1).stream()
+        conta_doc = next(conta_ref, None)
+        if not conta_doc:
+            return jsonify({"error": "Nenhuma conta padrão definida"}), 400
+        conta_id = conta_doc.id
+
+    try:
+        agent = ApolloAgent(firebase_uid=uid, db=db, apelido=_get_apelido(uid))
+        resultado = agent.confirmar_importacao(transacoes, conta_id)
+        db.collection('import_sessions').document(session_id).update({'status': 'confirmed'})
+        return jsonify({"success": True, **resultado}), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        print(f"Erro apollo/import/confirm: {e}")
+        return jsonify({"error": "Erro interno ao gravar transações"}), 500
+
+
+@app.route("/api/apollo/session/<session_id>", methods=['GET'])
+def apollo_session(session_id):
+    try:
+        uid = _verificar_firebase_token(request)
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 401
+    except Exception:
+        return jsonify({"error": "Token inválido"}), 403
+
+    doc = db.collection('apollo_sessions').document(session_id).get()
+    if not doc.exists:
+        return jsonify({"messages": []}), 200
+    data = doc.to_dict()
+    if data.get('userId') != uid:
+        return jsonify({"error": "Acesso negado"}), 403
+
+    return jsonify({"messages": data.get('messages', [])}), 200
+
+
+# --- 9. EXECUÇÃO LOCAL (Opcional) ---
 if __name__ == '__main__':
     print("Iniciando servidor Flask local para desenvolvimento em http://127.0.0.1:8000 ...")
     app.run(debug=True, port=8000)

@@ -22,6 +22,22 @@
     {
       "src": "/api/transaction",
       "dest": "backend/bot.py"
+    },
+    {
+      "src": "/api/apollo/chat",
+      "dest": "backend/bot.py"
+    },
+    {
+      "src": "/api/apollo/import",
+      "dest": "backend/bot.py"
+    },
+    {
+      "src": "/api/apollo/import/([^/]+)/confirm",
+      "dest": "backend/bot.py"
+    },
+    {
+      "src": "/api/apollo/session/([^/]+)",
+      "dest": "backend/bot.py"
     }
   ],
   "crons": [
