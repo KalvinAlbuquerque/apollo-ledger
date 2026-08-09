@@ -1,6 +1,8 @@
 # backend/bot.py (Versão Final com Teclado Interativo)
 
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import re
 import asyncio
 import json
