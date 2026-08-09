@@ -8,6 +8,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-
 
 // ... (resto das importações)
 import MyAccountPage from './pages/MyAccountPage';
+import ReviewPage from './pages/ReviewPage';
 import MainLayout from './components/MainLayout';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
@@ -15,6 +16,7 @@ import ReportsPage from './pages/ReportsPage';
 import ForecastPage from './pages/ForecastPage';
 import ManagementPage from './pages/ManagementPage';
 import HelpPage from './pages/HelpPage';
+import ApolloChat from './components/ApolloChat';
 
 const ProtectedLayout = () => (
   <MainLayout>
@@ -58,18 +60,19 @@ function App() {
 
         {user && (
           <Route element={<ProtectedLayout />}>
-            {/* 5. PASSE O PERFIL E O USUÁRIO PARA O DASHBOARD */}
             <Route path="/dashboard" element={<Dashboard user={user} userProfile={userProfile} />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/forecast" element={<ForecastPage />} />
             <Route path="/management" element={<ManagementPage user={user} />} />
             <Route path="/help" element={<HelpPage />} />
             <Route path="/my-account" element={<MyAccountPage />} />
+            <Route path="/review/:sessionId" element={<ReviewPage user={user} />} />
           </Route>
         )}
 
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      {user && <ApolloChat user={user} apelido={userProfile?.apelido} />}
     </Router>
   );
 }

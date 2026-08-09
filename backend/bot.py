@@ -1878,14 +1878,21 @@ def apollo_session(session_id):
     except Exception:
         return jsonify({"error": "Token inválido"}), 403
 
-    doc = db.collection('apollo_sessions').document(session_id).get()
+    doc = db.collection('import_sessions').document(session_id).get()
     if not doc.exists:
-        return jsonify({"messages": []}), 200
+        return jsonify({"error": "Sessão não encontrada ou expirada"}), 404
     data = doc.to_dict()
     if data.get('userId') != uid:
         return jsonify({"error": "Acesso negado"}), 403
 
-    return jsonify({"messages": data.get('messages', [])}), 200
+    return jsonify({
+        "sessionId": session_id,
+        "status": data.get('status'),
+        "sourceFile": data.get('sourceFile'),
+        "transactions": data.get('transactions', []),
+        "newCategories": data.get('newCategories', []),
+        "summary": data.get('summary', {}),
+    }), 200
 
 
 # --- 9. EXECUÇÃO LOCAL (Opcional) ---
