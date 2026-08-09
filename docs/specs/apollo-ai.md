@@ -12,16 +12,45 @@ Apollo está disponível em dois canais:
 
 ## LLM
 
-**Google Gemini 2.0 Flash** — free tier da Google AI.
+**Google Gemini 2.5 Flash** — free tier da Google AI Studio.
 
 | Limite | Valor |
 |---|---|
-| Requisições por minuto | 15 |
-| Requisições por dia | 1.500 |
-| Tokens por requisição | 1.048.576 |
-| Upload de arquivo direto (PDF) | Sim |
+| Requisições por minuto | 5 |
+| Requisições por dia | 20 |
+| Tokens por minuto | 250.000 |
 
-O Gemini utiliza **function calling** nativo — Apollo recebe uma lista de ferramentas e decide quais chamar e com quais parâmetros.
+> ⚠️ `gemini-2.0-flash` tem quota 0 nesta conta. Usar sempre `gemini-2.5-flash`.
+
+**SDK:** `google-genai>=1.0.0` (novo SDK oficial). **NÃO usar** `google-generativeai` — conflito de protobuf com `grpcio-status>=1.74.0` que exige `protobuf>=6.31.1`.
+
+```python
+from google import genai
+from google.genai import types
+
+_gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+
+# Chat com function calling automático
+sessao = _gemini_client.chats.create(
+    model='gemini-2.5-flash',
+    config=types.GenerateContentConfig(
+        system_instruction=...,
+        tools=self._tools(),
+    ),
+    history=historico or [],
+)
+response = sessao.send_message(mensagem)
+historico_novo = sessao.get_history()
+
+# Geração simples (categorização)
+response = _gemini_client.models.generate_content(
+    model='gemini-2.5-flash',
+    contents=prompt,
+    config=types.GenerateContentConfig(response_mime_type='application/json'),
+)
+```
+
+O Gemini utiliza **function calling** nativo — Apollo recebe uma lista de ferramentas (métodos Python) e decide quais chamar e com quais parâmetros. O AFC (automatic function calling) é ativado por padrão ao passar funções Python como `tools`.
 
 **Variável de ambiente:** `GEMINI_API_KEY`
 
@@ -135,9 +164,9 @@ Apollo chama criar_transacoes_lote() → commit no Firestore
 ```
 
 **Formatos suportados (em ordem de prioridade):**
-- **OFX** — formato estruturado exportado pelo Bradesco. Parser: `ofxparse` (Python)
-- **CSV** — exportação alternativa do Bradesco. Mapeamento de colunas: data, histórico, débito, crédito
-- **PDF** — enviado diretamente ao Gemini via File API (sem parsing manual)
+- **OFX** — formato estruturado exportado pelo Bradesco. Parser: manual via regex (SGML 1.x, sem lib extra). Ver `parse_ofx()` em `apollo.py`.
+- **CSV** — exportação alternativa do Bradesco. Ver `parse_csv_bradesco()` em `apollo.py`.
+- **PDF** — não suportado ainda via parsing direto (retorna erro orientando a usar OFX/CSV)
 
 **Estratégia de categorização:**
 1. Apollo analisa semanticamente a descrição (não só string match)
@@ -413,7 +442,7 @@ O modo Apollo é ativado quando o usuário envia qualquer um dos seguintes:
   ```
   Exemplos que ativam: "Apollo", "Olá Apollo", "E aí, Apollo!", "Oi Apollo"
 
-- Estado salvo em `context.user_data['ai_mode'] = True`
+- Estado salvo no Firestore: `telegram_users/{chat_id}.ai_mode = True` (Vercel é serverless — `context.user_data` não persiste entre requests)
 
 ### Desativação
 
@@ -549,9 +578,15 @@ application.add_handler(MessageHandler(
 
 ```python
 async def handle_message(update, context):
-    # Se modo Apollo ativo, redireciona
-    if context.user_data.get('ai_mode'):
-        await handle_apollo_message(update, context)
+    # Verifica trigger Apollo (texto tipo "Apollo", "Olá Apollo")
+    if TRIGGERS_APOLLO.match(text):
+        await handle_ai_command(update, context)
+        return
+
+    # Se ai_mode ativo no Firestore, redireciona
+    user_doc = db.collection('telegram_users').document(str(chat_id)).get()
+    if user_doc.exists and user_doc.to_dict().get('ai_mode', False):
+        await handle_apollo_message(update, context, firebase_uid)
         return
     
     # ... lógica atual do bot ...
@@ -561,16 +596,20 @@ async def handle_message(update, context):
 
 ## Integração no web dashboard (`ApolloChat.jsx`)
 
+**Status: implementado** em `oikonomos-dashboard/src/components/ApolloChat.jsx`.
+
 **UI:**
-- Botão flutuante bottom-right com ícone 🤖
-- Ao abrir: janela de chat (400×600px) com histórico
-- Input de texto + botão de upload de arquivo
-- Mensagens do Apollo com formatação markdown simples (negrito, listas)
-- Indicador de digitação enquanto aguarda resposta
+- Botão "A" flutuante fixed bottom-right (52px, azul)
+- Ao abrir: janela de chat (360×520px) com animação slideUp
+- Input de texto (Enter envia) + botão 📎 para upload de extrato
+- Bubbles: usuário à direita (azul), Apollo à esquerda (cinza escuro)
+- Indicador de typing animado enquanto aguarda resposta
+- Após import: botão "Revisar importação →" navega para `/review/:sessionId`
+- Responsive: mobile abre em tela cheia (100vw × 70vh)
 
 **Estado:**
-- `sessionId` persistido no `localStorage`
-- Histórico carregado via `GET /api/apollo/session/{sessionId}` ao abrir
+- Histórico mantido apenas em memória local (useState) — não persiste entre sessões de página
+- Canal enviado como `channel: 'web'` no body do POST /api/apollo/chat
 
 ---
 
@@ -637,7 +676,10 @@ async def handle_message(update, context):
 
 ### `GET /api/apollo/session/{sessionId}`
 **Auth:** `Authorization: Bearer <firebase_id_token>`  
-Retorna histórico de mensagens da sessão para o web chat.
+Retorna dados da **import_session** (coleção `import_sessions`) para a ReviewPage.
+Campos retornados: `sessionId`, `status`, `sourceFile`, `transactions`, `newCategories`, `summary`.
+
+> ⚠️ Este endpoint lê de `import_sessions`, não de `apollo_sessions` (histórico de chat).
 
 ---
 

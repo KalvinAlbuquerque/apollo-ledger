@@ -19,6 +19,7 @@
 | Hosting (frontend) | Firebase Hosting / Vercel |
 | Hosting (backend/API) | Vercel (serverless Python) |
 | Bot | Telegram Bot API (webhook via `/api/bot`) |
+| AI | Google Gemini 2.5 Flash via SDK `google-genai>=1.0.0` |
 
 ---
 
@@ -30,20 +31,24 @@ apollo-ledger/
 ├── vercel.json                      ← rotas e cron jobs
 ├── package.json                     ← workspace root
 ├── backend/
-│   ├── bot.py                       ← Flask + Telegram bot + API REST (1500+ linhas)
+│   ├── bot.py                       ← Flask + Telegram bot + API REST (1700+ linhas)
+│   ├── apollo.py                    ← ApolloAgent, parsers OFX/CSV, ferramentas Gemini
 │   └── requirements.txt
 └── oikonomos-dashboard/             ← SPA React
-    ├── firebaseClient.js            ← inicialização Firebase
+    ├── firebaseClient.js            ← inicialização Firebase (auth + db)
     ├── vite.config.js
     ├── src/
-    │   ├── App.jsx                  ← routing + auth state
+    │   ├── App.jsx                  ← routing + auth state + <ApolloChat>
     │   ├── main.jsx
-    │   ├── components/              ← 42 componentes JSX
+    │   ├── components/
+    │   │   ├── ApolloChat.jsx       ← botão flutuante + janela de chat (Apollo AI)
+    │   │   └── ...42 outros componentes JSX
     │   ├── pages/
     │   │   ├── Dashboard.jsx        ← visão principal (transações + gráficos)
     │   │   ├── ManagementPage.jsx   ← hub de gestão (categorias, contas, etc.)
     │   │   ├── ReportsPage.jsx      ← relatórios históricos
     │   │   ├── ForecastPage.jsx     ← previsão de gastos
+    │   │   ├── ReviewPage.jsx       ← revisão de importação de extrato (/review/:sessionId)
     │   │   ├── MyAccountPage.jsx    ← perfil + API key
     │   │   └── HelpPage.jsx         ← manual do usuário
     │   └── utils/
@@ -108,8 +113,18 @@ apollo-ledger/
 ### Backend (Python/Flask)
 - Todas as funções async do bot recebem `firebase_uid: str` como parâmetro
 - Operações que afetam múltiplos documentos usam `db.batch()`
-- Texto normalizado com `normalize_text()` (remove acentos, lowercase) para comparações
+- Texto normalizado com `normalizar()` em `apollo.py` (remove acentos, lowercase) para comparações
 - Transações passam por `pending_transactions` antes de ser commitadas (padrão de confirmação via botão inline)
+- `fb_firestore.firestore.Increment(value)` — **NÃO** `fb_firestore.Increment()` (attr não existe)
+- `sys.path.insert(0, os.path.dirname(__file__))` no topo de `bot.py` para Vercel encontrar `apollo.py`
+
+### Apollo AI (google-genai)
+- **SDK:** `google-genai>=1.0.0` — **NÃO usar** `google-generativeai` (conflito: precisa `protobuf<6.0`, mas `grpcio-status==1.74.0` exige `protobuf>=6.31.1`)
+- **Modelo:** `gemini-2.5-flash` — `gemini-2.0-flash` tem quota 0 nesta conta
+- **Inicialização:** `_gemini_client = genai.Client(api_key=GEMINI_API_KEY)` (global em `apollo.py`)
+- **Chat:** `_gemini_client.chats.create(model=..., config=types.GenerateContentConfig(...), history=...)`
+- **Geração:** `_gemini_client.models.generate_content(model=..., contents=..., config=...)`
+- **state do Telegram:** `ai_mode` salvo em Firestore `telegram_users/{chat_id}` (Vercel é stateless, `context.user_data` não persiste)
 
 ### Frontend (React)
 - Sem Redux — estado gerenciado com `useState` / `useEffect` / `useMemo`
