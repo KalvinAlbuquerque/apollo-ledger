@@ -6,13 +6,13 @@ import hashlib
 import unicodedata
 from datetime import datetime, timezone
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from firebase_admin import firestore as fb_firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+_gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 EXTENSOES_PERMITIDAS = {'.ofx', '.csv', '.pdf'}
 TAMANHO_MAXIMO_BYTES = 10 * 1024 * 1024  # 10 MB
@@ -504,17 +504,16 @@ class ApolloAgent:
         if not GEMINI_API_KEY:
             raise RuntimeError("GEMINI_API_KEY não configurada")
 
-        model = genai.GenerativeModel(
-            model_name='gemini-2.5-flash',
-            tools=self._tools(),
-            system_instruction=self._system_prompt(),
-        )
-        sessao = model.start_chat(
+        sessao = _gemini_client.chats.create(
+            model='gemini-2.5-flash',
+            config=types.GenerateContentConfig(
+                system_instruction=self._system_prompt(),
+                tools=self._tools(),
+            ),
             history=historico or [],
-            enable_automatic_function_calling=True,
         )
         response = sessao.send_message(mensagem)
-        return response.text, sessao.history
+        return response.text, sessao.get_history()
 
     # --- Processamento de extrato ---
 
@@ -538,11 +537,13 @@ class ApolloAgent:
             "Retorne APENAS um JSON array válido, sem texto adicional."
         )
 
-        model = genai.GenerativeModel(
-            model_name='gemini-2.5-flash',
-            generation_config=genai.GenerationConfig(response_mime_type='application/json'),
+        response = _gemini_client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type='application/json',
+            ),
         )
-        response = model.generate_content(prompt)
 
         try:
             resultado = json.loads(response.text)
