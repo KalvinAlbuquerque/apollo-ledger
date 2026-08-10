@@ -17,6 +17,9 @@ import { parseCSVAndValidate } from '../utils/importUtils';
 import styles from './Dashboard.module.css';
 
 const formatDate = (date) => date.toISOString().split('T')[0];
+const toTitleCase = (str) => str
+  ? str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  : str;
 
 function Dashboard({ user, userProfile }) {
   const [transactions, setTransactions] = useState([]);
@@ -613,7 +616,6 @@ function Dashboard({ user, userProfile }) {
                 <tr>
                   {isSelectionMode && (<th className={styles.checkboxCell}><input type="checkbox" onChange={handleSelectAllOnPage} checked={currentTransactions.length > 0 && currentTransactions.every(tx => selectedTransactions.has(tx.id))} /></th>)}
                   <th>Data</th>
-                  <th>Tipo</th>
                   <th>Categoria / Tags</th>
                   <th>Descrição</th>
                   <th>Conta</th>
@@ -631,16 +633,14 @@ function Dashboard({ user, userProfile }) {
                         <td data-label="Data" className={styles.dateCell}>
                           {tx.createdAt ? new Date(tx.createdAt.toDate().toISOString().split('T')[0] + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
                         </td>
-                        <td data-label="Tipo">
-                          <span className={tx.type === 'income' ? styles.badgeIncome : styles.badgeExpense}>
-                            {tx.type === 'income' ? 'Receita' : 'Despesa'}
-                          </span>
-                        </td>
                         <td data-label="Categoria">
                           <div className={styles.catTagsCell}>
-                            <span className={styles.catName}>{tx.category || '—'}</span>
+                            <div className={styles.catNameRow}>
+                              <span className={`${styles.typeDot} ${tx.type === 'income' ? styles.typeDotIncome : styles.typeDotExpense}`} title={tx.type === 'income' ? 'Receita' : 'Despesa'} />
+                              <span className={styles.catName}>{toTitleCase(tx.category) || '—'}</span>
+                            </div>
                             {tx.subcategory && (
-                              <span className={styles.subcatPill}>{tx.subcategory}</span>
+                              <span className={styles.subcatPill}>{toTitleCase(tx.subcategory)}</span>
                             )}
                             {tx.tags && tx.tags.length > 0 && (
                               <div className={styles.tagsRow}>
@@ -670,7 +670,7 @@ function Dashboard({ user, userProfile }) {
                     );
                   })
                 ) : (
-                  <tr><td colSpan={isSelectionMode ? 8 : 7} className={styles.emptyRow}>Nenhuma transação para os filtros selecionados.</td></tr>
+                  <tr><td colSpan={isSelectionMode ? 7 : 6} className={styles.emptyRow}>Nenhuma transação para os filtros selecionados.</td></tr>
                 )}
               </tbody>
             </table>

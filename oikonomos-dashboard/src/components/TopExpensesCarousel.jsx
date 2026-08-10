@@ -4,6 +4,9 @@ import styles from './TopExpensesCarousel.module.css';
 const formatCurrency = (value) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
+const toTitleCase = (str) =>
+  str ? str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : str;
+
 const PAGE_SIZE = 10;
 
 function TopExpensesCarousel({ categoryData, tagData, categorySubBreakdown = {} }) {
@@ -55,7 +58,7 @@ function TopExpensesCarousel({ categoryData, tagData, categorySubBreakdown = {} 
       <div className={styles.container}>
         <div className={styles.header}>
           <button className={styles.backBtn} onClick={() => setDrillCategory(null)}>← Voltar</button>
-          <h3 className={styles.title}>{drillCategory}</h3>
+          <h3 className={styles.title}>{toTitleCase(drillCategory)}</h3>
         </div>
 
         <div className={styles.rankList}>
@@ -70,7 +73,7 @@ function TopExpensesCarousel({ categoryData, tagData, categorySubBreakdown = {} 
                       style={{ width: `${Math.round((item.value / drillMax) * 100)}%` }}
                     />
                   </div>
-                  <span className={styles.rankName}>{item.name}</span>
+                  <span className={styles.rankName}>{toTitleCase(item.name)}</span>
                   <span className={styles.rankAmount}>{formatCurrency(item.value)}</span>
                 </>
               ) : (
@@ -136,7 +139,7 @@ function TopExpensesCarousel({ categoryData, tagData, categorySubBreakdown = {} 
                       />
                     </div>
                     <span className={styles.rankName}>
-                      {isCat ? item.name : `#${item.name}`}
+                      {isCat ? toTitleCase(item.name) : `#${item.name}`}
                     </span>
                     {hasSubs && <span className={styles.drillIcon}>›</span>}
                     <span className={styles.rankAmount}>{formatCurrency(item.value)}</span>

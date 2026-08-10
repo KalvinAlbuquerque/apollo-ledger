@@ -588,36 +588,41 @@
 
 .chartTitle {
   margin: 0;
-  font-weight: 500;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--texto-principal);
+  letter-spacing: 0.01em;
 }
 
 .navButtons {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .navButtons button {
-  background-color: #333;
+  background: transparent;
   border: 1px solid var(--borda-sutil);
-  color: var(--texto-principal);
-  border-radius: 50%;
+  color: var(--texto-secundario);
+  border-radius: 8px;
   width: 30px;
   height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-weight: bold;
-  transition: background-color 0.2s;
+  font-size: 0.85rem;
+  transition: all 0.15s;
 }
 
 .navButtons button:hover {
-  background-color: #444;
+  border-color: var(--acento-azul);
+  color: var(--texto-principal);
 }
 
 .chartCanvasContainer {
   position: relative;
   flex-grow: 1;
+  min-height: 220px;
 }
 
 /* --- Tabela de Transações --- */
@@ -707,13 +712,30 @@
 .catTagsCell {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
 }
+
+.catNameRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Bolinha colorida substituindo o badge de tipo */
+.typeDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.typeDotIncome { background: var(--verde-destaque); }
+.typeDotExpense { background: var(--vermelho-destaque); }
 
 .catName {
   font-weight: 600;
-  color: #7ab8f5;
+  color: var(--texto-principal);
   font-size: 0.88rem;
+  letter-spacing: 0.01em;
 }
 
 .subcatPill {
