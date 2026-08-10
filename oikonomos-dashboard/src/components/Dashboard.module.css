@@ -271,6 +271,27 @@
   position: relative;
 }
 
+.filterTriggerGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.activeFilterLabel {
+  font-size: 0.78rem;
+  color: var(--texto-secundario);
+  background: rgba(74, 144, 226, 0.1);
+  border: 1px solid rgba(74, 144, 226, 0.25);
+  border-radius: 20px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
+.controlButtonActive {
+  border-color: var(--acento-azul) !important;
+  color: var(--texto-principal) !important;
+}
+
 .filterDropdown {
   position: absolute;
   top: calc(100% + 10px);
@@ -278,92 +299,163 @@
   background-color: var(--cinza-elemento);
   border: 1px solid var(--borda-sutil);
   border-radius: 12px;
-  padding: 20px;
+  padding: 18px 20px;
   z-index: 100;
-  width: 600px;
-  /* Largura do menu */
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  width: 480px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
+}
+
+.filterSectionLabel {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #666;
 }
 
 .dateFilters {
   display: flex;
-  gap: 20px;
+  gap: 12px;
   align-items: center;
 }
 
 .filterGroup {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+
+.dateLabel {
+  font-size: 0.78rem;
   color: var(--texto-secundario);
+  font-weight: 500;
+}
+
+.dateSeparator {
+  color: #555;
+  margin-top: 20px;
+}
+
+.dateInput {
+  background: #1a1a1a;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-principal);
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+}
+
+.dateInput:focus {
+  border-color: var(--acento-azul);
+}
+
+.dateInput::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+  cursor: pointer;
 }
 
 .quickFilters {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding-top: 15px;
-  border-top: 1px solid var(--borda-sutil);
 }
 
-.quickFilters button {
-  background-color: var(--fundo-secundario);
-  color: var(--texto-secundario);
+.quickFilterBtn {
+  background: #1a1a1a;
   border: 1px solid var(--borda-sutil);
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 0.8rem;
+  color: var(--texto-secundario);
+  padding: 7px 16px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.15s;
 }
 
-.quickFilters button:hover {
-  background-color: #444;
+.quickFilterBtn:hover {
+  border-color: var(--acento-azul);
   color: var(--texto-principal);
 }
 
+.quickFilterBtnActive {
+  background: var(--acento-azul);
+  border-color: var(--acento-azul);
+  color: #fff;
+}
+
 .categoryFilterSection {
-  padding-top: 15px;
+  padding-top: 14px;
   border-top: 1px solid var(--borda-sutil);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.categoryFilterSection>label {
-  display: block;
-  margin-bottom: 10px;
-  color: var(--texto-secundario);
-  font-weight: 500;
+.categoryFilterSection > label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #666;
 }
 
-/* O componente CategoryFilter será re-estilizado para se encaixar */
-.categoryFilterSection>div {
-  /* Target o <div> do CategoryFilter */
+.categoryFilterSection > div {
   position: static;
-  /* Remove o posicionamento absoluto */
   width: 100%;
   border: none;
   box-shadow: none;
   padding: 0;
 }
 
+.filterFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--borda-sutil);
+}
+
+.filterCancelBtn {
+  background: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 9px 18px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filterCancelBtn:hover {
+  border-color: var(--texto-secundario);
+  color: var(--texto-principal);
+}
+
 .filterButton {
   background-color: var(--acento-azul);
   color: white;
   border: none;
-  padding: 10px 25px;
+  padding: 9px 22px;
   border-radius: 8px;
   cursor: pointer;
   font-weight: bold;
+  font-family: inherit;
   font-size: 0.9rem;
-  align-self: flex-end;
-  /* Alinha o botão à direita */
   transition: opacity 0.2s;
 }
 
 .filterButton:hover {
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 /* --- Conteúdo Principal (Gráficos e Tabela) --- */

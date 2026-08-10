@@ -106,6 +106,34 @@ function AccountManager({ onDataChanged, accounts = [] }) {
     }
   };
 
+  const handleRecalculateBalance = async (account) => {
+    const recalcPromise = new Promise(async (resolve, reject) => {
+      try {
+        const txQuery = query(
+          collection(db, "transactions"),
+          where("userId", "==", user.uid),
+          where("accountId", "==", account.id)
+        );
+        const txSnapshot = await getDocs(txQuery);
+        const txs = txSnapshot.docs.map(d => d.data());
+        const base = account.initialBalance || 0;
+        const income = txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+        const expense = txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+        const newBalance = base + income - expense;
+        await updateDoc(doc(db, "accounts", account.id), { balance: newBalance });
+        if (onDataChanged) onDataChanged();
+        resolve(newBalance);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    toast.promise(recalcPromise, {
+      loading: 'Recalculando...',
+      success: (bal) => `Saldo recalculado: ${formatCurrency(bal)}`,
+      error: 'Falha ao recalcular.',
+    });
+  };
+
   const handleDeleteAccount = (account) => {
     if (account.balance !== 0) {
       toast.error("Não é possível excluir contas com saldo.");
@@ -168,6 +196,7 @@ function AccountManager({ onDataChanged, accounts = [] }) {
               </div>
               <div className={styles.actionButtons}>
                 <button onClick={() => handleSetDefault(acc)} className={styles.defaultButton} title="Definir como Padrão">⭐</button>
+                <button onClick={() => handleRecalculateBalance(acc)} className={styles.recalcButton} title="Recalcular saldo a partir das transações">↻</button>
                 <button onClick={() => handleOpenEditModal(acc)} className={styles.editButton}>Editar</button>
                 <button onClick={() => handleDeleteAccount(acc)} className={styles.deleteButton}>Excluir</button>
               </div>

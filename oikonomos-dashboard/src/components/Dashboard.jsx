@@ -37,6 +37,9 @@ function Dashboard({ user, userProfile }) {
   const [selectedTransactions, setSelectedTransactions] = useState(new Set());
   const [isFilterVisible, setIsFilterVisible] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [draftStartDate, setDraftStartDate] = useState(formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
+  const [draftEndDate, setDraftEndDate] = useState(formatDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)));
+  const [activeQuickFilter, setActiveQuickFilter] = useState('month');
   const scrollPositionRef = useRef(0);
 
   const triggerRefresh = () => {
@@ -321,11 +324,25 @@ function Dashboard({ user, userProfile }) {
   const goToNextChart = () => setCurrentChartIndex(prev => (prev + 1) % charts.length);
   const handleLogout = () => auth.signOut();
   const handleOpenAddTransactionModal = () => setIsAddTransactionModalOpen(true);
-  const setFilterDateRange = (start, end) => { setFilterStartDate(formatDate(start)); setFilterEndDate(formatDate(end)); };
-  const handleSetMonthlyFilter = () => { const t = new Date(); setFilterDateRange(new Date(t.getFullYear(), t.getMonth(), 1), new Date(t.getFullYear(), t.getMonth() + 1, 0)); };
-  const handleSetWeeklyFilter = () => { const t = new Date(); const first = t.getDate() - t.getDay() + (t.getDay() === 0 ? -6 : 1); const firstDate = new Date(new Date().setDate(first)); const lastDate = new Date(new Date().setDate(first + 6)); setFilterDateRange(firstDate, lastDate); };
-  const handleSetTodayFilter = () => setFilterDateRange(new Date(), new Date());
-  const handleSetYearlyFilter = () => { const t = new Date(); setFilterDateRange(new Date(t.getFullYear(), 0, 1), new Date(t.getFullYear(), 11, 31)); };
+  const applyDateRange = (startStr, endStr, preset = null) => {
+    setFilterStartDate(startStr);
+    setFilterEndDate(endStr);
+    setDraftStartDate(startStr);
+    setDraftEndDate(endStr);
+    setActiveQuickFilter(preset);
+    setIsFilterVisible(false);
+  };
+  const handleApplyFilter = () => {
+    setFilterStartDate(draftStartDate);
+    setFilterEndDate(draftEndDate);
+    setActiveQuickFilter(null);
+    setIsFilterVisible(false);
+  };
+  const setFilterDateRange = (start, end, preset = null) => applyDateRange(formatDate(start), formatDate(end), preset);
+  const handleSetMonthlyFilter = () => { const t = new Date(); setFilterDateRange(new Date(t.getFullYear(), t.getMonth(), 1), new Date(t.getFullYear(), t.getMonth() + 1, 0), 'month'); };
+  const handleSetWeeklyFilter = () => { const t = new Date(); const first = t.getDate() - t.getDay() + (t.getDay() === 0 ? -6 : 1); const firstDate = new Date(new Date().setDate(first)); const lastDate = new Date(new Date().setDate(first + 6)); setFilterDateRange(firstDate, lastDate, 'week'); };
+  const handleSetTodayFilter = () => setFilterDateRange(new Date(), new Date(), 'today');
+  const handleSetYearlyFilter = () => { const t = new Date(); setFilterDateRange(new Date(t.getFullYear(), 0, 1), new Date(t.getFullYear(), 11, 31), 'year'); };
   const handleOpenEditModal = (transaction) => { setEditingTransaction(transaction); setIsModalOpen(true); };
   const handleSaveTransaction = async (updatedData) => {
     if (!editingTransaction) return;
@@ -397,24 +414,48 @@ function Dashboard({ user, userProfile }) {
 
         <section className={styles.controlsSection}>
           <div className={styles.filterContainer}>
-            <button onClick={() => setIsFilterVisible(!isFilterVisible)} className={styles.controlButton}>Filtros & Opções</button>
+            <div className={styles.filterTriggerGroup}>
+              <button onClick={() => setIsFilterVisible(!isFilterVisible)} className={`${styles.controlButton} ${isFilterVisible ? styles.controlButtonActive : ''}`}>
+                Filtros & Opções
+              </button>
+              <span className={styles.activeFilterLabel}>
+                {filterStartDate === filterEndDate
+                  ? new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR')
+                  : `${new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR')} — ${new Date(filterEndDate + 'T12:00:00').toLocaleDateString('pt-BR')}`}
+              </span>
+            </div>
             {isFilterVisible && (
               <div className={styles.filterDropdown}>
-                <div className={styles.dateFilters}>
-                  <div className={styles.filterGroup}><label>De:</label><input type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} /></div>
-                  <div className={styles.filterGroup}><label>Até:</label><input type="date" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} /></div>
-                </div>
+                <p className={styles.filterSectionLabel}>Período</p>
                 <div className={styles.quickFilters}>
-                  <button onClick={handleSetTodayFilter}>Hoje</button>
-                  <button onClick={handleSetWeeklyFilter}>Semana</button>
-                  <button onClick={handleSetMonthlyFilter}>Mês</button>
-                  <button onClick={handleSetYearlyFilter}>Ano</button>
+                  {[['today', 'Hoje'], ['week', 'Semana'], ['month', 'Mês'], ['year', 'Ano']].map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={key === 'today' ? handleSetTodayFilter : key === 'week' ? handleSetWeeklyFilter : key === 'month' ? handleSetMonthlyFilter : handleSetYearlyFilter}
+                      className={`${styles.quickFilterBtn} ${activeQuickFilter === key ? styles.quickFilterBtnActive : ''}`}
+                    >{label}</button>
+                  ))}
+                </div>
+                <p className={styles.filterSectionLabel}>Datas personalizadas</p>
+                <div className={styles.dateFilters}>
+                  <div className={styles.filterGroup}>
+                    <label className={styles.dateLabel}>De</label>
+                    <input type="date" value={draftStartDate} onChange={e => { setDraftStartDate(e.target.value); setActiveQuickFilter(null); }} className={styles.dateInput} />
+                  </div>
+                  <span className={styles.dateSeparator}>—</span>
+                  <div className={styles.filterGroup}>
+                    <label className={styles.dateLabel}>Até</label>
+                    <input type="date" value={draftEndDate} onChange={e => { setDraftEndDate(e.target.value); setActiveQuickFilter(null); }} className={styles.dateInput} />
+                  </div>
                 </div>
                 <div className={styles.categoryFilterSection}>
-                  <label>Filtrar por Categoria:</label>
+                  <label>Categoria</label>
                   <CategoryFilter allCategories={categories} selectedCategories={filterCategories} onSelectionChange={setFilterCategories} />
                 </div>
-                <button onClick={() => setIsFilterVisible(false)} className={styles.filterButton}>Aplicar</button>
+                <div className={styles.filterFooter}>
+                  <button onClick={() => setIsFilterVisible(false)} className={styles.filterCancelBtn}>Fechar</button>
+                  <button onClick={handleApplyFilter} className={styles.filterButton}>Aplicar</button>
+                </div>
               </div>
             )}
           </div>

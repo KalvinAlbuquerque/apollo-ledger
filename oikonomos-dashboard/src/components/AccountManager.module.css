@@ -76,6 +76,8 @@
 .editButton:hover { background-color: var(--acento-azul); }
 .deleteButton { background-color: #555; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
 .deleteButton:hover { background-color: var(--vermelho-destaque); }
+.recalcButton { background-color: #555; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 1rem; line-height: 1; }
+.recalcButton:hover { background-color: #2a7a4e; }
 
 /* Barra de rolagem estilizada */
 .accountList::-webkit-scrollbar { width: 8px; }
