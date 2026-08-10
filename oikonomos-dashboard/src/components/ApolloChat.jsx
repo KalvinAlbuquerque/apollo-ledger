@@ -14,6 +14,7 @@ export default function ApolloChat({ user, apelido }) {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+  const pendingFileRef = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,14 +53,13 @@ export default function ApolloChat({ user, apelido }) {
     }
   };
 
-  const handleFile = async (file) => {
-    if (!file) return;
-    addMessage('user', `📎 ${file.name}`);
+  const uploadFile = async (file, banco) => {
     setIsLoading(true);
     try {
       const token = await getToken();
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('banco', banco);
       const res = await fetch('/api/apollo/import', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -87,6 +87,25 @@ export default function ApolloChat({ user, apelido }) {
       setIsLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleFile = (file) => {
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext === 'csv') {
+      pendingFileRef.current = file;
+      addMessage('user', `📎 ${file.name}`);
+      addMessage('apollo', 'Recebi o extrato. De qual banco é este arquivo?', { bankSelection: true });
+    } else {
+      addMessage('user', `📎 ${file.name}`);
+      uploadFile(file, 'ofx');
+    }
+  };
+
+  const handleBankSelect = (banco) => {
+    const file = pendingFileRef.current;
+    pendingFileRef.current = null;
+    if (file) uploadFile(file, banco);
   };
 
   const handleKeyDown = (e) => {
@@ -120,6 +139,12 @@ export default function ApolloChat({ user, apelido }) {
                 className={`${styles.bubble} ${msg.role === 'user' ? styles.userBubble : styles.apolloBubble}`}
               >
                 <span className={styles.bubbleText}>{msg.text}</span>
+                {msg.bankSelection && (
+                  <div className={styles.bankBtns}>
+                    <button className={styles.bankBtn} onClick={() => handleBankSelect('bradesco')}>Bradesco</button>
+                    <button className={styles.bankBtn} onClick={() => handleBankSelect('apollo')}>Formato Apollo</button>
+                  </div>
+                )}
                 {msg.reviewSessionId && (
                   <button
                     className={styles.reviewBtn}

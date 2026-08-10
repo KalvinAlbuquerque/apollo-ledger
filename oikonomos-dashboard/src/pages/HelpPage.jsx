@@ -13,6 +13,7 @@ function HelpPage() {
     { id: 'reports', title: '4. Relatórios' },
     { id: 'forecast', title: '5. Previsões' },
     { id: 'telegram', title: '6. Bot do Telegram' },
+    { id: 'extratos', title: '7. Importação de Extratos (Apollo AI)' },
   ];
 
   const renderPageContent = () => {
@@ -367,6 +368,67 @@ function HelpPage() {
                 <br />Mostra quanto você ainda pode gastar por dia em cada categoria, com base no seu orçamento mensal.
               </li>
             </ul>
+          </section>
+        );
+      case 7:
+        return (
+          <section id="extratos">
+            <h2>7. Importação de Extratos via Apollo AI</h2>
+            <p>
+              O Apollo AI consegue processar extratos bancários e categorizar suas transações automaticamente com ajuda de inteligência artificial. Veja como funciona o fluxo completo.
+            </p>
+
+            <h3>Como importar um extrato</h3>
+            <ol>
+              <li>No Dashboard, clique no botão flutuante <strong>"A"</strong> no canto inferior direito para abrir o chat do Apollo.</li>
+              <li>Clique no ícone de clipe <strong>📎</strong> e selecione o arquivo do extrato (<code>.csv</code> ou <code>.ofx</code>).</li>
+              <li>Se o arquivo for <code>.csv</code>, o Apollo perguntará de qual banco é o arquivo. Escolha o formato correto.</li>
+              <li>Aguarde o processamento. O Apollo analisará as transações e sugerirá categorias e tags com base nas que você já tem cadastradas.</li>
+              <li>Clique em <strong>"Revisar importação →"</strong> na mensagem do Apollo para abrir a página de revisão.</li>
+              <li>Na página de revisão, confira cada transação, ajuste as categorias e tags se necessário, e clique em <strong>"Confirmar importação"</strong>.</li>
+            </ol>
+
+            <h3>Formatos suportados</h3>
+            <ul>
+              <li>
+                <strong>Bradesco (.csv):</strong> Exportado pelo Internet Banking do Bradesco em formato CSV. O Apollo reconhece automaticamente os campos de remetente e destinatário para melhorar a categorização.
+              </li>
+              <li>
+                <strong>OFX Genérico (.ofx):</strong> Padrão aceito pela maioria dos bancos brasileiros (Itaú, Nubank, Banco do Brasil, etc.). Para exportar, acesse o Internet Banking do seu banco e procure "Exportar extrato" no formato OFX ou QFX.
+              </li>
+              <li>
+                <strong>Formato Apollo (.csv):</strong> Um CSV simples que você pode preencher manualmente ou exportar de qualquer planilha. Ideal quando o extrato do seu banco não é suportado diretamente.
+              </li>
+            </ul>
+
+            <h3>Formato Apollo — Modelo personalizado</h3>
+            <p>
+              O Formato Apollo é um CSV com separador <code>;</code> (ponto e vírgula) e as seguintes colunas:
+            </p>
+            <ul>
+              <li><code>data</code> <strong>(obrigatório)</strong> — Data da transação. Formatos aceitos: <code>AAAA-MM-DD</code> ou <code>DD/MM/AAAA</code>.</li>
+              <li><code>historico</code> — Descrição do lançamento (ex: "Pagamento", "PIX recebido").</li>
+              <li><code>destinatario_remetente</code> — Para quem foi pago ou de quem veio o dinheiro. Esta coluna melhora significativamente a categorização automática da IA.</li>
+              <li><code>valor</code> <strong>(obrigatório)</strong> — Valor positivo. Use ponto ou vírgula como decimal.</li>
+              <li><code>tipo</code> <strong>(obrigatório)</strong> — <code>debito</code> ou <code>despesa</code> para saída; <code>credito</code> ou <code>renda</code> para entrada.</li>
+            </ul>
+            <p>
+              Para baixar o modelo pré-formatado, acesse <strong>Gerenciamento → Extratos → Baixar modelo .csv</strong>.
+            </p>
+
+            <h3>Revisão das transações</h3>
+            <p>
+              Após o processamento, você verá uma tabela com todas as transações encontradas. Cada linha terá:
+            </p>
+            <ul>
+              <li><strong>Categoria sugerida:</strong> Escolhida pela IA com base nas suas categorias cadastradas. Você pode trocar pelo dropdown.</li>
+              <li><strong>Tags sugeridas:</strong> Tags existentes que a IA considera relevantes. Você pode adicionar ou remover antes de confirmar.</li>
+              <li><strong>Barra de confiança:</strong> Indica o quanto a IA está certa da sugestão. Transações com baixa confiança aparecem em destaque para revisão.</li>
+              <li><strong>Duplicatas:</strong> Transações que já existem no sistema aparecem marcadas e ficam desmarcadas por padrão.</li>
+            </ul>
+            <p>
+              Para cancelar a importação inteira, clique em <strong>"Cancelar importação"</strong> no rodapé da página de revisão. Nenhuma transação será salva.
+            </p>
           </section>
         );
       default:

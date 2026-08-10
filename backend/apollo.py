@@ -19,6 +19,27 @@ _gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else Non
 EXTENSOES_PERMITIDAS = {'.ofx', '.csv', '.pdf'}
 TAMANHO_MAXIMO_BYTES = 10 * 1024 * 1024  # 10 MB
 
+BANCOS_SUPORTADOS = {
+    'bradesco': {
+        'nome': 'Bradesco',
+        'formatos': ['.csv'],
+        'descricao': 'Extrato CSV exportado pelo Internet Banking do Bradesco',
+        'colunas': 'Data;Histórico;Docto.;Crédito (R$);Débito (R$);Saldo (R$)',
+    },
+    'apollo': {
+        'nome': 'Formato Apollo',
+        'formatos': ['.csv'],
+        'descricao': 'Formato personalizado — preencha manualmente ou exporte de qualquer planilha',
+        'colunas': 'data;historico;destinatario_remetente;valor;tipo',
+    },
+    'ofx': {
+        'nome': 'OFX Genérico',
+        'formatos': ['.ofx'],
+        'descricao': 'Formato OFX padrão, exportado pela maioria dos bancos brasileiros',
+        'colunas': 'Padrão OFX (XML estruturado)',
+    },
+}
+
 TRIGGERS_APOLLO = re.compile(
     r'^(oi|ol[aá]|e\s?a[íi])?,?\s*apollo[\s!?.]*$',
     re.IGNORECASE
@@ -139,6 +160,8 @@ def parse_csv_bradesco(content: bytes) -> list:
         delimiter=';'
     )
 
+    ultima_transacao = None  # referência à última transação para enriquecer com Rem:/Des:
+
     for row in reader:
         if not row:
             continue
@@ -148,7 +171,6 @@ def parse_csv_bradesco(content: bytes) -> list:
         if 'saldos invest' in primeira_celula or 'saldo invest' in primeira_celula:
             break
         if len(row) >= 2 and 'invest' in normalizar(row[1]) and 'facil' in normalizar(row[1]):
-            # Linha de cabeçalho da seção Invest Fácil (sem coluna Crédito)
             if not any(re.search(r'cr[eé]dito', c, re.IGNORECASE) for c in row):
                 break
 
@@ -160,14 +182,24 @@ def parse_csv_bradesco(content: bytes) -> list:
         if not em_secao_transacoes:
             continue
 
+        data_raw = row[0].strip()
+
+        # Linha sem data — pode ser Rem:/Des: (destinatário ou remetente da transação anterior)
+        if not data_raw:
+            if ultima_transacao is not None:
+                for cell in row:
+                    m = re.match(r'^(rem|des|remetente|destinat[aá]rio)\s*:\s*(.+)', cell.strip(), re.IGNORECASE)
+                    if m:
+                        beneficiario = m.group(2).strip()
+                        # Remove sufixo de data como "de 10/07" ou "de 10/07/26"
+                        beneficiario = re.sub(r'\s+de\s+\d{2}/\d{2}(/\d{2,4})?.*$', '', beneficiario).strip()
+                        if beneficiario:
+                            ultima_transacao['description'] += f' | {sanitizar_descricao(beneficiario)}'
+            continue
+
         if len(row) < 5:
             continue
 
-        data_raw = row[0].strip()
-
-        # Pula linhas sem data: descrições (;;Rem:/Des:), totais e saldo anterior
-        if not data_raw:
-            continue
         if re.search(r'total|saldo anterior', data_raw, re.IGNORECASE):
             continue
 
@@ -183,7 +215,6 @@ def parse_csv_bradesco(content: bytes) -> list:
         if not historico:
             continue
 
-        # Parse da data
         date_obj = None
         for fmt in ('%d/%m/%Y', '%d/%m/%y', '%Y-%m-%d'):
             try:
@@ -200,9 +231,112 @@ def parse_csv_bradesco(content: bytes) -> list:
         debito = parse_valor(row[4]) if len(row) > 4 else 0.0
 
         if credito > 0:
-            transacoes.append({'date': date_iso, 'description': historico, 'amount': credito, 'type': 'income'})
+            t = {'date': date_iso, 'description': historico, 'amount': credito, 'type': 'income'}
+            transacoes.append(t)
+            ultima_transacao = t
         elif debito > 0:
-            transacoes.append({'date': date_iso, 'description': historico, 'amount': debito, 'type': 'expense'})
+            t = {'date': date_iso, 'description': historico, 'amount': debito, 'type': 'expense'}
+            transacoes.append(t)
+            ultima_transacao = t
+        else:
+            ultima_transacao = None  # linha sem valor — resetar referência
+
+    return transacoes
+
+
+def parse_csv_apollo(content: bytes) -> list:
+    """
+    Parseia CSV no Formato Apollo (personalizado).
+    Colunas: data;historico;destinatario_remetente;valor;tipo
+    - tipo: 'credito'/'renda'/'income' → income; 'debito'/'despesa'/'expense' → expense
+    - destinatario_remetente: opcional, enriquece a descrição para melhor categorização
+    """
+    transacoes = []
+
+    def parse_valor(s: str) -> float:
+        s = s.strip().replace('"', '').replace('.', '').replace(',', '.')
+        try:
+            return abs(float(s)) if s else 0.0
+        except ValueError:
+            return 0.0
+
+    reader = csv.reader(
+        io.TextIOWrapper(io.BytesIO(content), encoding='utf-8-sig', newline=''),
+        delimiter=';'
+    )
+
+    header = None
+    col = {}
+
+    for row in reader:
+        if not row or all(c.strip() == '' for c in row):
+            continue
+
+        # Primeira linha não-vazia é o cabeçalho
+        if header is None:
+            header = [c.strip().lower().replace(' ', '_') for c in row]
+            ALIASES = {
+                'data': 'data', 'date': 'data',
+                'historico': 'historico', 'histórico': 'historico', 'descricao': 'historico',
+                'descrição': 'historico', 'description': 'historico',
+                'destinatario_remetente': 'beneficiario', 'destinatário_remetente': 'beneficiario',
+                'destinatario': 'beneficiario', 'remetente': 'beneficiario',
+                'beneficiario': 'beneficiario', 'beneficiário': 'beneficiario',
+                'valor': 'valor', 'amount': 'valor', 'value': 'valor',
+                'tipo': 'tipo', 'type': 'tipo',
+            }
+            for i, h in enumerate(header):
+                mapped = ALIASES.get(h)
+                if mapped:
+                    col[mapped] = i
+            if 'data' not in col or 'valor' not in col or 'tipo' not in col:
+                raise ValueError(
+                    "Formato Apollo inválido. Colunas obrigatórias: data, valor, tipo. "
+                    "Opcional: historico, destinatario_remetente"
+                )
+            continue
+
+        def get(field):
+            i = col.get(field)
+            return row[i].strip() if i is not None and i < len(row) else ''
+
+        data_raw = get('data')
+        if not data_raw:
+            continue
+
+        date_obj = None
+        for fmt in ('%Y-%m-%d', '%d/%m/%Y', '%d/%m/%y'):
+            try:
+                date_obj = datetime.strptime(data_raw, fmt)
+                break
+            except ValueError:
+                continue
+        if not date_obj:
+            continue
+
+        valor = parse_valor(get('valor'))
+        if valor <= 0:
+            continue
+
+        tipo_raw = normalizar(get('tipo'))
+        if tipo_raw in ('credito', 'renda', 'income', 'entrada'):
+            tipo = 'income'
+        elif tipo_raw in ('debito', 'débito', 'despesa', 'expense', 'saida', 'saída'):
+            tipo = 'expense'
+        else:
+            continue  # tipo inválido
+
+        historico = sanitizar_descricao(get('historico')) or 'Lançamento'
+        beneficiario = sanitizar_descricao(get('beneficiario'))
+        if beneficiario:
+            historico = f'{historico} | {beneficiario}'
+
+        transacoes.append({
+            'date': date_obj.strftime('%Y-%m-%d'),
+            'description': historico,
+            'amount': valor,
+            'type': tipo,
+        })
 
     return transacoes
 
@@ -622,21 +756,28 @@ class ApolloAgent:
             t.setdefault('confidence', 0.0)
         return transacoes
 
-    def processar_extrato(self, content: bytes, filename: str) -> dict:
+    def processar_extrato(self, content: bytes, filename: str, banco: str = 'auto') -> dict:
         """
         Parseia extrato, categoriza com Gemini, verifica duplicatas.
+        banco: 'bradesco' | 'apollo' | 'ofx' | 'auto' (detecta pelo formato do arquivo)
         Retorna dict com transactions, newCategories e summary — sem gravar no Firestore.
         """
         if not GEMINI_API_KEY:
             raise RuntimeError("GEMINI_API_KEY não configurada")
 
         ext = os.path.splitext(filename)[1].lower()
-        if ext == '.ofx':
+
+        if banco == 'auto':
+            banco = 'ofx' if ext == '.ofx' else 'bradesco'
+
+        if banco == 'ofx' or ext == '.ofx':
             brutas = parse_ofx(content)
-        elif ext == '.csv':
+        elif banco == 'bradesco':
             brutas = parse_csv_bradesco(content)
+        elif banco == 'apollo':
+            brutas = parse_csv_apollo(content)
         else:
-            raise ValueError("Para PDF, use o endpoint de chat e anexe o arquivo diretamente.")
+            raise ValueError(f"Banco '{banco}' não suportado. Use: bradesco, apollo, ofx")
 
         if not brutas:
             raise ValueError("Nenhuma transação encontrada no arquivo.")

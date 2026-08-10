@@ -1798,8 +1798,9 @@ def apollo_import():
         filename = arquivo.filename or "extrato"
         validar_arquivo(filename, content)
 
+        banco = request.form.get('banco', 'auto')
         agent = ApolloAgent(firebase_uid=uid, db=db, apelido=_get_apelido(uid))
-        resultado = agent.processar_extrato(content, filename)
+        resultado = agent.processar_extrato(content, filename, banco=banco)
 
         from datetime import timedelta
         session_ref = db.collection('import_sessions').document()
