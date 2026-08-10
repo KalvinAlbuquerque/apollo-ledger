@@ -22,6 +22,7 @@ function Dashboard({ user, userProfile }) {
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dataVersion, setDataVersion] = useState(0);
   const [accountView, setAccountView] = useState('geral');
@@ -64,16 +65,19 @@ function Dashboard({ user, userProfile }) {
       try {
         const catQuery = query(collection(db, "categories"), where("userId", "==", user.uid));
         const accQuery = query(collection(db, "accounts"), where("userId", "==", user.uid));
+        const subcatQuery = query(collection(db, "subcategories"), where("userId", "==", user.uid));
 
-        const [catSnapshot, accSnapshot] = await Promise.all([
-          getDocs(catQuery), getDocs(accQuery),
+        const [catSnapshot, accSnapshot, subcatSnapshot] = await Promise.all([
+          getDocs(catQuery), getDocs(accQuery), getDocs(subcatQuery),
         ]);
 
         const catData = catSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         const accData = accSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const subcatData = subcatSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         setCategories(catData);
         setAccounts(accData);
+        setSubcategories(subcatData);
 
         const constraints = [where("userId", "==", user.uid)];
         if (filterCategories.size > 0) {
@@ -162,7 +166,22 @@ function Dashboard({ user, userProfile }) {
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
 
-    return { totalIncome, totalExpense, totalBalance, expenseChartData, incomeChartData, topExpenseCategories, topExpenseTags, relevantTransactions };
+    // Subcategory breakdown: { [categoryName]: [{name, value}] }
+    const categorySubData = {};
+    expenses.forEach(tx => {
+      if (tx.subcategory) {
+        if (!categorySubData[tx.category]) categorySubData[tx.category] = {};
+        categorySubData[tx.category][tx.subcategory] = (categorySubData[tx.category][tx.subcategory] || 0) + tx.amount;
+      }
+    });
+    const categorySubBreakdown = Object.fromEntries(
+      Object.entries(categorySubData).map(([cat, subs]) => [
+        cat,
+        Object.entries(subs).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
+      ])
+    );
+
+    return { totalIncome, totalExpense, totalBalance, expenseChartData, incomeChartData, topExpenseCategories, topExpenseTags, relevantTransactions, categorySubBreakdown };
   }, [transactions, accounts, accountView]);
 
   const charts = [
@@ -549,6 +568,7 @@ function Dashboard({ user, userProfile }) {
             <TopExpensesCarousel
               categoryData={summaryData.topExpenseCategories}
               tagData={summaryData.topExpenseTags}
+              categorySubBreakdown={summaryData.categorySubBreakdown}
             />
           </div>
 
@@ -619,6 +639,9 @@ function Dashboard({ user, userProfile }) {
                         <td data-label="Categoria">
                           <div className={styles.catTagsCell}>
                             <span className={styles.catName}>{tx.category || '—'}</span>
+                            {tx.subcategory && (
+                              <span className={styles.subcatPill}>{tx.subcategory}</span>
+                            )}
                             {tx.tags && tx.tags.length > 0 && (
                               <div className={styles.tagsRow}>
                                 {tx.tags.map((tag, idx) => (

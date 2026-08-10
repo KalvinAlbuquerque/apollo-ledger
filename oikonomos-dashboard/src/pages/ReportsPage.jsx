@@ -570,7 +570,7 @@ function ReportsPage() {
                     <tr>
                       <th>Data</th>
                       <th>Descrição</th>
-                      <th>Tags</th>
+                      <th>Subcategoria / Tags</th>
                       <th>Tipo</th>
                       <th>Valor</th>
                     </tr>
@@ -585,6 +585,9 @@ function ReportsPage() {
                         </td>
                         <td className={styles.catTxDesc}>{tx.description || <em style={{ color: '#555' }}>—</em>}</td>
                         <td className={styles.catTxTags}>
+                          {tx.subcategory && (
+                            <span className={styles.catTxSubcat}>{tx.subcategory}</span>
+                          )}
                           {(tx.tags || []).map(t => (
                             <span key={t} className={styles.catTxTag}>#{t}</span>
                           ))}

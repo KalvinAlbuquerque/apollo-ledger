@@ -84,7 +84,8 @@ apollo-ledger/
 
 | Coleção | Campos principais |
 |---|---|
-| `transactions` | userId, type (income/expense), amount, category, description, tags[], accountId, createdAt |
+| `transactions` | userId, type (income/expense), amount, category, subcategory? (optional), description, tags[], accountId, createdAt |
+| `subcategories` | userId, name, categoryName, createdAt — filho de categoria, representa recorrências específicas (ex: "aluguel" dentro de "moradia") |
 | `accounts` | userId, accountName, balance, isDefault, isReserve, createdAt |
 | `categories` | userId, name, type (income/expense), createdAt |
 | `budgets` | userId, categoryName, amount, month, year |

@@ -136,6 +136,40 @@
   flex-shrink: 0;
 }
 
+/* Drillable category row */
+.rankItemDrillable {
+  cursor: pointer;
+}
+.rankItemDrillable:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+.drillIcon {
+  font-size: 1rem;
+  color: #555;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  line-height: 1;
+}
+
+/* Back button in drill-down view */
+.backBtn {
+  background: transparent;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-secundario);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.backBtn:hover {
+  border-color: var(--acento-azul);
+  color: var(--texto-principal);
+}
+
 /* Footer pagination */
 .footer {
   display: flex;

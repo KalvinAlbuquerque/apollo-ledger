@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../../firebaseClient';
 import { Timestamp, collection, doc, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import styles from './EditModal.module.css';
@@ -7,12 +7,14 @@ function EditModal({ transaction, onSave, onCancel, categories }) {
   const [formData, setFormData] = useState({
     amount: '',
     category: '',
+    subcategory: '',
     description: '',
-    createdAt: '', // Adicionamos a data ao estado do formulário
+    createdAt: '',
   });
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
   const [availableTags, setAvailableTags] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
   const user = auth?.currentUser;
 
   useEffect(() => {
@@ -27,8 +29,23 @@ function EditModal({ transaction, onSave, onCancel, categories }) {
         console.error("Erro ao buscar tags:", error);
       }
     };
+    const fetchSubcategories = async () => {
+      if (!user) return;
+      try {
+        const q = query(collection(db, "subcategories"), where("userId", "==", user.uid));
+        const snap = await getDocs(q);
+        setSubcategories(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (error) {
+        console.error("Erro ao buscar subcategorias:", error);
+      }
+    };
     fetchTags();
+    fetchSubcategories();
   }, [user]);
+
+  const availableSubcategories = useMemo(() => {
+    return subcategories.filter(s => s.categoryName === formData.category);
+  }, [subcategories, formData.category]);
 
   // Função para formatar a data do Firestore para o input (AAAA-MM-DD)
   const formatDateForInput = (timestamp) => {
@@ -42,6 +59,7 @@ function EditModal({ transaction, onSave, onCancel, categories }) {
       setFormData({
         amount: transaction.amount || '',
         category: transaction.category || '',
+        subcategory: transaction.subcategory || '',
         description: transaction.description || '',
         createdAt: formatDateForInput(transaction.createdAt),
       });
@@ -86,9 +104,10 @@ function EditModal({ transaction, onSave, onCancel, categories }) {
     const updatedData = {
       amount: parseFloat(formData.amount),
       category: formData.category,
+      subcategory: formData.subcategory || null,
       description: formData.description,
       tags: finalTags,
-      createdAt: Timestamp.fromDate(correctedDate), // Usa a data corrigida
+      createdAt: Timestamp.fromDate(correctedDate),
     };
     onSave(updatedData);
   };
@@ -120,13 +139,25 @@ function EditModal({ transaction, onSave, onCancel, categories }) {
           />
 
           <label>Categoria:</label>
-          <select name="category" value={formData.category} onChange={handleChange} required>
+          <select name="category" value={formData.category} onChange={e => { handleChange(e); setFormData(prev => ({ ...prev, subcategory: '' })); }} required>
             {categories
               .filter(cat => cat.type === transaction.type)
               .map(cat => (
                 <option key={cat.id} value={cat.name}>{cat.name}</option>
               ))}
           </select>
+
+          {availableSubcategories.length > 0 && (
+            <>
+              <label>Subcategoria (opcional):</label>
+              <select name="subcategory" value={formData.subcategory} onChange={handleChange}>
+                <option value="">— Nenhuma —</option>
+                {availableSubcategories.map(sub => (
+                  <option key={sub.id} value={sub.name}>{sub.name}</option>
+                ))}
+              </select>
+            </>
+          )}
 
           <label>Tags:</label>
           <div className={styles.tagsInputContainer}>

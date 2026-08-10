@@ -524,6 +524,16 @@
   gap: 4px;
 }
 
+.catTxSubcat {
+  font-size: 0.72rem;
+  background: rgba(255,160,60,0.1);
+  color: #ffa03c;
+  border: 1px solid rgba(255,160,60,0.25);
+  border-radius: 8px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
 .catTxTag {
   font-size: 0.72rem;
   background: rgba(74,144,226,0.1);

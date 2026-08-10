@@ -22,6 +22,8 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
 
   const user = auth.currentUser;
   const [availableTags, setAvailableTags] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
+  const [selectedSubcategory, setSelectedSubcategory] = useState('');
 
   useEffect(() => {
     const fetchTags = async () => {
@@ -35,7 +37,18 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
         console.error("Erro ao buscar tags:", error);
       }
     };
+    const fetchSubcategories = async () => {
+      if (!user) return;
+      try {
+        const q = query(collection(db, "subcategories"), where("userId", "==", user.uid));
+        const snap = await getDocs(q);
+        setSubcategories(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      } catch (error) {
+        console.error("Erro ao buscar subcategorias:", error);
+      }
+    };
     fetchTags();
+    fetchSubcategories();
   }, [user]);
 
   // --- LÓGICA CORRIGIDA COM useEffect ---
@@ -77,7 +90,12 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
     } else {
       setSelectedCategory('');
     }
+    setSelectedSubcategory('');
   }, [type, availableCategories]);
+
+  const availableSubcategories = useMemo(() => {
+    return subcategories.filter(s => s.categoryName === selectedCategory);
+  }, [subcategories, selectedCategory]);
 
   const handleTagKeyDown = (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -173,11 +191,13 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
           }
 
           const newTransactionRef = doc(collection(db, "transactions"));
-          batch.set(newTransactionRef, {
+          const txData = {
             userId: user.uid, type: type, amount: parseFloat(amount),
             category: selectedCategory, accountId: selectedAccount,
             description: description, tags: finalTags, createdAt: Timestamp.now(),
-          });
+          };
+          if (selectedSubcategory) txData.subcategory = selectedSubcategory;
+          batch.set(newTransactionRef, txData);
           const accountDocRef = doc(db, "accounts", selectedAccount);
           const amountToUpdate = type === 'income' ? parseFloat(amount) : -parseFloat(amount);
           batch.update(accountDocRef, { balance: increment(amountToUpdate) });
@@ -252,9 +272,18 @@ function AddTransactionModal({ onCancel, onSave, categories, accounts }) {
                 {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.accountName}</option>)}
               </select>
               <label>Categoria:</label>
-              <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} required>
+              <select value={selectedCategory} onChange={e => { setSelectedCategory(e.target.value); setSelectedSubcategory(''); }} required>
                 {availableCategories.map(cat => <option key={cat.id} value={cat.name}>{cat.name}</option>)}
               </select>
+              {availableSubcategories.length > 0 && (
+                <>
+                  <label>Subcategoria (opcional):</label>
+                  <select value={selectedSubcategory} onChange={e => setSelectedSubcategory(e.target.value)}>
+                    <option value="">— Nenhuma —</option>
+                    {availableSubcategories.map(sub => <option key={sub.id} value={sub.name}>{sub.name}</option>)}
+                  </select>
+                </>
+              )}
               <label>Tags:</label>
               <div className={styles.tagsInputContainer}>
                 <div className={styles.tagsList}>

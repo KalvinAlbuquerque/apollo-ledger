@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../../firebaseClient';
-import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, addDoc, deleteDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { showConfirmationToast } from '../utils/toastUtils.jsx';
 import styles from './CategoryManager.module.css';
@@ -12,12 +12,15 @@ function CategoryManager({ onDataChanged }) {
   const [newCategoryType, setNewCategoryType] = useState('expense');
   const [filterType, setFilterType] = useState('all');
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState(''); 
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // --- ESTADOS QUE FALTAVAM ---
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
-  // -------------------------
+
+  // Subcategory states
+  const [subcategories, setSubcategories] = useState([]);
+  const [expandedCategory, setExpandedCategory] = useState(null);
+  const [newSubcategoryInputs, setNewSubcategoryInputs] = useState({});
 
   const user = auth.currentUser;
 
@@ -31,8 +34,16 @@ function CategoryManager({ onDataChanged }) {
     setLoading(false);
   };
 
+  const fetchSubcategories = async () => {
+    if (!user) return;
+    const q = query(collection(db, "subcategories"), where("userId", "==", user.uid));
+    const snap = await getDocs(q);
+    setSubcategories(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+  };
+
   useEffect(() => {
     fetchCategories();
+    fetchSubcategories();
   }, [user]);
 
   const handleAddCategory = async (e) => {
@@ -80,6 +91,36 @@ function CategoryManager({ onDataChanged }) {
       console.error("Erro ao restaurar categoria:", error);
       toast.error("Falha ao restaurar categoria.");
     }
+  };
+
+  const handleAddSubcategory = async (categoryName) => {
+    const name = (newSubcategoryInputs[categoryName] || '').trim().toLowerCase();
+    if (!name) return;
+    const alreadyExists = subcategories.some(s => s.categoryName === categoryName && s.name === name);
+    if (alreadyExists) { toast.error("Subcategoria já existe."); return; }
+    try {
+      await addDoc(collection(db, "subcategories"), {
+        userId: user.uid, name, categoryName, createdAt: serverTimestamp(),
+      });
+      setNewSubcategoryInputs(prev => ({ ...prev, [categoryName]: '' }));
+      toast.success("Subcategoria adicionada!");
+      fetchSubcategories();
+    } catch (e) {
+      toast.error("Erro ao adicionar subcategoria.");
+    }
+  };
+
+  const handleDeleteSubcategory = (subcategoryId) => {
+    const deleteAction = async () => {
+      try {
+        await deleteDoc(doc(db, "subcategories", subcategoryId));
+        toast.success("Subcategoria removida!");
+        fetchSubcategories();
+      } catch (e) {
+        toast.error("Erro ao remover subcategoria.");
+      }
+    };
+    showConfirmationToast(deleteAction, "Remover esta subcategoria?");
   };
 
   // --- FUNÇÕES QUE FALTAVAM ---
@@ -160,26 +201,78 @@ function CategoryManager({ onDataChanged }) {
         </div>
 
         <ul className={styles.categoryList}>
-          {filteredCategories.map(cat => (
-            <li key={cat.id} className={styles.categoryItem} style={{ opacity: cat.isActive === false ? 0.6 : 1 }}>
-              <span style={{ textDecoration: cat.isActive === false ? 'line-through' : 'none', color: cat.isActive === false ? 'gray' : 'inherit' }}>
-                {cat.name} {cat.isActive === false && <span style={{ fontSize: '0.8em', fontStyle: 'italic', marginLeft: '5px' }}>(Arquivada)</span>}
-              </span>
-              <span className={`${styles.typeLabel} ${cat.type === 'income' ? styles.income : styles.expense}`}>
-                {cat.type === 'income' ? 'Renda' : 'Despesa'}
-              </span>
-              <div className={styles.actionButtons}>
-                {cat.isActive === false ? (
-                  <button onClick={() => handleRestoreCategory(cat.id)} className={styles.editButton} style={{ backgroundColor: '#4CAF50', color: 'white' }}>Restaurar</button>
-                ) : (
-                  <>
-                    <button onClick={() => handleOpenEditModal(cat)} className={styles.editButton}>Editar</button>
-                    <button title="Arquivar" onClick={() => handleDeleteCategory(cat.id)} className={styles.deleteButton}>&times;</button>
-                  </>
+          {filteredCategories.map(cat => {
+            const catSubs = subcategories.filter(s => s.categoryName === cat.name);
+            const isExpanded = expandedCategory === cat.id;
+            return (
+              <li key={cat.id} className={styles.categoryItem} style={{ opacity: cat.isActive === false ? 0.6 : 1 }}>
+                <div className={styles.categoryRow}>
+                  <button
+                    className={styles.expandBtn}
+                    onClick={() => setExpandedCategory(isExpanded ? null : cat.id)}
+                    title={isExpanded ? 'Recolher subcategorias' : 'Ver subcategorias'}
+                  >
+                    {isExpanded ? '▼' : '▶'}
+                  </button>
+                  <span style={{ textDecoration: cat.isActive === false ? 'line-through' : 'none', color: cat.isActive === false ? 'gray' : 'inherit', flex: 1 }}>
+                    {cat.name}
+                    {cat.isActive === false && <span style={{ fontSize: '0.8em', fontStyle: 'italic', marginLeft: '5px' }}>(Arquivada)</span>}
+                    {catSubs.length > 0 && (
+                      <span className={styles.subcatBadge}>{catSubs.length}</span>
+                    )}
+                  </span>
+                  <span className={`${styles.typeLabel} ${cat.type === 'income' ? styles.income : styles.expense}`}>
+                    {cat.type === 'income' ? 'Renda' : 'Despesa'}
+                  </span>
+                  <div className={styles.actionButtons}>
+                    {cat.isActive === false ? (
+                      <button onClick={() => handleRestoreCategory(cat.id)} className={styles.editButton} style={{ backgroundColor: '#4CAF50', color: 'white' }}>Restaurar</button>
+                    ) : (
+                      <>
+                        <button onClick={() => handleOpenEditModal(cat)} className={styles.editButton}>Editar</button>
+                        <button title="Arquivar" onClick={() => handleDeleteCategory(cat.id)} className={styles.deleteButton}>&times;</button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className={styles.subcatSection}>
+                    {catSubs.length === 0 ? (
+                      <p className={styles.subcatEmpty}>Nenhuma subcategoria ainda.</p>
+                    ) : (
+                      <ul className={styles.subcatList}>
+                        {catSubs.map(sub => (
+                          <li key={sub.id} className={styles.subcatItem}>
+                            <span className={styles.subcatName}>{sub.name}</span>
+                            <button
+                              className={styles.subcatDeleteBtn}
+                              onClick={() => handleDeleteSubcategory(sub.id)}
+                              title="Remover"
+                            >&times;</button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className={styles.subcatAddRow}>
+                      <input
+                        type="text"
+                        placeholder="Nova subcategoria..."
+                        value={newSubcategoryInputs[cat.name] || ''}
+                        onChange={e => setNewSubcategoryInputs(prev => ({ ...prev, [cat.name]: e.target.value }))}
+                        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddSubcategory(cat.name); } }}
+                        className={styles.subcatInput}
+                      />
+                      <button
+                        onClick={() => handleAddSubcategory(cat.name)}
+                        className={styles.subcatAddBtn}
+                      >+</button>
+                    </div>
+                  </div>
                 )}
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       </div>
 
