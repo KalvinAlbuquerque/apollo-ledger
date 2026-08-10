@@ -84,3 +84,9 @@ staticfiles/
 .pytest_cache/
 .cypress/
 playwright-report/
+
+# Extratos bancários de teste (nunca commitar dados financeiros)
+*.ofx
+*.OFX
+Bradesco_*.csv
+extrato_*.csv
