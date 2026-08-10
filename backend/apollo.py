@@ -1,5 +1,7 @@
 import os
 import re
+import csv
+import io
 import json
 import uuid
 import hashlib
@@ -114,28 +116,74 @@ def parse_ofx(content: bytes) -> list:
 def parse_csv_bradesco(content: bytes) -> list:
     """
     Parseia CSV do Bradesco.
-    Formato esperado: Data;Histórico;Docto.;Crédito (R$);Débito (R$);Saldo (R$)
+    Formato: Data;Histórico;Docto.;Crédito (R$);Débito (R$);Saldo (R$)
+
+    O CSV do Bradesco tem peculiaridades:
+    - Valores monetários entre aspas: "1.234,56"
+    - Múltiplas seções (extrato, últimos lançamentos, Saldos Invest Fácil)
+    - A seção "Saldos Invest Fácil" contém saldos diários — NÃO são transações
+    - Linhas de descrição e totais intercaladas entre as transações
     """
-    texto = content.decode('latin-1', errors='replace')
-    linhas = texto.splitlines()
     transacoes = []
+    em_secao_transacoes = False
 
-    inicio = 0
-    for i, linha in enumerate(linhas):
-        if re.search(r'data|hist[oó]rico', linha, re.IGNORECASE):
-            inicio = i + 1
-            break
+    def parse_valor(s: str) -> float:
+        s = s.strip().replace('"', '').replace('.', '').replace(',', '.')
+        try:
+            return abs(float(s)) if s else 0.0
+        except ValueError:
+            return 0.0
 
-    for linha in linhas[inicio:]:
-        partes = re.split(r'[;,]', linha)
-        if len(partes) < 5:
+    reader = csv.reader(
+        io.TextIOWrapper(io.BytesIO(content), encoding='latin-1', newline=''),
+        delimiter=';'
+    )
+
+    for row in reader:
+        if not row:
             continue
 
-        data_raw = partes[0].strip()
-        historico = sanitizar_descricao(partes[1].strip())
-        credito_str = partes[3].strip().replace('.', '').replace(',', '.')
-        debito_str = partes[4].strip().replace('.', '').replace(',', '.')
+        # Parar ao chegar na seção de saldos do Invest Fácil (são snapshots de saldo, não movimentações)
+        primeira_celula = normalizar(row[0])
+        if 'saldos invest' in primeira_celula or 'saldo invest' in primeira_celula:
+            break
+        if len(row) >= 2 and 'invest' in normalizar(row[1]) and 'facil' in normalizar(row[1]):
+            # Linha de cabeçalho da seção Invest Fácil (sem coluna Crédito)
+            if not any(re.search(r'cr[eé]dito', c, re.IGNORECASE) for c in row):
+                break
 
+        # Detecta cabeçalho de seção de transações (tem coluna "Crédito")
+        if any(re.search(r'cr[eé]dito', c, re.IGNORECASE) for c in row):
+            em_secao_transacoes = True
+            continue
+
+        if not em_secao_transacoes:
+            continue
+
+        if len(row) < 5:
+            continue
+
+        data_raw = row[0].strip()
+
+        # Pula linhas sem data: descrições (;;Rem:/Des:), totais e saldo anterior
+        if not data_raw:
+            continue
+        if re.search(r'total|saldo anterior', data_raw, re.IGNORECASE):
+            continue
+
+        historico_raw = row[1].strip() if len(row) > 1 else ''
+        if re.search(r'total|saldo anterior', historico_raw, re.IGNORECASE):
+            continue
+
+        # Pula "Rent.inv.facil" (rendimento irrisório do Invest Fácil — centavos que poluem o extrato)
+        if re.search(r'rent\.inv|rentab.*inv|invest.*facil', historico_raw, re.IGNORECASE):
+            continue
+
+        historico = sanitizar_descricao(historico_raw)
+        if not historico:
+            continue
+
+        # Parse da data
         date_obj = None
         for fmt in ('%d/%m/%Y', '%d/%m/%y', '%Y-%m-%d'):
             try:
@@ -143,20 +191,18 @@ def parse_csv_bradesco(content: bytes) -> list:
                 break
             except ValueError:
                 continue
-
-        if not date_obj or not historico:
+        if not date_obj:
             continue
 
         date_iso = date_obj.strftime('%Y-%m-%d')
-        try:
-            credito = float(credito_str) if credito_str else 0
-            debito = float(debito_str) if debito_str else 0
-            if credito > 0:
-                transacoes.append({'date': date_iso, 'description': historico, 'amount': credito, 'type': 'income'})
-            elif debito > 0:
-                transacoes.append({'date': date_iso, 'description': historico, 'amount': debito, 'type': 'expense'})
-        except ValueError:
-            continue
+
+        credito = parse_valor(row[3]) if len(row) > 3 else 0.0
+        debito = parse_valor(row[4]) if len(row) > 4 else 0.0
+
+        if credito > 0:
+            transacoes.append({'date': date_iso, 'description': historico, 'amount': credito, 'type': 'income'})
+        elif debito > 0:
+            transacoes.append({'date': date_iso, 'description': historico, 'amount': debito, 'type': 'expense'})
 
     return transacoes
 
