@@ -1869,6 +1869,25 @@ def apollo_import_confirm(session_id):
         return jsonify({"error": "Erro interno ao gravar transações"}), 500
 
 
+@app.route("/api/apollo/import/<session_id>/cancel", methods=['POST'])
+def apollo_import_cancel(session_id):
+    try:
+        uid = _verificar_firebase_token(request)
+    except PermissionError as e:
+        return jsonify({"error": str(e)}), 401
+    except Exception:
+        return jsonify({"error": "Token inválido"}), 403
+
+    doc = db.collection('import_sessions').document(session_id).get()
+    if not doc.exists:
+        return jsonify({"error": "Sessão não encontrada"}), 404
+    if doc.to_dict().get('userId') != uid:
+        return jsonify({"error": "Acesso negado"}), 403
+
+    db.collection('import_sessions').document(session_id).update({'status': 'cancelled'})
+    return jsonify({"success": True}), 200
+
+
 @app.route("/api/apollo/session/<session_id>", methods=['GET'])
 def apollo_session(session_id):
     try:

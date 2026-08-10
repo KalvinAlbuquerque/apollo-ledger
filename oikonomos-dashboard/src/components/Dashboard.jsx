@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useLayoutEffect } from 'react';
 import { auth, db } from '../../firebaseClient';
-import { collection, query, where, orderBy, getDocs, doc, deleteDoc, updateDoc, writeBatch, Timestamp, increment } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, doc, writeBatch, Timestamp, increment } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 
 // Componentes Filhos
@@ -58,21 +58,14 @@ function Dashboard({ user, userProfile }) {
       try {
         const catQuery = query(collection(db, "categories"), where("userId", "==", user.uid));
         const accQuery = query(collection(db, "accounts"), where("userId", "==", user.uid));
-        const allTransQuery = query(collection(db, "transactions"), where("userId", "==", user.uid));
 
-        const [catSnapshot, accSnapshot, allTransSnapshot] = await Promise.all([
-          getDocs(catQuery), getDocs(accQuery), getDocs(allTransQuery)
+        const [catSnapshot, accSnapshot] = await Promise.all([
+          getDocs(catQuery), getDocs(accQuery),
         ]);
 
         const catData = catSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         const accData = accSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        const allTransactions = allTransSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        accData.forEach(acc => {
-          acc.balance = allTransactions
-            .filter(tx => tx.accountId === acc.id)
-            .reduce((bal, tx) => bal + (tx.type === 'income' ? tx.amount : -tx.amount), 0);
-        });
         setCategories(catData);
         setAccounts(accData);
 
@@ -259,7 +252,14 @@ function Dashboard({ user, userProfile }) {
   const handleDelete = (transactionId) => {
     const deleteAction = async () => {
       try {
-        await deleteDoc(doc(db, "transactions", transactionId));
+        const tx = transactions.find(t => t.id === transactionId);
+        const batch = writeBatch(db);
+        batch.delete(doc(db, "transactions", transactionId));
+        if (tx) {
+          const balanceDelta = tx.type === 'income' ? -tx.amount : tx.amount;
+          batch.update(doc(db, "accounts", tx.accountId), { balance: increment(balanceDelta) });
+        }
+        await batch.commit();
         triggerRefresh();
         toast.success("Transação excluída!");
       } catch (error) {
@@ -271,14 +271,29 @@ function Dashboard({ user, userProfile }) {
 
   const handleDeleteSelected = () => {
     const deleteAction = async () => {
+      const accountDeltas = {};
+      selectedTransactions.forEach(transactionId => {
+        const tx = transactions.find(t => t.id === transactionId);
+        if (tx) {
+          const delta = tx.type === 'income' ? -tx.amount : tx.amount;
+          accountDeltas[tx.accountId] = (accountDeltas[tx.accountId] || 0) + delta;
+        }
+      });
+
       const batch = writeBatch(db);
       selectedTransactions.forEach(transactionId => {
         batch.delete(doc(db, "transactions", transactionId));
       });
+      Object.entries(accountDeltas).forEach(([accountId, delta]) => {
+        if (delta !== 0) {
+          batch.update(doc(db, "accounts", accountId), { balance: increment(delta) });
+        }
+      });
+
       try {
         await batch.commit();
         toast.success(`${selectedTransactions.size} transação(ões) excluída(s)!`);
-        toggleSelectionMode(); // Sai do modo de seleção
+        toggleSelectionMode();
         triggerRefresh();
       } catch (error) {
         toast.error("Falha ao excluir as transações.");
@@ -318,25 +333,27 @@ function Dashboard({ user, userProfile }) {
     try {
       const batch = writeBatch(db);
 
-      // Update transaction
       const txRef = doc(db, "transactions", editingTransaction.id);
       batch.update(txRef, updatedData);
 
-      // Check for new tags and add them
+      // Ajusta o saldo quando o valor muda (tipo e conta não podem ser alterados no EditModal)
+      const oldAmount = editingTransaction.amount;
+      const newAmount = parseFloat(updatedData.amount);
+      const amountDelta = newAmount - oldAmount;
+      if (amountDelta !== 0) {
+        const balanceDelta = editingTransaction.type === 'income' ? amountDelta : -amountDelta;
+        batch.update(doc(db, "accounts", editingTransaction.accountId), { balance: increment(balanceDelta) });
+      }
+
+      // Cria novas tags se necessário
       if (updatedData.tags && updatedData.tags.length > 0) {
-        // Fetch existing tags to avoid duplicates
         const existingTagsQuery = query(collection(db, "tags"), where("userId", "==", user.uid));
         const tagsSnapshot = await getDocs(existingTagsQuery);
         const existingTags = tagsSnapshot.docs.map(tDoc => tDoc.data().name);
-
         const newTagsToCreate = updatedData.tags.filter(tag => !existingTags.includes(tag));
         newTagsToCreate.forEach(tag => {
           const newTagRef = doc(collection(db, "tags"));
-          batch.set(newTagRef, {
-            name: tag,
-            userId: user.uid,
-            isActive: true
-          });
+          batch.set(newTagRef, { name: tag, userId: user.uid, isActive: true });
         });
       }
 

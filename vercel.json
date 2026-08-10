@@ -36,6 +36,10 @@
       "dest": "backend/bot.py"
     },
     {
+      "src": "/api/apollo/import/([^/]+)/cancel",
+      "dest": "backend/bot.py"
+    },
+    {
       "src": "/api/apollo/session/([^/]+)",
       "dest": "backend/bot.py"
     }

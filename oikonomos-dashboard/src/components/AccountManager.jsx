@@ -12,6 +12,7 @@ const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'curre
 
 function AccountManager({ onDataChanged, accounts = [] }) {
   const [newAccountName, setNewAccountName] = useState('');
+  const [initialBalance, setInitialBalance] = useState('');
   const [isReserve, setIsReserve] = useState(false);
   const user = auth.currentUser;
 
@@ -24,17 +25,20 @@ function AccountManager({ onDataChanged, accounts = [] }) {
   const handleAddAccount = async (e) => {
     e.preventDefault();
     if (!newAccountName.trim() || !user) return;
+    const saldoInicial = parseFloat(initialBalance) || 0;
     try {
       await addDoc(collection(db, "accounts"), {
         userId: user.uid,
         accountName: newAccountName,
-        balance: 0,
+        balance: saldoInicial,
+        initialBalance: saldoInicial,
         isReserve: isReserve,
-        isDefault: false, // <-- NOVO: Contas novas nunca são padrão
+        isDefault: false,
         createdAt: Timestamp.now(),
       });
       toast.success(`Conta '${newAccountName}' criada com sucesso!`);
       setNewAccountName('');
+      setInitialBalance('');
       setIsReserve(false);
       if (onDataChanged) onDataChanged();
     } catch (error) {
@@ -127,6 +131,14 @@ function AccountManager({ onDataChanged, accounts = [] }) {
         <h2>Contas & Reservas</h2>
         <form onSubmit={handleAddAccount} className={styles.form}>
           <input type="text" value={newAccountName} onChange={(e) => setNewAccountName(e.target.value)} placeholder="Nome da nova conta" required />
+          <input
+            type="number"
+            value={initialBalance}
+            onChange={(e) => setInitialBalance(e.target.value)}
+            placeholder="Saldo inicial (R$) — opcional"
+            step="0.01"
+            min="0"
+          />
           <div className={styles.checkboxGroup}>
             <input type="checkbox" id="isReserve" checked={isReserve} onChange={(e) => setIsReserve(e.target.checked)} />
             <label htmlFor="isReserve">É uma reserva?</label>

@@ -1,21 +1,28 @@
 // src/components/EditAccountModal.jsx
 import React, { useState, useEffect } from 'react';
-import styles from './EditModal.module.css'; // Reutilizaremos o estilo
+import styles from './EditModal.module.css';
 
 function EditAccountModal({ account, onSave, onCancel }) {
   const [accountName, setAccountName] = useState('');
   const [isReserve, setIsReserve] = useState(false);
+  const [balance, setBalance] = useState('');
 
   useEffect(() => {
     if (account) {
       setAccountName(account.accountName || '');
       setIsReserve(account.isReserve || false);
+      setBalance(account.balance != null ? String(account.balance) : '0');
     }
   }, [account]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSave(account.id, { accountName, isReserve });
+    const parsedBalance = parseFloat(balance);
+    onSave(account.id, {
+      accountName,
+      isReserve,
+      balance: isNaN(parsedBalance) ? account.balance : parsedBalance,
+    });
   };
 
   if (!account) return null;
@@ -32,7 +39,17 @@ function EditAccountModal({ account, onSave, onCancel }) {
             onChange={(e) => setAccountName(e.target.value)}
             required
           />
-          <div className={styles.checkboxGroup} style={{marginTop: '15px'}}>
+          <label>Saldo atual (R$):</label>
+          <input
+            type="number"
+            value={balance}
+            onChange={(e) => setBalance(e.target.value)}
+            step="0.01"
+          />
+          <small style={{ color: '#888', fontSize: '11px', marginTop: '-8px', display: 'block' }}>
+            Ajuste manual — use apenas para corrigir inconsistências de saldo.
+          </small>
+          <div className={styles.checkboxGroup} style={{ marginTop: '15px' }}>
             <input
               type="checkbox"
               id="editIsReserve"
@@ -50,4 +67,5 @@ function EditAccountModal({ account, onSave, onCancel }) {
     </div>
   );
 }
+
 export default EditAccountModal;

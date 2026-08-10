@@ -29,6 +29,7 @@ export default function ReviewPage({ user }) {
 
   const [loading, setLoading] = useState(true);
   const [confirming, setConfirming] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [session, setSession] = useState(null);
   const [error, setError] = useState(null);
 
@@ -36,20 +37,28 @@ export default function ReviewPage({ user }) {
   const [selectedAccount, setSelectedAccount] = useState('');
   const [filter, setFilter] = useState('all');
 
-  // per-transaction state: checked & edited category
+  // categorias agrupadas por tipo para o select
+  const [userCategories, setUserCategories] = useState({ income: [], expense: [] });
+  // tags existentes do usuário
+  const [userTags, setUserTags] = useState([]);
+
+  // estado por transação
   const [checked, setChecked] = useState({});
   const [categories, setCategories] = useState({});
+  const [tags, setTags] = useState({});
 
   useEffect(() => {
     const load = async () => {
       try {
         const token = await user.getIdToken();
 
-        const [sessionRes, accountsSnap] = await Promise.all([
+        const [sessionRes, accountsSnap, catsSnap, tagsSnap] = await Promise.all([
           fetch(`/api/apollo/session/${sessionId}`, {
             headers: { Authorization: `Bearer ${token}` },
           }),
           getDocs(query(collection(db, 'accounts'), where('userId', '==', user.uid))),
+          getDocs(query(collection(db, 'categories'), where('userId', '==', user.uid))),
+          getDocs(query(collection(db, 'tags'), where('userId', '==', user.uid))),
         ]);
 
         const sessionData = await sessionRes.json();
@@ -63,17 +72,41 @@ export default function ReviewPage({ user }) {
         const defaultAcc = accs.find(a => a.isDefault) || accs[0];
         if (defaultAcc) setSelectedAccount(defaultAcc.id);
 
+        const catsByType = { income: [], expense: [] };
+        catsSnap.docs.forEach(d => {
+          const { name, type } = d.data();
+          if (type === 'income') catsByType.income.push(name);
+          else if (type === 'expense') catsByType.expense.push(name);
+        });
+        catsByType.income.sort();
+        catsByType.expense.sort();
+        setUserCategories(catsByType);
+
+        const tagNames = tagsSnap.docs
+          .map(d => d.data())
+          .filter(d => d.isActive !== false)
+          .map(d => d.name)
+          .filter(Boolean)
+          .sort();
+        setUserTags(tagNames);
+
         setSession(sessionData);
 
         const initChecked = {};
         const initCats = {};
+        const initTags = {};
         for (const t of sessionData.transactions || []) {
           initChecked[t.tempId] = !t.isDuplicate;
-          initCats[t.tempId] = t.suggestedCategory || '';
+          // usar suggestedCategory só se existir na lista de categorias do tipo
+          const lista = catsByType[t.type] || [];
+          const catValida = lista.includes(t.suggestedCategory) ? t.suggestedCategory : '';
+          initCats[t.tempId] = catValida;
+          initTags[t.tempId] = (t.suggestedTags || []).filter(tag => tagNames.includes(tag));
         }
         setChecked(initChecked);
         setCategories(initCats);
-      } catch (e) {
+        setTags(initTags);
+      } catch {
         setError('Erro ao carregar sessão. Tente novamente.');
       } finally {
         setLoading(false);
@@ -91,6 +124,18 @@ export default function ReviewPage({ user }) {
 
   const checkedCount = Object.values(checked).filter(Boolean).length;
 
+  const toggleTag = (tempId, tag) => {
+    setTags(prev => {
+      const current = prev[tempId] || [];
+      return {
+        ...prev,
+        [tempId]: current.includes(tag)
+          ? current.filter(t => t !== tag)
+          : [...current, tag],
+      };
+    });
+  };
+
   const handleConfirm = async () => {
     if (!selectedAccount) {
       toast.error('Selecione uma conta para importar as transações.');
@@ -101,6 +146,15 @@ export default function ReviewPage({ user }) {
       return;
     }
 
+    // Validar que todas as selecionadas têm categoria
+    const semCategoria = (session.transactions || []).filter(
+      t => checked[t.tempId] && !categories[t.tempId]
+    );
+    if (semCategoria.length > 0) {
+      toast.error(`${semCategoria.length} transação(ões) sem categoria. Selecione antes de confirmar.`);
+      return;
+    }
+
     setConfirming(true);
     try {
       const token = await user.getIdToken();
@@ -108,7 +162,8 @@ export default function ReviewPage({ user }) {
         .filter(t => checked[t.tempId])
         .map(t => ({
           ...t,
-          suggestedCategory: categories[t.tempId] || t.suggestedCategory || 'Outros',
+          suggestedCategory: categories[t.tempId] || 'Outros',
+          tags: tags[t.tempId] || [],
           status: 'approved',
         }));
 
@@ -137,6 +192,23 @@ export default function ReviewPage({ user }) {
     } finally {
       setConfirming(false);
     }
+  };
+
+  const handleCancel = async () => {
+    setCancelling(true);
+    try {
+      const token = await user.getIdToken();
+      await fetch(`/api/apollo/import/${sessionId}/cancel`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch {
+      // ignorar erro de rede — cancelar localmente de qualquer forma
+    } finally {
+      setCancelling(false);
+    }
+    toast('Importação cancelada.');
+    navigate('/dashboard');
   };
 
   if (loading) {
@@ -249,6 +321,7 @@ export default function ReviewPage({ user }) {
               <th>Valor</th>
               <th>Tipo</th>
               <th>Categoria</th>
+              <th>Tags</th>
               <th>Confiança</th>
               <th>Status</th>
             </tr>
@@ -257,6 +330,10 @@ export default function ReviewPage({ user }) {
             {visibleTransactions.map(t => {
               const isChecked = !!checked[t.tempId];
               const st = STATUS_LABEL[t.status] || STATUS_LABEL.pending;
+              const listaCats = userCategories[t.type] || [];
+              const tagsAtivas = tags[t.tempId] || [];
+              const tagsDisponiveis = userTags.filter(tag => !tagsAtivas.includes(tag));
+
               return (
                 <tr
                   key={t.tempId}
@@ -283,15 +360,48 @@ export default function ReviewPage({ user }) {
                     </span>
                   </td>
                   <td className={styles.tdCat}>
-                    <input
-                      className={styles.catInput}
+                    <select
+                      className={`${styles.catSelect} ${isChecked && !t.isDuplicate && !categories[t.tempId] ? styles.catSelectEmpty : ''}`}
                       value={categories[t.tempId] || ''}
                       onChange={e => setCategories(prev => ({ ...prev, [t.tempId]: e.target.value }))}
                       disabled={t.isDuplicate || !isChecked}
-                      placeholder="Categoria"
-                    />
-                    {t.isNewCategory && (
-                      <span className={styles.newCatBadge} title="Nova categoria será criada">✦ nova</span>
+                    >
+                      <option value="">— selecionar —</option>
+                      {listaCats.map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className={styles.tdTags}>
+                    {!t.isDuplicate && (
+                      <div className={styles.tagsCell}>
+                        {tagsAtivas.map(tag => (
+                          <button
+                            key={tag}
+                            type="button"
+                            className={styles.tagChip}
+                            onClick={() => isChecked && toggleTag(t.tempId, tag)}
+                            title="Clique para remover"
+                            disabled={!isChecked}
+                          >
+                            #{tag} <span className={styles.tagRemove}>×</span>
+                          </button>
+                        ))}
+                        {isChecked && tagsDisponiveis.length > 0 && (
+                          <select
+                            className={styles.tagAdd}
+                            value=""
+                            onChange={e => {
+                              if (e.target.value) toggleTag(t.tempId, e.target.value);
+                            }}
+                          >
+                            <option value="">+ tag</option>
+                            {tagsDisponiveis.map(tag => (
+                              <option key={tag} value={tag}>{tag}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
                     )}
                   </td>
                   <td>
@@ -317,13 +427,22 @@ export default function ReviewPage({ user }) {
         <span className={styles.selectedCount}>
           {checkedCount} de {(session.transactions || []).filter(t => !t.isDuplicate).length} transações selecionadas
         </span>
-        <button
-          className={styles.confirmBtn}
-          onClick={handleConfirm}
-          disabled={confirming || checkedCount === 0}
-        >
-          {confirming ? 'Importando...' : `Confirmar importação (${checkedCount})`}
-        </button>
+        <div className={styles.footerActions}>
+          <button
+            className={styles.cancelBtn}
+            onClick={handleCancel}
+            disabled={cancelling || confirming}
+          >
+            {cancelling ? 'Cancelando...' : 'Cancelar importação'}
+          </button>
+          <button
+            className={styles.confirmBtn}
+            onClick={handleConfirm}
+            disabled={confirming || cancelling || checkedCount === 0}
+          >
+            {confirming ? 'Importando...' : `Confirmar importação (${checkedCount})`}
+          </button>
+        </div>
       </div>
     </div>
   );
