@@ -416,6 +416,101 @@
   padding: 0;
 }
 
+.filterBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--acento-azul);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  border-radius: 50%;
+  width: 17px;
+  height: 17px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.searchInput {
+  width: 100%;
+  box-sizing: border-box;
+  background: #1a1a1a;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-principal);
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.searchInput:focus {
+  border-color: var(--acento-azul);
+}
+
+.searchChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(74, 144, 226, 0.12);
+  border: 1px solid rgba(74, 144, 226, 0.3);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  color: #7ab8f5;
+}
+
+.chipClear {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font-size: 0.72rem;
+  line-height: 1;
+  opacity: 0.7;
+}
+
+.chipClear:hover { opacity: 1; }
+
+.tagFilterSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--borda-sutil);
+}
+
+.tagFilterList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tagFilterPill {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: var(--texto-secundario);
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tagFilterPill:hover {
+  border-color: var(--acento-azul);
+  color: var(--texto-principal);
+}
+
+.tagFilterPillActive {
+  background: rgba(74, 144, 226, 0.18);
+  border-color: var(--acento-azul);
+  color: #7ab8f5;
+  font-weight: 600;
+}
+
 .filterFooter {
   display: flex;
   justify-content: flex-end;
@@ -530,6 +625,16 @@
   margin-top: 0;
 }
 
+.tableResultCount {
+  font-size: 0.82rem;
+  color: var(--texto-secundario);
+  margin-bottom: 10px;
+}
+
+.tableResultHint {
+  color: #555;
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -538,55 +643,163 @@
   overflow: hidden;
 }
 
-.table th,
-.table td {
-  padding: 15px;
+.table th {
+  padding: 12px 14px;
   text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 12px 14px;
+  text-align: left;
+  vertical-align: middle;
 }
 
 .table thead {
-  background-color: #252525;
-}
-
-.table tbody tr {
+  background-color: #1a1a1a;
   border-bottom: 1px solid var(--borda-sutil);
 }
 
-.table tbody tr:last-child {
+.txRow {
+  border-bottom: 1px solid #1f1f1f;
+  transition: background 0.12s;
+}
+
+.txRow:last-child {
   border-bottom: none;
 }
 
-.table td:nth-child(2) {
-  color: #4A90E2;
-  font-weight: 500;
+.txRow:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+/* Tipo badges */
+.badgeIncome {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 10px;
+  background: rgba(57, 255, 20, 0.1);
+  color: var(--verde-destaque);
+  border: 1px solid rgba(57, 255, 20, 0.3);
+  white-space: nowrap;
+}
+
+.badgeExpense {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 10px;
+  background: rgba(255, 60, 60, 0.1);
+  color: var(--vermelho-destaque);
+  border: 1px solid rgba(255, 60, 60, 0.3);
+  white-space: nowrap;
+}
+
+/* Célula Categoria + Tags */
+.catTagsCell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.catName {
+  font-weight: 600;
+  color: #7ab8f5;
+  font-size: 0.88rem;
+}
+
+.tagsRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Célula Descrição */
+.descCell {
+  color: var(--texto-principal);
+  font-size: 0.85rem;
+  max-width: 220px;
+}
+
+.emptyDesc {
+  color: #444;
+}
+
+/* Célula Conta */
+.accountCell {
+  font-size: 0.82rem;
+  color: var(--texto-secundario);
+  white-space: nowrap;
+}
+
+/* Célula Data */
+.dateCell {
+  font-size: 0.82rem;
+  color: var(--texto-secundario);
+  white-space: nowrap;
+}
+
+/* Célula Valor */
+.valueCell {
+  white-space: nowrap;
+}
+
+.valueIncome {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--verde-destaque);
+}
+
+.valueExpense {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--vermelho-destaque);
+}
+
+/* Célula Ações */
+.actionsCell {
+  display: flex;
+  gap: 6px;
+  align-items: center;
 }
 
 .editButton,
 .deleteButton {
-  border: none;
-  padding: 5px 10px;
-  border-radius: 5px;
+  border: 1px solid #333;
+  background: transparent;
+  color: var(--texto-secundario);
+  padding: 5px 9px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 0.8rem;
-}
-
-.editButton {
-  background-color: #4A90E2;
-  color: white;
-  margin-right: 5px;
-}
-
-.deleteButton {
-  background-color: #555;
-  color: white;
+  font-size: 0.85rem;
+  line-height: 1;
+  transition: all 0.15s;
 }
 
 .editButton:hover {
-  opacity: 0.8;
+  background: rgba(74, 144, 226, 0.15);
+  border-color: #4A90E2;
+  color: #4A90E2;
 }
 
 .deleteButton:hover {
-  background-color: var(--vermelho-destaque);
+  background: rgba(255, 60, 60, 0.12);
+  border-color: var(--vermelho-destaque);
+  color: var(--vermelho-destaque);
+}
+
+.emptyRow {
+  text-align: center;
+  color: var(--texto-secundario);
+  padding: 40px 14px !important;
 }
 
 /* --- Seções de Gerenciadores --- */
@@ -917,27 +1130,17 @@
 .tagsContainer {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  /* Align tags to right on mobile by default to fit the style */
   gap: 4px;
   margin-top: 2px;
 }
 
-@media (min-width: 768px) {
-  .tagsContainer {
-    justify-content: flex-start;
-    /* Normal left alignment on larger screens */
-  }
-}
-
 .tagPill {
-  background-color: rgba(74, 144, 226, 0.15);
-  color: #6bb0ff;
-  font-size: 0.75rem;
+  background: rgba(74, 144, 226, 0.1);
+  color: #7ab8f5;
+  font-size: 0.72rem;
   font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 12px;
-  border: 1px solid rgba(74, 144, 226, 0.4);
-  letter-spacing: 0.5px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(74, 144, 226, 0.3);
+  white-space: nowrap;
 }

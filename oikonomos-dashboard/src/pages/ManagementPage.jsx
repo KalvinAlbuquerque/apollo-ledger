@@ -10,6 +10,7 @@ import AccountManager from '../components/AccountManager';
 import DebtManager from '../components/DebtManager';
 import TagManager from '../components/TagManager';
 import ExtractManager from '../components/ExtractManager';
+import EntityManager from '../components/EntityManager';
 import HelpModal from '../components/HelpModal';
 
 // Estilos
@@ -102,6 +103,8 @@ function ManagementPage({ user }) {
         return <DebtManager expenseCategories={categories.filter(c => c.type === 'expense')} accounts={accounts} onDataChanged={triggerRefresh} />;
       case 'extratos':
         return <ExtractManager />;
+      case 'entidades':
+        return <EntityManager />;
       default:
         return null;
     }
@@ -127,6 +130,7 @@ function ManagementPage({ user }) {
           <button onClick={() => setActiveTab('goals')} className={activeTab === 'goals' ? pageStyles.active : ''}>Metas</button>
           <button onClick={() => setActiveTab('debts')} className={activeTab === 'debts' ? pageStyles.active : ''}>Contas a Pagar</button>
           <button onClick={() => setActiveTab('extratos')} className={activeTab === 'extratos' ? pageStyles.active : ''}>Extratos</button>
+          <button onClick={() => setActiveTab('entidades')} className={activeTab === 'entidades' ? pageStyles.active : ''}>Entidades</button>
         </div>
 
         <div className={pageStyles.tabContent}>
@@ -147,6 +151,7 @@ function ManagementPage({ user }) {
             <li><strong>Metas:</strong> Crie e acompanhe o progresso de suas metas de poupança.</li>
             <li><strong>Contas a Pagar:</strong> Gerencie suas contas recorrentes ou dívidas para nunca mais perder um vencimento.</li>
             <li><strong>Extratos:</strong> Veja os formatos de extrato suportados e baixe o modelo Apollo CSV para importação manual.</li>
+            <li><strong>Entidades:</strong> Gerencie os estabelecimentos e pessoas que o Apollo aprendeu a categorizar automaticamente com base nos seus extratos confirmados.</li>
           </ul>
         </HelpModal>
       )}

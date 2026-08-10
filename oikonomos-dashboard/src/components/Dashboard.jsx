@@ -40,6 +40,9 @@ function Dashboard({ user, userProfile }) {
   const [draftStartDate, setDraftStartDate] = useState(formatDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
   const [draftEndDate, setDraftEndDate] = useState(formatDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)));
   const [activeQuickFilter, setActiveQuickFilter] = useState('month');
+  const [filterType, setFilterType] = useState('all');
+  const [filterSearch, setFilterSearch] = useState('');
+  const [filterTags, setFilterTags] = useState(new Set());
   const scrollPositionRef = useRef(0);
 
   const triggerRefresh = () => {
@@ -141,26 +144,23 @@ function Dashboard({ user, userProfile }) {
     const expenseChartData = processDataForChart(expenses, 'Gastos R$');
     const incomeChartData = processDataForChart(income, 'Rendas R$');
 
-    // Categorias Top 10
+    // Categorias (todas, ordenadas por valor)
     const topExpenseCategories = Object.entries(expenses.reduce((acc, tx) => {
       acc[tx.category] = (acc[tx.category] || 0) + tx.amount;
       return acc;
     }, {})).map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value).slice(0, 10);
+      .sort((a, b) => b.value - a.value);
 
-    // Tags Top 10
+    // Tags (todas, ordenadas por valor)
     const tagTotals = {};
     expenses.forEach(tx => {
-      if (tx.tags && tx.tags.length > 0) {
-        tx.tags.forEach(tag => {
-          tagTotals[tag] = (tagTotals[tag] || 0) + tx.amount;
-        });
-      }
+      (tx.tags || []).forEach(tag => {
+        tagTotals[tag] = (tagTotals[tag] || 0) + tx.amount;
+      });
     });
-
     const topExpenseTags = Object.entries(tagTotals)
       .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value).slice(0, 10);
+      .sort((a, b) => b.value - a.value);
 
     return { totalIncome, totalExpense, totalBalance, expenseChartData, incomeChartData, topExpenseCategories, topExpenseTags, relevantTransactions };
   }, [transactions, accounts, accountView]);
@@ -239,10 +239,33 @@ function Dashboard({ user, userProfile }) {
   };
 
 
+  const availableTags = useMemo(() => {
+    const tagSet = new Set();
+    transactions.forEach(tx => (tx.tags || []).forEach(t => tagSet.add(t)));
+    return [...tagSet].sort();
+  }, [transactions]);
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(tx => {
+      if (filterType !== 'all' && tx.type !== filterType) return false;
+      if (filterTags.size > 0 && !(tx.tags || []).some(t => filterTags.has(t))) return false;
+      if (filterSearch.trim() && !(tx.description || '').toLowerCase().includes(filterSearch.toLowerCase())) return false;
+      return true;
+    });
+  }, [transactions, filterType, filterTags, filterSearch]);
+
+  useEffect(() => { setCurrentPage(1); }, [filterType, filterTags, filterSearch, filterStartDate, filterEndDate, filterCategories]);
+
   const itemsPerPage = 15;
-  const currentTransactions = transactions.slice(currentPage * itemsPerPage - itemsPerPage, currentPage * itemsPerPage);
-  const totalPages = Math.ceil(transactions.length / itemsPerPage);
+  const currentTransactions = filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  const handleTagFilterToggle = (tag) => {
+    const newTags = new Set(filterTags);
+    if (newTags.has(tag)) newTags.delete(tag); else newTags.add(tag);
+    setFilterTags(newTags);
+  };
 
   // ✅ FUNÇÕES DE AÇÃO RESTAURADAS AQUI
   const toggleSelectionMode = () => {
@@ -415,14 +438,25 @@ function Dashboard({ user, userProfile }) {
         <section className={styles.controlsSection}>
           <div className={styles.filterContainer}>
             <div className={styles.filterTriggerGroup}>
-              <button onClick={() => setIsFilterVisible(!isFilterVisible)} className={`${styles.controlButton} ${isFilterVisible ? styles.controlButtonActive : ''}`}>
+              <button
+                onClick={() => setIsFilterVisible(!isFilterVisible)}
+                className={`${styles.controlButton} ${isFilterVisible ? styles.controlButtonActive : ''}`}
+              >
                 Filtros & Opções
+                {(filterCategories.size > 0 || filterType !== 'all' || filterTags.size > 0) > 0 && (
+                  <span className={styles.filterBadge}>
+                    {filterCategories.size + (filterType !== 'all' ? 1 : 0) + filterTags.size}
+                  </span>
+                )}
               </button>
               <span className={styles.activeFilterLabel}>
                 {filterStartDate === filterEndDate
                   ? new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR')
                   : `${new Date(filterStartDate + 'T12:00:00').toLocaleDateString('pt-BR')} — ${new Date(filterEndDate + 'T12:00:00').toLocaleDateString('pt-BR')}`}
               </span>
+              {filterSearch.trim() && (
+                <span className={styles.searchChip}>"{filterSearch}" <button onClick={() => setFilterSearch('')} className={styles.chipClear}>✕</button></span>
+              )}
             </div>
             {isFilterVisible && (
               <div className={styles.filterDropdown}>
@@ -448,13 +482,50 @@ function Dashboard({ user, userProfile }) {
                     <input type="date" value={draftEndDate} onChange={e => { setDraftEndDate(e.target.value); setActiveQuickFilter(null); }} className={styles.dateInput} />
                   </div>
                 </div>
+
+                <p className={styles.filterSectionLabel}>Tipo</p>
+                <div className={styles.quickFilters}>
+                  {[['all', 'Todos'], ['income', 'Receitas'], ['expense', 'Despesas']].map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setFilterType(key)}
+                      className={`${styles.quickFilterBtn} ${filterType === key ? styles.quickFilterBtnActive : ''}`}
+                    >{label}</button>
+                  ))}
+                </div>
+
+                <p className={styles.filterSectionLabel}>Busca por descrição</p>
+                <input
+                  type="text"
+                  placeholder="Pesquisar..."
+                  value={filterSearch}
+                  onChange={e => setFilterSearch(e.target.value)}
+                  className={styles.searchInput}
+                />
+
                 <div className={styles.categoryFilterSection}>
                   <label>Categoria</label>
                   <CategoryFilter allCategories={categories} selectedCategories={filterCategories} onSelectionChange={setFilterCategories} />
                 </div>
+
+                {availableTags.length > 0 && (
+                  <div className={styles.tagFilterSection}>
+                    <p className={styles.filterSectionLabel}>Tags</p>
+                    <div className={styles.tagFilterList}>
+                      {availableTags.map(tag => (
+                        <button
+                          key={tag}
+                          onClick={() => handleTagFilterToggle(tag)}
+                          className={`${styles.tagFilterPill} ${filterTags.has(tag) ? styles.tagFilterPillActive : ''}`}
+                        >#{tag}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className={styles.filterFooter}>
                   <button onClick={() => setIsFilterVisible(false)} className={styles.filterCancelBtn}>Fechar</button>
-                  <button onClick={handleApplyFilter} className={styles.filterButton}>Aplicar</button>
+                  <button onClick={handleApplyFilter} className={styles.filterButton}>Aplicar datas</button>
                 </div>
               </div>
             )}
@@ -513,11 +584,21 @@ function Dashboard({ user, userProfile }) {
                 </div>
               </div>
             </div>
+            <div className={styles.tableResultCount}>
+              {filteredTransactions.length} transaç{filteredTransactions.length === 1 ? 'ão' : 'ões'} encontrada{filteredTransactions.length !== 1 ? 's' : ''}
+              {filteredTransactions.length !== transactions.length && <span className={styles.tableResultHint}> (de {transactions.length} no período)</span>}
+            </div>
             <table className={styles.table}>
               <thead>
                 <tr>
                   {isSelectionMode && (<th className={styles.checkboxCell}><input type="checkbox" onChange={handleSelectAllOnPage} checked={currentTransactions.length > 0 && currentTransactions.every(tx => selectedTransactions.has(tx.id))} /></th>)}
-                  <th>Data</th><th>Categoria</th><th>Descrição</th><th>Tags</th><th>Conta</th><th>Valor (R$)</th><th>Ações</th>
+                  <th>Data</th>
+                  <th>Tipo</th>
+                  <th>Categoria / Tags</th>
+                  <th>Descrição</th>
+                  <th>Conta</th>
+                  <th>Valor</th>
+                  <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -525,35 +606,48 @@ function Dashboard({ user, userProfile }) {
                   currentTransactions.map(tx => {
                     const isSelected = selectedTransactions.has(tx.id);
                     return (
-                      <tr key={tx.id} className={isSelected ? styles.selectedRow : ''}>
+                      <tr key={tx.id} className={`${styles.txRow} ${isSelected ? styles.selectedRow : ''}`}>
                         {isSelectionMode && (<td className={styles.checkboxCell}><input type="checkbox" checked={isSelected} onChange={() => handleRowSelect(tx.id)} /></td>)}
-                        <td data-label="Data">{tx.createdAt ? tx.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</td>
-                        <td data-label="Categoria">{tx.category}</td>
-                        <td data-label="Descrição">
-                          <div className={styles.descContainer}>
-                            <span>{tx.description || '-'}</span>
+                        <td data-label="Data" className={styles.dateCell}>
+                          {tx.createdAt ? new Date(tx.createdAt.toDate().toISOString().split('T')[0] + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}
+                        </td>
+                        <td data-label="Tipo">
+                          <span className={tx.type === 'income' ? styles.badgeIncome : styles.badgeExpense}>
+                            {tx.type === 'income' ? 'Receita' : 'Despesa'}
+                          </span>
+                        </td>
+                        <td data-label="Categoria">
+                          <div className={styles.catTagsCell}>
+                            <span className={styles.catName}>{tx.category || '—'}</span>
+                            {tx.tags && tx.tags.length > 0 && (
+                              <div className={styles.tagsRow}>
+                                {tx.tags.map((tag, idx) => (
+                                  <span key={idx} className={styles.tagPill}>#{tag}</span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </td>
-                        <td data-label="Tags">
-                          {tx.tags && tx.tags.length > 0 ? (
-                            <div className={styles.tagsContainer}>
-                              {tx.tags.map((tag, idx) => (
-                                <span key={idx} className={styles.tagPill}>#{tag}</span>
-                              ))}
-                            </div>
-                          ) : '-'}
+                        <td data-label="Descrição" className={styles.descCell}>
+                          {tx.description || <span className={styles.emptyDesc}>—</span>}
                         </td>
-                        <td data-label="Conta">{accounts.find(acc => acc.id === tx.accountId)?.accountName || 'N/A'}</td>
-                        <td data-label="Valor (R$)" className={tx.type === 'income' ? styles.incomeAmount : styles.expenseAmount}>{tx.type === 'income' ? '+ ' : '- '}R$ {tx.amount.toFixed(2)}</td>
-                        <td data-label="Ações">
-                          <button onClick={() => handleOpenEditModal(tx)} className={styles.editButton}>Editar</button>
-                          <button onClick={() => handleDelete(tx.id)} className={styles.deleteButton}>Excluir</button>
+                        <td data-label="Conta" className={styles.accountCell}>
+                          {accounts.find(acc => acc.id === tx.accountId)?.accountName || '—'}
+                        </td>
+                        <td data-label="Valor" className={styles.valueCell}>
+                          <span className={tx.type === 'income' ? styles.valueIncome : styles.valueExpense}>
+                            {tx.type === 'income' ? '+' : '−'} R$ {tx.amount.toFixed(2)}
+                          </span>
+                        </td>
+                        <td data-label="Ações" className={styles.actionsCell}>
+                          <button onClick={() => handleOpenEditModal(tx)} className={styles.editButton} title="Editar">✎</button>
+                          <button onClick={() => handleDelete(tx.id)} className={styles.deleteButton} title="Excluir">✕</button>
                         </td>
                       </tr>
-                    )
+                    );
                   })
                 ) : (
-                  <tr><td colSpan={isSelectionMode ? 8 : 7}>Nenhuma transação para os filtros selecionados.</td></tr>
+                  <tr><td colSpan={isSelectionMode ? 8 : 7} className={styles.emptyRow}>Nenhuma transação para os filtros selecionados.</td></tr>
                 )}
               </tbody>
             </table>

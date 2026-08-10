@@ -152,6 +152,397 @@
   color: white;
 }
 
+.emptyMsg {
+  color: var(--texto-secundario);
+  font-style: italic;
+  padding: 20px 0;
+}
+
+/* ---- Tabela de tags (barras horizontais) ---- */
+.tagBarTable {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tagBarRow {
+  display: grid;
+  grid-template-columns: 28px 140px 1fr 52px 120px;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid #1f1f1f;
+}
+
+.tagBarRow:last-child { border-bottom: none; }
+
+.tagBarRank {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #555;
+  text-align: right;
+}
+
+.tagBarName {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #7ab8f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tagBarTrack {
+  background: #1a1a1a;
+  border-radius: 4px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.tagBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, rgba(74,144,226,0.7), rgba(74,144,226,0.4));
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.tagBarPct {
+  font-size: 0.75rem;
+  color: var(--texto-secundario);
+  text-align: right;
+}
+
+.tagBarValue {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--vermelho-destaque);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ---- Breakdown categoria → tag ---- */
+.catBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.catRow {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #222;
+}
+
+.catRowHeader {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 20px 200px 1fr 140px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  background: #1a1a1a;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+
+.catRowHeader:hover { background: #222; }
+
+.catRowArrow {
+  color: #555;
+  font-size: 0.85rem;
+}
+
+.catRowName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--texto-principal);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.catRowBar {
+  height: 8px;
+  background: #111;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.catRowBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, rgba(255,60,60,0.6), rgba(255,60,60,0.3));
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.catRowTotal {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--vermelho-destaque);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Tag breakdown expandida */
+.tagBreakdown {
+  background: #141414;
+  padding: 10px 16px 12px 52px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid #222;
+}
+
+.noTags {
+  font-size: 0.82rem;
+  color: #444;
+  font-style: italic;
+}
+
+.tagBreakRow {
+  display: grid;
+  grid-template-columns: 160px 1fr 48px 120px;
+  align-items: center;
+  gap: 10px;
+}
+
+.tagBreakName {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #7ab8f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tagBreakTrack {
+  background: #1a1a1a;
+  border-radius: 3px;
+  height: 7px;
+  overflow: hidden;
+}
+
+.tagBreakFill {
+  height: 100%;
+  background: rgba(74, 144, 226, 0.45);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.tagBreakPct {
+  font-size: 0.74rem;
+  color: #555;
+  text-align: right;
+}
+
+.tagBreakValue {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--texto-secundario);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ===== Análise por Categoria ===== */
+.catSearchSection {
+  background-color: var(--cinza-elemento);
+  border: 1px solid var(--borda-sutil);
+  border-radius: 12px;
+  padding: 25px;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.catSearchHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.catSearchHeader h2 { margin: 0; }
+
+.catSearchSelect {
+  background: #1a1a1a;
+  border: 1px solid var(--borda-sutil);
+  color: var(--texto-principal);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  min-width: 240px;
+  outline: none;
+  cursor: pointer;
+}
+
+.catSearchSelect:focus { border-color: var(--acento-azul); }
+
+.catSearchKPIs {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.catSearchKPI {
+  background: #1a1a1a;
+  border: 1px solid #222;
+  border-radius: 10px;
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 130px;
+}
+
+.catSearchKPILabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+}
+
+.catSearchKPIVal {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--texto-principal);
+}
+
+/* Mini gráfico mensal */
+.catMonthChart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.catMonthLabel {
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+}
+
+.catMonthBars {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 100px;
+  border-bottom: 1px solid #222;
+  padding-bottom: 4px;
+  overflow-x: auto;
+}
+
+.catMonthCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.catMonthBarGroup {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 80px;
+}
+
+.catMonthBarExp {
+  width: 14px;
+  background: rgba(255, 60, 60, 0.7);
+  border-radius: 3px 3px 0 0;
+  min-height: 3px;
+  transition: height 0.3s ease;
+}
+
+.catMonthBarInc {
+  width: 14px;
+  background: rgba(57, 255, 20, 0.6);
+  border-radius: 3px 3px 0 0;
+  min-height: 3px;
+  transition: height 0.3s ease;
+}
+
+.catMonthTick {
+  font-size: 0.68rem;
+  color: #555;
+  white-space: nowrap;
+}
+
+/* Tabela de transações */
+.catTxList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.catTxTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.catTxTable thead {
+  background: #1a1a1a;
+  border-bottom: 1px solid var(--borda-sutil);
+}
+
+.catTxTable th {
+  padding: 9px 12px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666;
+  white-space: nowrap;
+}
+
+.catTxTable td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #1f1f1f;
+  vertical-align: middle;
+}
+
+.catTxTable tbody tr:last-child td { border-bottom: none; }
+.catTxTable tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+.catTxDate { color: var(--texto-secundario); white-space: nowrap; }
+.catTxDesc { color: var(--texto-principal); max-width: 260px; }
+
+.catTxTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.catTxTag {
+  font-size: 0.72rem;
+  background: rgba(74,144,226,0.1);
+  color: #7ab8f5;
+  border: 1px solid rgba(74,144,226,0.25);
+  border-radius: 8px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.catTxVal { font-weight: 700; text-align: right; white-space: nowrap; }
+
+.catSearchPlaceholder {
+  text-align: center;
+  padding: 40px 0;
+  color: #444;
+  font-style: italic;
+}
+
 .helpButton {
   background-color: transparent;
   border: 1px solid var(--borda-sutil);

@@ -96,6 +96,7 @@ apollo-ledger/
 | `pending_transactions` | userId, type, amount, category, description, tags, createdAt (ephemeral — apagado após commit) |
 | `apollo_sessions` | userId, channel, messages[], importSessionId?, createdAt, updatedAt (contexto de conversa com Apollo AI) |
 | `import_sessions` | userId, status, sourceFile, format, transactions[], newCategories[], summary{}, createdAt, expiresAt (sessões de importação de extrato — TTL 24h) |
+| `entity_mappings` | userId, entity (normalized), displayName, category, tags[], count, updatedAt — keyed by `{uid}_{sha256(entity_norm)[:16]}` (aprendizado automático de entidades recorrentes) |
 
 ---
 

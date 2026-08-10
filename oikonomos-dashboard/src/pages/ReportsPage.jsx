@@ -6,7 +6,6 @@ import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
 import MonthlyBarChart from '../components/MonthlyBarChart';
 import LineChart from '../components/LineChart';
 import CategoryLineChart from '../components/CategoryLineChart';
-import TagChart from '../components/TagChart';
 import TagsEvolutionChart from '../components/TagsEvolutionChart';
 import styles from './ReportsPage.module.css';
 import CategoryFilter from '../components/CategoryFilter';
@@ -28,7 +27,9 @@ function ReportsPage() {
   const [selectedReportCategories, setSelectedReportCategories] = useState(new Set());
   const [allReportCategories, setAllReportCategories] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [isHelpOpen, setIsHelpOpen] = useState(false); // 2. NOVO ESTADO PARA O MODAL DE AJUDA
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [expandedCategories, setExpandedCategories] = useState(new Set());
+  const [searchCategory, setSearchCategory] = useState('');
   const user = auth.currentUser;
 
   useEffect(() => {
@@ -209,6 +210,93 @@ function ReportsPage() {
     return filteredTransactions.filter(tx => selectedReportCategories.has(tx.category));
   }, [filteredTransactions, selectedReportCategories]);
 
+  const allTagsData = useMemo(() => {
+    const expenses = filteredTransactions.filter(tx => tx.type === 'expense' || !tx.type);
+    const totals = {};
+    expenses.forEach(tx => {
+      (tx.tags || []).forEach(tag => { totals[tag] = (totals[tag] || 0) + tx.amount; });
+    });
+    const totalExpense = expenses.reduce((s, tx) => s + tx.amount, 0);
+    return Object.entries(totals)
+      .map(([name, value]) => ({ name, value, pct: totalExpense ? (value / totalExpense) * 100 : 0 }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredTransactions]);
+
+  const categoryTagBreakdown = useMemo(() => {
+    const expenses = filteredTransactions.filter(tx => tx.type === 'expense' || !tx.type);
+    const byCat = {};
+    expenses.forEach(tx => {
+      const cat = tx.category || 'Sem categoria';
+      if (!byCat[cat]) byCat[cat] = { total: 0, tags: {}, untagged: 0 };
+      byCat[cat].total += tx.amount;
+      if (!tx.tags || tx.tags.length === 0) {
+        byCat[cat].untagged += tx.amount;
+      } else {
+        tx.tags.forEach(tag => { byCat[cat].tags[tag] = (byCat[cat].tags[tag] || 0) + tx.amount; });
+      }
+    });
+    return Object.entries(byCat)
+      .map(([cat, data]) => {
+        const tagList = Object.entries(data.tags)
+          .map(([name, value]) => ({ name, value, pct: data.total ? (value / data.total) * 100 : 0 }))
+          .sort((a, b) => b.value - a.value);
+        if (data.untagged > 0) {
+          tagList.push({ name: null, value: data.untagged, pct: data.total ? (data.untagged / data.total) * 100 : 0 });
+        }
+        return { category: cat, total: data.total, tags: tagList };
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [filteredTransactions]);
+
+  const categorySearchData = useMemo(() => {
+    if (!searchCategory) return null;
+    const txs = filteredTransactions
+      .filter(tx => tx.category === searchCategory)
+      .sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate());
+
+    const expenses = txs.filter(tx => tx.type === 'expense' || !tx.type);
+    const income = txs.filter(tx => tx.type === 'income');
+    const totalExpense = expenses.reduce((s, tx) => s + tx.amount, 0);
+    const totalIncome = income.reduce((s, tx) => s + tx.amount, 0);
+
+    const byMonth = {};
+    txs.forEach(tx => {
+      const d = tx.createdAt.toDate();
+      const key = `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+      if (!byMonth[key]) byMonth[key] = { expense: 0, income: 0 };
+      if (tx.type === 'income') byMonth[key].income += tx.amount;
+      else byMonth[key].expense += tx.amount;
+    });
+    const sortedMonths = Object.keys(byMonth).sort((a, b) => {
+      const [ma, ya] = a.split('/'); const [mb, yb] = b.split('/');
+      return new Date(ya, ma - 1) - new Date(yb, mb - 1);
+    });
+    const maxMonthVal = Math.max(...sortedMonths.map(m => byMonth[m].expense + byMonth[m].income), 1);
+
+    return { txs, totalExpense, totalIncome, count: txs.length, sortedMonths, byMonth, maxMonthVal };
+  }, [filteredTransactions, searchCategory]);
+
+  const searchCategoryOptions = useMemo(() => {
+    const expCats = new Set(); const incCats = new Set();
+    filteredTransactions.forEach(tx => {
+      if (!tx.category) return;
+      if (tx.type === 'income') incCats.add(tx.category);
+      else expCats.add(tx.category);
+    });
+    return {
+      expense: [...expCats].sort(),
+      income: [...incCats].sort(),
+    };
+  }, [filteredTransactions]);
+
+  const toggleCategory = (cat) => {
+    setExpandedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      return next;
+    });
+  };
+
   if (loading) {
     return <div className={styles.loading}>A carregar dados dos relatórios...</div>;
   }
@@ -292,12 +380,82 @@ function ReportsPage() {
           </div>
         </div>
 
-        <div className={styles.reportCard}>
-          <h2>Despesas por Tag (Top 10)</h2>
-          <p className={styles.chartSubtitle}>Entenda como os seus gastos estão distribuídos entre as suas hashtags.</p>
-          <div className={styles.chartContainer}>
-            <TagChart transactions={transactionsWithCategoryFilter} />
-          </div>
+        {/* Despesas por Tag — todas */}
+        <div className={`${styles.reportCard} ${styles.fullWidth}`}>
+          <h2>Despesas por Tag</h2>
+          <p className={styles.chartSubtitle}>Todas as tags usadas no período, ordenadas por valor total de despesa.</p>
+          {allTagsData.length === 0 ? (
+            <p className={styles.emptyMsg}>Nenhuma tag utilizada neste período.</p>
+          ) : (
+            <div className={styles.tagBarTable}>
+              {allTagsData.map((tag, i) => (
+                <div key={tag.name} className={styles.tagBarRow}>
+                  <span className={styles.tagBarRank}>{i + 1}</span>
+                  <span className={styles.tagBarName}>#{tag.name}</span>
+                  <div className={styles.tagBarTrack}>
+                    <div
+                      className={styles.tagBarFill}
+                      style={{ width: `${(tag.value / allTagsData[0].value) * 100}%` }}
+                    />
+                  </div>
+                  <span className={styles.tagBarPct}>{tag.pct.toFixed(1)}%</span>
+                  <span className={styles.tagBarValue}>{formatCurrency(tag.value)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Breakdown: Categoria → Tags */}
+        <div className={`${styles.reportCard} ${styles.fullWidth}`}>
+          <h2>Gastos por Categoria e Tag</h2>
+          <p className={styles.chartSubtitle}>Clique em uma categoria para ver como os gastos se distribuem entre as tags utilizadas.</p>
+          {categoryTagBreakdown.length === 0 ? (
+            <p className={styles.emptyMsg}>Nenhuma despesa no período.</p>
+          ) : (
+            <div className={styles.catBreakdown}>
+              {categoryTagBreakdown.map(({ category, total, tags }) => {
+                const isOpen = expandedCategories.has(category);
+                const maxTagValue = tags[0]?.value || 1;
+                return (
+                  <div key={category} className={styles.catRow}>
+                    <button className={styles.catRowHeader} onClick={() => toggleCategory(category)}>
+                      <span className={styles.catRowArrow}>{isOpen ? '▾' : '▸'}</span>
+                      <span className={styles.catRowName}>{category}</span>
+                      <div className={styles.catRowBar}>
+                        <div
+                          className={styles.catRowBarFill}
+                          style={{ width: `${(total / categoryTagBreakdown[0].total) * 100}%` }}
+                        />
+                      </div>
+                      <span className={styles.catRowTotal}>{formatCurrency(total)}</span>
+                    </button>
+                    {isOpen && (
+                      <div className={styles.tagBreakdown}>
+                        {tags.length === 0 ? (
+                          <span className={styles.noTags}>Sem tags</span>
+                        ) : tags.map((tag, ti) => (
+                          <div key={tag.name ?? '__untagged__'} className={styles.tagBreakRow}>
+                            <span className={styles.tagBreakName}>
+                              {tag.name ? `#${tag.name}` : <em>sem tag</em>}
+                            </span>
+                            <div className={styles.tagBreakTrack}>
+                              <div
+                                className={styles.tagBreakFill}
+                                style={{ width: `${(tag.value / maxTagValue) * 100}%` }}
+                              />
+                            </div>
+                            <span className={styles.tagBreakPct}>{tag.pct.toFixed(1)}%</span>
+                            <span className={styles.tagBreakValue}>{formatCurrency(tag.value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className={styles.reportCard}>
@@ -325,7 +483,136 @@ function ReportsPage() {
         </div>
       </div>
 
-      {/* 4. POSICIONE O MODAL AQUI */}
+      {/* Análise por Categoria */}
+      <div className={styles.catSearchSection}>
+        <div className={styles.catSearchHeader}>
+          <div>
+            <h2>Análise por Categoria</h2>
+            <p className={styles.chartSubtitle}>Selecione uma categoria para ver o total, a evolução mensal e todas as transações do período filtrado.</p>
+          </div>
+          <select
+            className={styles.catSearchSelect}
+            value={searchCategory}
+            onChange={e => setSearchCategory(e.target.value)}
+          >
+            <option value="">— Escolha uma categoria —</option>
+            {searchCategoryOptions.expense.length > 0 && (
+              <optgroup label="Despesas">
+                {searchCategoryOptions.expense.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+            )}
+            {searchCategoryOptions.income.length > 0 && (
+              <optgroup label="Rendas">
+                {searchCategoryOptions.income.map(c => <option key={c} value={c}>{c}</option>)}
+              </optgroup>
+            )}
+          </select>
+        </div>
+
+        {categorySearchData && (
+          <>
+            <div className={styles.catSearchKPIs}>
+              <div className={styles.catSearchKPI}>
+                <span className={styles.catSearchKPILabel}>Despesas</span>
+                <span className={`${styles.catSearchKPIVal} ${styles.expense}`}>{formatCurrency(categorySearchData.totalExpense)}</span>
+              </div>
+              <div className={styles.catSearchKPI}>
+                <span className={styles.catSearchKPILabel}>Rendas</span>
+                <span className={`${styles.catSearchKPIVal} ${styles.income}`}>{formatCurrency(categorySearchData.totalIncome)}</span>
+              </div>
+              <div className={styles.catSearchKPI}>
+                <span className={styles.catSearchKPILabel}>Transações</span>
+                <span className={styles.catSearchKPIVal}>{categorySearchData.count}</span>
+              </div>
+              {categorySearchData.count > 0 && (
+                <div className={styles.catSearchKPI}>
+                  <span className={styles.catSearchKPILabel}>Ticket médio</span>
+                  <span className={styles.catSearchKPIVal}>
+                    {formatCurrency((categorySearchData.totalExpense + categorySearchData.totalIncome) / categorySearchData.count)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {categorySearchData.sortedMonths.length > 0 && (
+              <div className={styles.catMonthChart}>
+                <p className={styles.catMonthLabel}>Evolução mensal</p>
+                <div className={styles.catMonthBars}>
+                  {categorySearchData.sortedMonths.map(m => {
+                    const d = categorySearchData.byMonth[m];
+                    const expH = Math.round((d.expense / categorySearchData.maxMonthVal) * 100);
+                    const incH = Math.round((d.income / categorySearchData.maxMonthVal) * 100);
+                    return (
+                      <div key={m} className={styles.catMonthCol}>
+                        <div className={styles.catMonthBarGroup}>
+                          {d.expense > 0 && (
+                            <div className={styles.catMonthBarExp} style={{ height: `${expH}%` }} title={formatCurrency(d.expense)} />
+                          )}
+                          {d.income > 0 && (
+                            <div className={styles.catMonthBarInc} style={{ height: `${incH}%` }} title={formatCurrency(d.income)} />
+                          )}
+                        </div>
+                        <span className={styles.catMonthTick}>{m.slice(0, 5)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className={styles.catTxList}>
+              <p className={styles.catMonthLabel}>Transações ({categorySearchData.count})</p>
+              {categorySearchData.txs.length === 0 ? (
+                <p className={styles.emptyMsg}>Nenhuma transação nesta categoria no período.</p>
+              ) : (
+                <table className={styles.catTxTable}>
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Descrição</th>
+                      <th>Tags</th>
+                      <th>Tipo</th>
+                      <th>Valor</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {categorySearchData.txs.map((tx, i) => (
+                      <tr key={i}>
+                        <td className={styles.catTxDate}>
+                          {tx.createdAt
+                            ? new Date(tx.createdAt.toDate().toISOString().split('T')[0] + 'T12:00:00').toLocaleDateString('pt-BR')
+                            : '—'}
+                        </td>
+                        <td className={styles.catTxDesc}>{tx.description || <em style={{ color: '#555' }}>—</em>}</td>
+                        <td className={styles.catTxTags}>
+                          {(tx.tags || []).map(t => (
+                            <span key={t} className={styles.catTxTag}>#{t}</span>
+                          ))}
+                        </td>
+                        <td>
+                          <span className={tx.type === 'income' ? styles.income : styles.expense} style={{ fontSize: '0.75rem', fontWeight: 700 }}>
+                            {tx.type === 'income' ? 'Receita' : 'Despesa'}
+                          </span>
+                        </td>
+                        <td className={`${styles.catTxVal} ${tx.type === 'income' ? styles.income : styles.expense}`}>
+                          {tx.type === 'income' ? '+' : '−'} {formatCurrency(tx.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </>
+        )}
+
+        {!categorySearchData && (
+          <div className={styles.catSearchPlaceholder}>
+            Selecione uma categoria acima para começar a análise.
+          </div>
+        )}
+      </div>
+
       {isHelpOpen && (
         <HelpModal title="Relatórios" onClose={() => setIsHelpOpen(false)}>
           <p>
