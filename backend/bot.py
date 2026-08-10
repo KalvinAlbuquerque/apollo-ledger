@@ -98,6 +98,10 @@ A seguir, a lista de comandos simplificados.
 > *Pagar Conta:* `pagar <descrição da conta>`
 > *Transferir:* `transferir <valor> da <conta> para <conta>`
 
+> 💡 *Tags e subcategorias na descrição:*
+> Adicione `#tag` para etiquetar e `@subcategoria` para categorizar o item recorrente.
+> Ex: `50 alimentação @ifood pizza do fim de semana #lazer`
+
 ---
 *⚡ TRANSAÇÕES RÁPIDAS (com conta padrão)*
 ---
@@ -286,8 +290,12 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
         amount = float(value_str.replace(',', '.'))
         description = description.strip() if description else ""
         tags = [tag.lower() for tag in re.findall(r'#(\w+)', description)]
-        description = re.sub(r'#\w+', '', description).strip() or None
-        
+        description = re.sub(r'#\w+', '', description).strip()
+        # Extrai subcategoria (formato: @nome)
+        subcat_match = re.search(r'@(\w+)', description) if description else None
+        subcategory = subcat_match.group(1).lower() if subcat_match else None
+        description = re.sub(r'@\w+', '', description).strip() if description else None
+
         # --- Lógica de Conversa (NOVA) ---
         accounts_query = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
         accounts = list(accounts_query)
@@ -304,8 +312,10 @@ async def process_expense(update: Update, context: ContextTypes.DEFAULT_TYPE, te
             'description': description,
             'tags': tags,
             'userId': firebase_uid,
-            'createdAt': firestore.SERVER_TIMESTAMP 
+            'createdAt': firestore.SERVER_TIMESTAMP,
         }
+        if subcategory:
+            pending_data['subcategory'] = subcategory
         batch = db.batch()
         
         if tags:
@@ -382,8 +392,11 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
         description = " ".join(potential_source_and_desc[category_word_count:]).strip() or ""
         amount = float(value_str.replace(',', '.'))
         tags = [tag.lower() for tag in re.findall(r'#(\w+)', description)]
-        description = re.sub(r'#\w+', '', description).strip() or None
-        
+        description = re.sub(r'#\w+', '', description).strip()
+        subcat_match = re.search(r'@(\w+)', description) if description else None
+        subcategory = subcat_match.group(1).lower() if subcat_match else None
+        description = re.sub(r'@\w+', '', description).strip() if description else None
+
         # --- Lógica de Conversa (NOVA) ---
         accounts_query = db.collection('accounts').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
         accounts = list(accounts_query)
@@ -400,8 +413,10 @@ async def process_income(update: Update, context: ContextTypes.DEFAULT_TYPE, tex
             'description': description,
             'tags': tags,
             'userId': firebase_uid,
-            'createdAt': firestore.SERVER_TIMESTAMP
+            'createdAt': firestore.SERVER_TIMESTAMP,
         }
+        if subcategory:
+            pending_data['subcategory'] = subcategory
         batch = db.batch()
         
         if tags:
@@ -482,8 +497,10 @@ async def handle_account_selection(update: Update, context: ContextTypes.DEFAULT
                 'userId': firebase_uid, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': selected_account_id,
                 'type': transaction_type, 'amount': pending_transaction['amount'], 'category': pending_transaction['category'],
                 'description': pending_transaction.get('description'),
-                'tags': pending_transaction.get('tags', [])
+                'tags': pending_transaction.get('tags', []),
             }
+            if pending_transaction.get('subcategory'):
+                final_transaction['subcategory'] = pending_transaction['subcategory']
             batch.set(new_trans_ref, final_transaction)
             
             if transaction_type == 'expense':
@@ -591,11 +608,14 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
             correct_category_name = found_category_original
             description = " ".join(potential_source_and_desc[category_word_count:]).strip() or ""
             tags = [tag.lower() for tag in re.findall(r'#(\w+)', description)]
-            description = re.sub(r'#\w+', '', description).strip() or None
+            description = re.sub(r'#\w+', '', description).strip()
+            subcat_match_inc = re.search(r'@(\w+)', description) if description else None
+            subcategory_inc = subcat_match_inc.group(1).lower() if subcat_match_inc else None
+            description = re.sub(r'@\w+', '', description).strip() if description else None
 
             # Salva a transação de renda e sincroniza tags
             batch = db.batch()
-            
+
             if tags:
                 existing_tags_query = db.collection('tags').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
                 existing_tags = [doc.to_dict().get('name') for doc in existing_tags_query]
@@ -605,8 +625,11 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
                         batch.set(new_tag_ref, {'name': tag, 'userId': firebase_uid, 'isActive': True, 'createdAt': firestore.SERVER_TIMESTAMP})
                         existing_tags.append(tag)
 
+            inc_tx_data = {'userId': firebase_uid, 'type': 'income', 'amount': amount, 'category': correct_category_name, 'description': description, 'tags': tags, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id}
+            if subcategory_inc:
+                inc_tx_data['subcategory'] = subcategory_inc
             new_trans_ref = db.collection("transactions").document()
-            batch.set(new_trans_ref, {'userId': firebase_uid, 'type': 'income', 'amount': amount, 'category': correct_category_name, 'description': description, 'tags': tags, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id})
+            batch.set(new_trans_ref, inc_tx_data)
             account_doc_ref = db.collection('accounts').document(default_account_id)
             batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(amount)})
             batch.commit()
@@ -627,13 +650,14 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
             amount = float(value_str.replace(',', '.'))
             description = description.strip() if description else ""
             tags = [tag.lower() for tag in re.findall(r'#(\w+)', description)]
-            description = re.sub(r'#\w+', '', description).strip() or None
-            
+            description = re.sub(r'#\w+', '', description).strip()
+            subcat_match_exp = re.search(r'@(\w+)', description) if description else None
+            subcategory_exp = subcat_match_exp.group(1).lower() if subcat_match_exp else None
+            description = re.sub(r'@\w+', '', description).strip() if description else None
+
             categories_ref = db.collection('categories').where(filter=FieldFilter('userId', '==', firebase_uid)).where(filter=FieldFilter('type', '==', 'expense')).stream()
-            
-            # LINHA CORRIGIDA ABAIXO
             original_categories = {normalize_text(cat.to_dict()['name'].strip()): cat.to_dict()['name'].strip() for cat in categories_ref}
-            
+
             category_name_normalized = normalize_text(category_name_input.strip())
             if category_name_normalized not in original_categories:
                 await sent_message.edit_text(f"❌ Categoria de DESPESA '{category_name_input}' não encontrada.")
@@ -642,7 +666,7 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
 
             # Salva a transação de despesa e sincroniza tags
             batch = db.batch()
-            
+
             if tags:
                 existing_tags_query = db.collection('tags').where(filter=FieldFilter('userId', '==', firebase_uid)).stream()
                 existing_tags = [doc.to_dict().get('name') for doc in existing_tags_query]
@@ -652,8 +676,11 @@ async def process_default_transaction(update: Update, context: ContextTypes.DEFA
                         batch.set(new_tag_ref, {'name': tag, 'userId': firebase_uid, 'isActive': True, 'createdAt': firestore.SERVER_TIMESTAMP})
                         existing_tags.append(tag)
 
+            exp_tx_data = {'userId': firebase_uid, 'type': 'expense', 'amount': amount, 'category': correct_category_name, 'description': description, 'tags': tags, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id}
+            if subcategory_exp:
+                exp_tx_data['subcategory'] = subcategory_exp
             new_trans_ref = db.collection("transactions").document()
-            batch.set(new_trans_ref, {'userId': firebase_uid, 'type': 'expense', 'amount': amount, 'category': correct_category_name, 'description': description, 'tags': tags, 'createdAt': firestore.SERVER_TIMESTAMP, 'accountId': default_account_id})
+            batch.set(new_trans_ref, exp_tx_data)
             account_doc_ref = db.collection('accounts').document(default_account_id)
             batch.update(account_doc_ref, {'balance': firestore.firestore.Increment(-amount)})
             batch.commit()

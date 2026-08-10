@@ -395,7 +395,16 @@ class ApolloAgent:
             f"Data atual: {now.strftime('%d/%m/%Y')} ({dia_semana})\n"
             f"Mês financeiro ativo: {mes}/{now.year}\n\n"
             "Responsabilidades: registrar transações, responder perguntas financeiras, "
-            "criar categorias, acompanhar orçamentos, metas e contas a pagar.\n\n"
+            "criar categorias e subcategorias, acompanhar orçamentos, metas e contas a pagar.\n\n"
+            "Sistema de classificação:\n"
+            "- CATEGORIA: área da vida (alimentação, moradia, transporte...) — sempre obrigatória\n"
+            "- SUBCATEGORIA: item recorrente específico dentro da categoria (aluguel dentro de moradia, "
+            "ifood dentro de alimentação) — opcional, mas use quando o usuário especificar ou quando "
+            "um mapeamento existir\n"
+            "- TAG: contexto, evento ou pessoa (dia-dos-pais, viagem, amanda) — transversal, opcional\n\n"
+            "Ao registrar transações, se o usuário mencionar um item recorrente específico que pode ser "
+            "subcategoria (ex: 'aluguel', 'conta de luz', 'academia'), use a ferramenta "
+            "listar_subcategorias para verificar se existe antes de criar a transação.\n\n"
             "Regras obrigatórias:\n"
             "- Responda SEMPRE em português brasileiro\n"
             "- Valores monetários SEMPRE no formato \"R$ X.XXX,XX\"\n"
@@ -417,6 +426,58 @@ class ApolloAgent:
                 q = q.where(filter=FieldFilter('type', '==', tipo))
             cats = [{'id': d.id, 'nome': d.to_dict().get('name'), 'tipo': d.to_dict().get('type')} for d in q.stream()]
             return {'categorias': cats, 'total': len(cats)}
+        except Exception as e:
+            return {'erro': str(e)}
+
+    def listar_subcategorias(self, categoria: str = "") -> dict:
+        """
+        Lista subcategorias do usuário. Se categoria informada, filtra por ela.
+        Retorna dict com subcategorias agrupadas por categoria.
+        """
+        try:
+            q = self.db.collection('subcategories').where(filter=FieldFilter('userId', '==', self.uid))
+            agrupado: dict = {}
+            for d in q.stream():
+                sc = d.to_dict()
+                cat = sc.get('categoryName', '')
+                name = sc.get('name', '')
+                if categoria and normalizar(cat) != normalizar(categoria):
+                    continue
+                agrupado.setdefault(cat, []).append(name)
+            return {'subcategorias': agrupado, 'total': sum(len(v) for v in agrupado.values())}
+        except Exception as e:
+            return {'erro': str(e)}
+
+    def criar_subcategoria(self, nome: str, categoria: str) -> dict:
+        """
+        Cria uma subcategoria dentro de uma categoria existente.
+        nome: nome da subcategoria (ex: 'aluguel'). categoria: nome da categoria pai (ex: 'moradia').
+        """
+        try:
+            nome = nome.strip().lower()
+            if not nome:
+                return {'erro': 'Nome da subcategoria não pode ser vazio'}
+
+            # Verifica se categoria existe
+            cat_exists = False
+            for d in self.db.collection('categories').where(filter=FieldFilter('userId', '==', self.uid)).stream():
+                if normalizar(d.to_dict().get('name', '')) == normalizar(categoria):
+                    categoria = d.to_dict()['name']
+                    cat_exists = True
+                    break
+            if not cat_exists:
+                return {'erro': f"Categoria '{categoria}' não encontrada. Crie a categoria primeiro."}
+
+            # Verifica duplicata
+            for d in self.db.collection('subcategories').where(filter=FieldFilter('userId', '==', self.uid)).stream():
+                sc = d.to_dict()
+                if normalizar(sc.get('categoryName', '')) == normalizar(categoria) and normalizar(sc.get('name', '')) == normalizar(nome):
+                    return {'aviso': f"Subcategoria '{nome}' já existe em '{categoria}'"}
+
+            ref = self.db.collection('subcategories').document()
+            ref.set({'userId': self.uid, 'name': nome, 'categoryName': categoria,
+                     'createdAt': fb_firestore.SERVER_TIMESTAMP})
+            return {'sucesso': True, 'id': ref.id, 'nome': nome, 'categoria': categoria}
         except Exception as e:
             return {'erro': str(e)}
 
@@ -450,10 +511,12 @@ class ApolloAgent:
             return {'erro': str(e)}
 
     def criar_transacao(self, tipo: str, valor: float, categoria: str, conta_id: str,
-                        descricao: str = "", data: str = "", tags: str = "") -> dict:
+                        descricao: str = "", data: str = "", tags: str = "",
+                        subcategoria: str = "") -> dict:
         """
         Cria uma transação. tipo: 'income' ou 'expense'. valor: positivo.
         data: YYYY-MM-DD (vazio = hoje). tags: palavras separadas por vírgula.
+        subcategoria: nome de subcategoria existente dentro da categoria (opcional).
         """
         try:
             if tipo not in ('income', 'expense'):
@@ -477,7 +540,7 @@ class ApolloAgent:
             created_at = fb_firestore.SERVER_TIMESTAMP
             if data:
                 try:
-                    created_at = datetime.strptime(data, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+                    created_at = datetime.strptime(data, '%Y-%m-%d').replace(hour=12, tzinfo=timezone.utc)
                 except ValueError:
                     pass
 
@@ -494,13 +557,17 @@ class ApolloAgent:
                                   {'name': tag, 'userId': self.uid, 'isActive': True,
                                    'createdAt': fb_firestore.SERVER_TIMESTAMP})
 
-            trans_ref = self.db.collection('transactions').document()
-            batch.set(trans_ref, {
+            tx_doc = {
                 'userId': self.uid, 'type': tipo, 'amount': abs(valor),
                 'category': cat_name, 'accountId': conta_id,
                 'description': descricao.strip() or None,
                 'tags': tags_list, 'createdAt': created_at,
-            })
+            }
+            if subcategoria:
+                tx_doc['subcategory'] = subcategoria.strip().lower()
+
+            trans_ref = self.db.collection('transactions').document()
+            batch.set(trans_ref, tx_doc)
 
             incremento = -abs(valor) if tipo == 'expense' else abs(valor)
             batch.update(self.db.collection('accounts').document(conta_id),
@@ -508,8 +575,9 @@ class ApolloAgent:
             batch.commit()
 
             tipo_pt = 'Despesa' if tipo == 'expense' else 'Renda'
+            subcat_info = f" (subcategoria: {subcategoria})" if subcategoria else ""
             return {'sucesso': True, 'id': trans_ref.id,
-                    'mensagem': f"{tipo_pt} de R$ {valor:.2f} em '{cat_name}' registrada com sucesso"}
+                    'mensagem': f"{tipo_pt} de R$ {valor:.2f} em '{cat_name}'{subcat_info} registrada com sucesso"}
         except Exception as e:
             return {'erro': str(e)}
 
@@ -533,11 +601,16 @@ class ApolloAgent:
                 if categoria and normalizar(data.get('category', '')) != normalizar(categoria):
                     continue
                 criado_em = data.get('createdAt')
-                resultado.append({
+                entry = {
                     'tipo': data.get('type'), 'valor': data.get('amount'),
                     'categoria': data.get('category'), 'descricao': data.get('description'),
                     'data': criado_em.strftime('%d/%m/%Y') if hasattr(criado_em, 'strftime') else str(criado_em),
-                })
+                }
+                if data.get('subcategory'):
+                    entry['subcategoria'] = data['subcategory']
+                if data.get('tags'):
+                    entry['tags'] = data['tags']
+                resultado.append(entry)
 
             return {'transacoes': resultado[:limite], 'total': len(resultado), 'periodo': f"{mes:02d}/{ano}"}
         except Exception as e:
@@ -669,9 +742,11 @@ class ApolloAgent:
 
     def _tools(self) -> list:
         return [
-            self.listar_categorias, self.criar_categoria, self.listar_contas,
-            self.criar_transacao, self.listar_transacoes, self.total_por_categoria,
-            self.resumo_mes, self.listar_orcamentos, self.listar_contas_pendentes,
+            self.listar_categorias, self.criar_categoria,
+            self.listar_subcategorias, self.criar_subcategoria,
+            self.listar_contas, self.criar_transacao, self.listar_transacoes,
+            self.total_por_categoria, self.resumo_mes,
+            self.listar_orcamentos, self.listar_contas_pendentes,
         ]
 
     # --- Chat ---
